@@ -4,7 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 unset VIRTUAL_ENV
-uv run -q ruff check --fix -q
+uv run -q ruff format -q
+uv run -q ruff check --fix --exit-zero -q
 uv run -q ruff format -q
 uv run -q ruff check
 uv run -q pyright

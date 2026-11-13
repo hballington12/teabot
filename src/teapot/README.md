@@ -2,9 +2,11 @@
 
 - `__init__.py`: the package version.
 - `__main__.py`: `python -m teapot`, the same CLI as the `teapot` script.
-- `cli/`: the `teapot` command line (D34).
+- `cli/`: the `teapot` command line (D34). `init` bootstraps the database roles.
 - `settings.py`: instance settings from `TEAPOT_*` variables and `teapot.env`. `template/teapot.env.example` lists them all.
 - `logs.py`: logging setup, text in dev mode and JSON lines in production.
+- `envfile.py`: edits to an env file that keep every other line, used by `teapot init`.
+- `db/`: database access, see its README.
 - `sdk/`: the public plugin API (D45). Plugins import only from here.
 - `py.typed`: marks the package as typed for plugin authors.
 

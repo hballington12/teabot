@@ -5,6 +5,7 @@ from typing import Annotated
 import typer
 
 import teapot
+from teapot.cli.init import init
 
 app = typer.Typer(name="teapot", help="Run and operate a teapot instance.", no_args_is_help=True)
 
@@ -22,3 +23,6 @@ def main(
     ] = False,
 ) -> None:
     """Run and operate a teapot instance."""
+
+
+app.command()(init)

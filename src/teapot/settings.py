@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="TEAPOT_", extra="ignore", frozen=True)
 
-    discord_token: SecretStr
+    discord_token: SecretStr = SecretStr("")
     dev_guild_id: int | None = None
     dev_mode: bool = False
 
@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     db_port: int = 5432
     db_name: str = "teapot"
     db_owner_user: str = "teapot_owner"
+    db_role_prefix: str = "teapot"
     db_owner_password: SecretStr = SecretStr("")
     db_app_password: SecretStr = SecretStr("")
     db_plugins_password: SecretStr = SecretStr("")
