@@ -6,6 +6,14 @@ resolution-markers = [
     "python_full_version < '3.13'",
 ]
 
+[manifest]
+members = [
+    "teapot",
+    "teapot-announcements",
+    "teapot-devtools",
+    "teapot-devtools-twin",
+]
+
 [[package]]
 name = "aiohappyeyeballs"
 version = "2.7.1"
@@ -1458,6 +1466,11 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-postgresql" },
     { name = "ruff" },
+    { name = "teapot-announcements" },
+    { name = "teapot-devtools" },
+]
+duplicate-check = [
+    { name = "teapot-devtools-twin" },
 ]
 
 [package.metadata]
@@ -1488,7 +1501,43 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.5" },
     { name = "pytest-postgresql", specifier = ">=10.0" },
     { name = "ruff", specifier = ">=0.17" },
+    { name = "teapot-announcements", editable = "plugins/announcements" },
+    { name = "teapot-devtools", editable = "plugins/devtools" },
 ]
+duplicate-check = [{ name = "teapot-devtools-twin", editable = "plugins/devtools_twin" }]
+
+[[package]]
+name = "teapot-announcements"
+version = "0.1.0"
+source = { editable = "plugins/announcements" }
+dependencies = [
+    { name = "teapot" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "teapot", editable = "." }]
+
+[[package]]
+name = "teapot-devtools"
+version = "0.1.0"
+source = { editable = "plugins/devtools" }
+dependencies = [
+    { name = "teapot" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "teapot", editable = "." }]
+
+[[package]]
+name = "teapot-devtools-twin"
+version = "0.0.1"
+source = { editable = "plugins/devtools_twin" }
+dependencies = [
+    { name = "teapot" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "teapot", editable = "." }]
 
 [[package]]
 name = "typer"

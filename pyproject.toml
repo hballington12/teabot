@@ -37,7 +37,10 @@ dev = [
     "pytest-asyncio>=1.5",
     "pytest-postgresql>=10.0",
     "ruff>=0.17",
+    "teapot-announcements",
+    "teapot-devtools",
 ]
+duplicate-check = ["teapot-devtools-twin"]
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -49,6 +52,11 @@ packages = ["src/teapot"]
 [tool.uv.workspace]
 members = ["plugins/*"]
 
+[tool.uv.sources]
+teapot-announcements = { workspace = true }
+teapot-devtools = { workspace = true }
+teapot-devtools-twin = { workspace = true }
+
 [tool.ruff]
 line-length = 110
 target-version = "py312"
@@ -58,6 +66,9 @@ include = ["*.py", "*.pyi"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "RUF", "ASYNC", "PL"]
 ignore = ["PLR2004"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["teapot", "teapot_announcements", "teapot_devtools", "teapot_devtools_twin"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
@@ -73,18 +84,19 @@ max-statements = 60
 max-nested-blocks = 3
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "plugins"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "plugins"]
+addopts = "-p teapot.testing.fixtures"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 
 [tool.importlinter]
-root_packages = ["teapot"]
+root_packages = ["teapot", "teapot_announcements", "teapot_devtools"]
 
 [[tool.importlinter.contracts]]
 name = "The plugin SDK does not depend on the core's internals (D45)"
@@ -101,4 +113,22 @@ forbidden_modules = [
     "teapot.runtime",
     "teapot.settings",
     "teapot.web",
+]
+
+[[tool.importlinter.contracts]]
+name = "First-party plugins import only the SDK (D45)"
+type = "forbidden"
+source_modules = ["teapot_announcements", "teapot_devtools"]
+forbidden_modules = [
+    "teapot.app",
+    "teapot.cli",
+    "teapot.core",
+    "teapot.db",
+    "teapot.envfile",
+    "teapot.health",
+    "teapot.logs",
+    "teapot.runtime",
+    "teapot.settings",
+    "teapot.web",
+    "teapot.testing",
 ]

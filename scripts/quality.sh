@@ -7,9 +7,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 unset VIRTUAL_ENV
 
-crapper --threshold 10 src
+crapper --threshold 10 src plugins
 
-dry_report=$(dryer --threshold 0.8 src)
+dry_report=$(dryer --threshold 0.8 src plugins)
 if grep -q '^DUPLICATE' <<<"$dry_report"; then
   echo "$dry_report"
   echo "dryer: duplicates at 0.8 or above" >&2

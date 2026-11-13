@@ -7,7 +7,7 @@
   `teapot[testing]` extra.
 """
 
-from teapot.testing.fakes import FakeChannel, FakeClient, FakeGuild, FakeMember, FakeMessage
+from teapot.testing.fakes import FakeChannel, FakeClient, FakeGuild, FakeMember, FakeMessage, FakeVoiceChannel
 from teapot.testing.harness import PluginHarness, build_harness
 
 __all__ = [
@@ -16,6 +16,7 @@ __all__ = [
     "FakeGuild",
     "FakeMember",
     "FakeMessage",
+    "FakeVoiceChannel",
     "PluginHarness",
     "build_harness",
 ]

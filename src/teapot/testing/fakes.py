@@ -28,21 +28,37 @@ class FakeMessage:
 
 @dataclass
 class FakeChannel:
-    """A text channel that records what it is sent."""
+    """A text channel that records what it is sent. A `forbidden` one refuses, as Discord does when the
+    bot lacks permission there."""
 
     id: int = field(default_factory=next_id)
     sent: list[FakeMessage] = field(default_factory=list[FakeMessage])
+    forbidden: bool = False
 
     async def send(self, content: str | None = None, *, embed: discord.Embed | None = None) -> FakeMessage:
+        if self.forbidden:
+            raise discord.Forbidden(cast(Any, _ForbiddenResponse()), "Missing Permissions")
         message = FakeMessage(next_id(), self.id, content, embed)
         self.sent.append(message)
         return message
 
 
 @dataclass
+class FakeVoiceChannel:
+    """A channel that takes no messages, such as a voice channel."""
+
+    id: int = field(default_factory=next_id)
+
+
+@dataclass
 class FakeMember:
     id: int
     guild_permissions: discord.Permissions
+
+
+class _ForbiddenResponse:
+    status = 403
+    reason = "Forbidden"
 
 
 class _NotFoundResponse:
@@ -57,7 +73,9 @@ class FakeGuild:
     id: int = field(default_factory=next_id)
     members: dict[int, FakeMember] = field(default_factory=dict[int, FakeMember])
     fetchable: dict[int, FakeMember] = field(default_factory=dict[int, FakeMember])
-    channels: dict[int, FakeChannel] = field(default_factory=dict[int, FakeChannel])
+    channels: dict[int, FakeChannel | FakeVoiceChannel] = field(
+        default_factory=dict[int, FakeChannel | FakeVoiceChannel]
+    )
 
     def get_member(self, user_id: int, /) -> FakeMember | None:
         return self.members.get(user_id)
@@ -67,7 +85,7 @@ class FakeGuild:
             raise discord.NotFound(cast(Any, _NotFoundResponse()), "Unknown Member")
         return self.fetchable[user_id]
 
-    def get_channel(self, channel_id: int, /) -> FakeChannel | None:
+    def get_channel(self, channel_id: int, /) -> FakeChannel | FakeVoiceChannel | None:
         return self.channels.get(channel_id)
 
     def add_member(self, permissions: discord.Permissions, *, cached: bool = True) -> FakeMember:
@@ -75,8 +93,7 @@ class FakeGuild:
         (self.members if cached else self.fetchable)[member.id] = member
         return member
 
-    def add_channel(self, channel: FakeChannel | None = None) -> FakeChannel:
-        channel = channel or FakeChannel()
+    def add_channel[C: FakeChannel | FakeVoiceChannel](self, channel: C) -> C:
         self.channels[channel.id] = channel
         return channel
 
@@ -90,5 +107,5 @@ class FakeClient:
     def get_guild(self, guild_id: int, /) -> FakeGuild | None:
         return self.guilds.get(guild_id)
 
-    def get_channel(self, channel_id: int, /) -> FakeChannel | None:
+    def get_channel(self, channel_id: int, /) -> FakeChannel | FakeVoiceChannel | None:
         return next((g.channels[channel_id] for g in self.guilds.values() if channel_id in g.channels), None)

@@ -26,38 +26,38 @@ from teapot.testing.harness import PluginHarness, build_harness
 APP_PASSWORD = "app-test"
 PLUGINS_PASSWORD = "plugins-test"
 
-postgresql_noproc = factories.postgresql_noproc(  # pyright: ignore[reportUnknownMemberType]
+teapot_pg_server = factories.postgresql_noproc(  # pyright: ignore[reportUnknownMemberType]
     host=os.environ.get("TEAPOT_TEST_PG_HOST", "127.0.0.1"),
     port=int(os.environ.get("TEAPOT_TEST_PG_PORT", "55432")),
     user=os.environ.get("TEAPOT_TEST_PG_USER", "teapot_owner"),
     password=os.environ.get("TEAPOT_TEST_PG_PASSWORD", "teapot"),
     dbname=run_db_name(os.getpid()),
 )
-postgresql = factories.postgresql("postgresql_noproc")
+teapot_pg = factories.postgresql("teapot_pg_server")
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _drop_dead_runs(postgresql_noproc: Any) -> None:
+def _drop_dead_runs(teapot_pg_server: Any) -> None:
     """Drop databases and roles that killed test runs left behind (see `teapot.testing.cleanup`)."""
     with psycopg.connect(
-        host=postgresql_noproc.host,
-        port=postgresql_noproc.port,
-        user=postgresql_noproc.user,
-        password=postgresql_noproc.password,
+        host=teapot_pg_server.host,
+        port=teapot_pg_server.port,
+        user=teapot_pg_server.user,
+        password=teapot_pg_server.password,
         dbname="postgres",
     ) as conn:
         cleanup(conn)
 
 
 @pytest.fixture
-def info(postgresql: Any) -> ConnectionInfo:
-    params = postgresql.info
+def info(teapot_pg: Any) -> ConnectionInfo:
+    params = teapot_pg.info
     return ConnectionInfo(params.host, params.port, params.dbname)
 
 
 @pytest.fixture
-def owner_kwargs(postgresql: Any) -> dict[str, Any]:
-    params = postgresql.info
+def owner_kwargs(teapot_pg: Any) -> dict[str, Any]:
+    params = teapot_pg.info
     return {
         "host": params.host,
         "port": params.port,

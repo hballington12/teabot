@@ -12,12 +12,12 @@ DEAD_PID = 2**22 + 12345  # above Linux's largest pid, so never alive
 
 
 @pytest.fixture
-def maintenance(postgresql_noproc: Any) -> Any:
+def maintenance(teapot_pg_server: Any) -> Any:
     conn = psycopg.connect(
-        host=postgresql_noproc.host,
-        port=postgresql_noproc.port,
-        user=postgresql_noproc.user,
-        password=postgresql_noproc.password,
+        host=teapot_pg_server.host,
+        port=teapot_pg_server.port,
+        user=teapot_pg_server.user,
+        password=teapot_pg_server.password,
         dbname="postgres",
         autocommit=True,
     )

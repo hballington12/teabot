@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from teapot.core.registry import Refused
 from teapot.sdk import ActionContext, ActionSpec, ChannelRef, Manifest, Registrar, Risk
-from teapot.testing import FakeChannel, PluginHarness
+from teapot.testing import FakeChannel, FakeGuild, PluginHarness
 
 MANAGE = discord.Permissions(manage_messages=True)
 
@@ -87,3 +87,17 @@ async def test_a_member_found_only_over_rest_is_checked_too(teapot_harness: Any,
     assert harness.guild.get_member(uncached.id) is None
     out = await harness.invoke("echo.say", {"channel": "77", "text": "hi"}, user=uncached.id)
     assert isinstance(out, Said)
+
+
+async def test_a_forbidden_channel_raises_like_discord() -> None:
+    channel = FakeChannel(5, forbidden=True)
+    with pytest.raises(discord.Forbidden):
+        await channel.send(content="x")
+    assert channel.sent == []
+
+
+def test_members_are_cached_unless_asked_otherwise() -> None:
+    guild = FakeGuild()
+    cached = guild.add_member(discord.Permissions.none())
+    rest_only = guild.add_member(discord.Permissions.none(), cached=False)
+    assert guild.get_member(cached.id) is cached and guild.get_member(rest_only.id) is None

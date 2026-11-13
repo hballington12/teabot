@@ -18,8 +18,8 @@ def test_cli_prints_version() -> None:
     assert result.output.strip() == f"teapot {teapot.__version__}"
 
 
-def test_database_is_postgres_16_or_later(postgresql: Any) -> None:
-    with postgresql.cursor() as cur:
+def test_database_is_postgres_16_or_later(teapot_pg: Any) -> None:
+    with teapot_pg.cursor() as cur:
         cur.execute("SHOW server_version_num")
         row = cur.fetchone()
     assert row is not None

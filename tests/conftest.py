@@ -1,4 +1,5 @@
-"""The core's tests use the same Postgres fixtures teapot ships for plugin authors (D45)."""
+"""The core's tests use the same Postgres fixtures teapot ships for plugin authors (D45), loaded with
+`-p teapot.testing.fixtures` in pyproject.toml so the plugin tests share them."""
 
 import os
 from pathlib import Path
@@ -7,8 +8,6 @@ from typing import Any
 import pytest
 
 from teapot.db.naming import Naming
-
-pytest_plugins = ["teapot.testing.fixtures"]
 
 
 @pytest.fixture
