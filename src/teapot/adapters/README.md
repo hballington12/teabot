@@ -3,3 +3,8 @@
 - The front doors over the action registry (D1). Each one turns its own request format into a registry call.
 - `schema.py`: the schema builder (D29). An input model becomes Discord command JSON (one group per plugin, a subcommand per action, required options first, `LongText` fields left to a modal) and an MCP tool schema.
 - `interactions.py`: the interaction router (D29, D32): slash commands, `LongText` modals through draft rows any process can finish, ephemeral replies through an action's renderer or the default embed, and refusals.
+- `mcp.py`: actions as MCP tools on the SDK's low-level server (D22, D23, D28).
+    - `tools/list` is built for each request from the token: actions offered over MCP, of built-in groups and of plugins enabled in its server, up to its maximum risk and within its allow-list.
+    - `tools/call` goes through the one call path. Refusals and failures are `isError` results; an unexpected exception's text stays in the audit log.
+    - Annotations come from the risk, and a `WRITE` tool sends `destructiveHint: false`. `UntrustedText` values become `{"untrusted_text": ...}`.
+    - Stateless with JSON responses, so any process answers any request. Transport security allows the public host and local hosts only.

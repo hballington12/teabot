@@ -6,7 +6,8 @@ scope for the adapter. Every other path passes untouched.
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -16,12 +17,17 @@ from teapot.auth.tokens import Grant, TokenRefused, Tokens
 SCOPE_KEY = "teapot.grant"
 
 
-def grant_of(request: Request) -> Grant:
-    """The grant the middleware checked for this request."""
-    grant = request.scope.get(SCOPE_KEY)
+def grant_in(scope: Mapping[str, Any]) -> Grant:
+    """The grant the middleware checked, from a request's ASGI scope."""
+    grant = scope.get(SCOPE_KEY)
     if not isinstance(grant, Grant):
         raise RuntimeError("route is not behind BearerTokens")
     return grant
+
+
+def grant_of(request: Request) -> Grant:
+    """The grant the middleware checked for this request."""
+    return grant_in(request.scope)
 
 
 def guarded(path: str, prefixes: Sequence[str]) -> bool:

@@ -6,8 +6,9 @@ from dataclasses import dataclass
 
 import pytest
 
-from teapot.app import TeapotClient, shard_latencies, token_or_exit
+from teapot.app import TeapotClient, public_hosts, shard_latencies, token_or_exit
 from teapot.core.queue import ShardFilter
+from teapot.settings import Settings
 
 
 @dataclass
@@ -134,3 +135,15 @@ async def test_ready_compares_the_servers_on_this_processes_shards() -> None:
     client.shard_count, client.shard_ids = 2, [1]
     await client.on_ready()
     assert lifecycle.calls == [("reconcile", ([], ShardFilter(shard_count=2, shard_ids=(1,))))]
+
+
+@pytest.mark.parametrize(
+    ("url", "hosts"),
+    [
+        (None, []),
+        ("https://bot.example.org", ["bot.example.org"]),
+        ("https://bot.example.org:8443/x", ["bot.example.org:8443"]),
+    ],
+)
+def test_the_public_host_comes_from_the_public_url(url: str | None, hosts: list[str]) -> None:
+    assert public_hosts(Settings(public_url=url)) == hosts

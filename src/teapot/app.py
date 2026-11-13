@@ -13,12 +13,14 @@ import signal
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 import discord
 import uvicorn
 
 import teapot
 from teapot.adapters.interactions import InteractionRouter, prune_drafts
+from teapot.adapters.mcp import McpAdapter
 from teapot.assembly import assemble
 from teapot.core.audit import POST_HANDLER, AuditMaintenance, PostAudit, ensure_read_partitions
 from teapot.core.command_sync import SYNC_HANDLER
@@ -131,6 +133,13 @@ class TeapotClient(discord.AutoShardedClient):
         return await asyncio.shield(self._shards)
 
 
+def public_hosts(settings: Settings) -> list[str]:
+    """The host the reverse proxy serves teapot on, from `TEAPOT_PUBLIC_URL`; local hosts are always allowed."""
+    if settings.public_url is None:
+        return []
+    return [urlsplit(settings.public_url).netloc]
+
+
 class EmbeddedServer(uvicorn.Server):
     """uvicorn inside teapot's loop. teapot owns the signals, so uvicorn must not capture them."""
 
@@ -194,7 +203,15 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
         teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), lambda: statuses
     )
     config = uvicorn.Config(
-        build_app(health), host=settings.http_host, port=settings.http_port, log_config=None, lifespan="off"
+        build_app(
+            health,
+            tokens=core.tokens,
+            mcp=McpAdapter(core.registry, pools.core_db(), hosts=public_hosts(settings)),
+        ),
+        host=settings.http_host,
+        port=settings.http_port,
+        log_config=None,
+        lifespan="on",
     )
     server = EmbeddedServer(config)
     return Runtime(
