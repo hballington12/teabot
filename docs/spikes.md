@@ -121,3 +121,33 @@ Run on 2026-11-13 with discord.py 2.7.1, `AutoShardedClient`, the Server Members
 ### Design changes from S4
 
 None. D25 holds as written.
+
+## S5 MCP low-level server
+
+Run on 2026-11-13 with `mcp` 2.3.0 in process, through `httpx.ASGITransport` (`tmp/spikes/mcp/s5_server.py`).
+
+| Check | Result |
+|---|---|
+| A low-level `Server` with `on_list_tools` and `on_call_tool` as constructor arguments | worked; 2.x has no handler decorators, and a handler is `async (ctx, params)` |
+| `BearerAuthBackend` with a `TokenVerifier`, `RequireAuthMiddleware`, no OAuth server | no token and an unknown token both get 401 `invalid_token` |
+| `tools/list` with a read token, then a write token | one tool, then two: the handler reads the token from `ctx.request.user` on every call, and nothing caches the list |
+| `tools/list` in stateless mode with no `initialize` first | worked |
+| `instructions` on the `Server` | returned in the `initialize` result |
+| `ToolAnnotations(read_only_hint=..., destructive_hint=...)` | sent as `readOnlyHint` and `destructiveHint` |
+| A tool result with `is_error=True` | returned as a result with `isError: true` and its text |
+| `TransportSecuritySettings` with the public host, request with that `Host` | 200 |
+| The same, with `Host` rewritten to the upstream address | 421 `Invalid Host header` |
+| A foreign `Origin`, then the public one | 403, then 200 |
+
+- The SDK checks the raw `Host` header and reads no `X-Forwarded-*` header. The reverse proxy must pass the original `Host` through. Caddy does by default, and nginx needs `proxy_set_header Host $host`.
+- Without `security_settings` the manager turns DNS-rebinding protection off. teapot always passes settings with the public hostname.
+- A raised exception becomes a JSON-RPC error, not an `isError` result. That differs from 1.x. A refusal or a failed action must be returned as `isError`, so the LLM sees the reason.
+- Stateless mode answers each request on its own transport, with no session to bind to a token or to a process. Any process can serve any MCP request (D40).
+- On the 2026-07-28 protocol, header validation may call the `tools/list` handler itself. Passing `get_tool_input_schema=` avoids that, and the schema builder already has each tool's schema.
+- The tool list's `ttlMs` cache hint defaults to 0 with scope `private`, so clients are not told to reuse one token's list for another.
+
+### Design changes from S5
+
+- A `WRITE` tool sends `destructiveHint: false` explicitly, because the spec treats a tool without the hint as destructive (D22).
+- The adapter runs in stateless mode with JSON responses, and returns refusals and action errors as `isError` results.
+- The reverse proxy must keep the original `Host` header. The instance template's proxy config says so (M5).

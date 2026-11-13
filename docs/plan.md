@@ -335,9 +335,10 @@ All in the schema `core`. Plugin roles and `teapot_plugins` have no rights on it
     - Served at `/mcp` over streamable HTTP, through the SDK's low-level server.
     - One tool per action with the `MCP` surface, named `announcements_post`. Its input schema comes from the schema builder. No tool takes a guild id, because the token decides the server (D20). The adapter has no tools of its own, since the core's lookups are admin plugin actions.
     - `tools/list` is filtered per token: only actions in plugins enabled in the token's server, up to the token's maximum risk, and within its allow-list if it has one.
-    - Tool annotations come from the risk: `readOnlyHint` for `READ` and `destructiveHint` for `DESTRUCTIVE` (D22).
+    - Tool annotations come from the risk: `readOnlyHint` for `READ`, `destructiveHint: false` for `WRITE` (the spec treats a tool without the hint as destructive) and `destructiveHint` for `DESTRUCTIVE` (D22).
     - The server's `instructions` and every destructive tool description tell the LLM to show the diff to its user and get agreement before calling the tool again with `confirm` (D21).
-    - The SDK's transport security allows the public hostname, since the reverse proxy forwards it.
+    - The SDK's transport security allows the public hostname, since the reverse proxy forwards it. The SDK checks the raw `Host` header, so the proxy must keep it (S5).
+    - Stateless mode with JSON responses, so any process can answer any request (D40). Refusals and action errors come back as `isError` results, since a raised exception would be a protocol error (S5).
 - **Service API** (D20):
     - Requests carry `Authorization: Bearer teapot_<token id>_<secret>`.
     - `POST /api/v1/actions/<action name>` with `{"input": {...}}`, including `confirm` for a destructive apply. Job progress is the `admin.job_status` action.
