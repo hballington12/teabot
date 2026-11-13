@@ -1,6 +1,7 @@
 """The runner's orchestration (WP1.7), with real pools, lock connection and workers, and fake Discord and HTTP."""
 
 import asyncio
+import json
 from typing import Any
 
 import pytest
@@ -90,7 +91,19 @@ async def parts(admin: Conn, naming: Naming, pools: Pools, owner_login: Login) -
 
 def runtime(parts: Any, client: FakeClient, server: FakeServer) -> Runtime:
     pools, lock, workers, stop, failed = parts
-    return Runtime("token", "9.9", pools, lock, workers, client, server, stop=stop, failed=failed)
+    statuses = {"alpha": "loaded", "beta": "blocked"}
+    return Runtime(
+        "token",
+        "9.9",
+        pools,
+        lock,
+        workers,
+        client,
+        server,
+        plugin_statuses=statuses,
+        stop=stop,
+        failed=failed,
+    )
 
 
 async def process_rows(admin: Conn) -> int:
@@ -164,7 +177,9 @@ async def test_the_process_row_records_the_locked_shards(parts: Any, admin: Conn
     rt = runtime(parts, FakeClient(), server)
     running = asyncio.create_task(serve_until_stopped(rt))
     await asyncio.wait_for(server.serving.wait(), timeout=5)
-    row = await admin.fetchrow("SELECT shard_ids, shard_count, version FROM core.processes")
+    row = await admin.fetchrow("SELECT shard_ids, shard_count, version, plugins FROM core.processes")
     rt.stop.set()
     await asyncio.wait_for(running, timeout=10)
-    assert row is not None and dict(row) == {"shard_ids": [0, 1], "shard_count": 2, "version": "9.9"}
+    assert row is not None
+    assert (row["shard_ids"], row["shard_count"], row["version"]) == ([0, 1], 2, "9.9")
+    assert json.loads(row["plugins"]) == {"alpha": "loaded", "beta": "blocked"}

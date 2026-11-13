@@ -10,18 +10,19 @@ import contextlib
 import logging
 import math
 import signal
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 import discord
 import uvicorn
 
 import teapot
+from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
 from teapot.core.processes import LockConnection, open_lock_connection
 from teapot.core.queue import NOTIFY_CHANNEL, Queue
 from teapot.core.worker import Workers
-from teapot.db.migrate import migrate
+from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, connect, create_pools
 from teapot.health import Health
@@ -93,10 +94,17 @@ class EmbeddedServer(uvicorn.Server):
         return contextlib.nullcontext()
 
 
-async def _migrate(settings: Settings, info: ConnectionInfo, naming: Naming) -> None:
+async def _load_plugins(
+    settings: Settings, info: ConnectionInfo, naming: Naming, lock: LockConnection
+) -> LoadReport:
+    """Migrate the core, then load the installed plugins under their locks (D9, D14, D15)."""
     conn = await connect(Login(info, settings.db_owner_user, settings.db_owner_password.get_secret_value()))
+
+    async def migrator(plugins: Sequence[PluginMigrations]) -> MigrationReport:
+        return await migrate(conn, naming, plugins)
+
     try:
-        await migrate(conn, naming, [])
+        return await load(discover(), disabled=settings.disabled_plugins, migrate_with=migrator, lock=lock)
     finally:
         await conn.close()
 
@@ -104,7 +112,6 @@ async def _migrate(settings: Settings, info: ConnectionInfo, naming: Naming) -> 
 async def _open_runtime(settings: Settings, token: str) -> Runtime:
     naming = Naming(settings.db_role_prefix)
     info = ConnectionInfo(settings.db_host, settings.db_port, settings.db_name)
-    await _migrate(settings, info, naming)
     credentials = Credentials(
         settings.db_app_password.get_secret_value(), settings.db_plugins_password.get_secret_value()
     )
@@ -117,17 +124,24 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
         stop.set()
 
     lock = await open_lock_connection(Login(info, naming.app_role, credentials.app_password), lock_lost)
+    report = await _load_plugins(settings, info, naming, lock)
+    statuses = report.labels()
     queue = Queue(pools.core_db())
     queue.register("core", "maintenance", Maintenance(queue))
-    workers = Workers(queue, lambda: ["core"])
+    runnable = ["core", *report.loaded]
+    workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
     client = TeapotClient(lock)
-    health = Health(teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), dict)
+    health = Health(
+        teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), lambda: statuses
+    )
     config = uvicorn.Config(
         build_app(health), host=settings.http_host, port=settings.http_port, log_config=None, lifespan="off"
     )
     server = EmbeddedServer(config)
-    return Runtime(token, teapot.__version__, pools, lock, workers, client, server, stop=stop, failed=failed)
+    return Runtime(
+        token, teapot.__version__, pools, lock, workers, client, server, statuses, stop=stop, failed=failed
+    )
 
 
 async def main(settings: Settings) -> int:

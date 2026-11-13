@@ -9,6 +9,7 @@ fake Discord and HTTP; `teapot.app` wires the real ones.
 import asyncio
 import contextlib
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -55,6 +56,7 @@ class Runtime:
     workers: Workers
     client: GatewayClient
     server: HttpServer
+    plugin_statuses: Mapping[str, str] = field(default_factory=dict[str, str])
     process_row_every: float = 60.0
     identity: ProcessIdentity | None = None
     stop: asyncio.Event = field(default_factory=asyncio.Event)
@@ -64,7 +66,7 @@ class Runtime:
 async def _work_once_locked(rt: Runtime) -> None:
     shard_count = await rt.client.wait_for_shards()
     rt.identity = ProcessIdentity(tuple(range(shard_count)), shard_count, rt.version)
-    await write_process_row(rt.pools.core_db(), rt.identity, {})
+    await write_process_row(rt.pools.core_db(), rt.identity, dict(rt.plugin_statuses))
     await seed_maintenance(rt.pools.core_db(), rt.workers.queue)
     rt.workers.start()
     await rt.server.serve()
@@ -74,7 +76,7 @@ async def _keep_process_row(rt: Runtime) -> None:
     while True:
         await asyncio.sleep(rt.process_row_every)
         if rt.identity is not None:
-            await write_process_row(rt.pools.core_db(), rt.identity, {})
+            await write_process_row(rt.pools.core_db(), rt.identity, dict(rt.plugin_statuses))
 
 
 def _note_finished(rt: Runtime, task: asyncio.Task[Any]) -> None:
