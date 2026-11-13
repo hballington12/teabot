@@ -17,6 +17,9 @@ MILESTONES = [
 ]
 
 
+DONE = {"M1", "M2", "M3"}  # milestones finished on main
+
+
 def chapter(s: m.Scene) -> None:
     """Run the closing slides."""
     roadmap_slide(s)
@@ -28,8 +31,8 @@ def roadmap_slide(s: m.Scene) -> None:
     new_slide(
         s,
         "Where we are",
-        notes="The design and the plan are written, and the 42 issues exist. The next steps "
-        "are the dev Discord application and the test server, then spikes S1 and S2.",
+        notes="Milestones 1 to 3 and every spike are done. In milestone 4, tokens and the "
+        "admin lookups are in. The MCP server (WP4.3) and the service API (WP4.4) are next.",
     )
     show_title(s, "Where we are", "")
     xs = [-5.7 + i * 1.95 for i in range(7)]
@@ -39,6 +42,8 @@ def roadmap_slide(s: m.Scene) -> None:
     for (code, name, detail), x, tone in zip(MILESTONES, xs, tones, strict=True):
         dot = m.Circle(radius=0.2, fill_color=tone.fill, fill_opacity=1, stroke_color=tone.edge, stroke_width=3)
         dot.move_to([x, 1.1, 0])
+        if code in DONE:
+            dot.set_fill(tone.edge)
         head = serif(code, 22, tone.edge, bold=True).next_to(dot, m.UP, buff=0.15)
         label = serif(name, 19, bold=True).next_to(dot, m.DOWN, buff=0.2)
         body = text(detail, 16, MUTED).next_to(label, m.DOWN, buff=0.12)
@@ -46,9 +51,9 @@ def roadmap_slide(s: m.Scene) -> None:
     s.play(m.Create(line))
     s.play(m.LaggedStart(*[m.FadeIn(st, shift=m.UP * 0.1) for st in stops], lag_ratio=0.12))
     here = m.Triangle(color=CLAY.edge, fill_color=CLAY.edge, fill_opacity=1).scale(0.12).rotate(m.PI)
-    here.move_to([xs[0] - 0.8, 1.55, 0])
-    here_label = text("now: setup before M1", 17, CLAY.edge, bold=True)
-    here_label.next_to(here, m.UP, buff=0.1).align_to(here, m.LEFT).shift(m.LEFT * 0.1)
+    here.move_to([xs[3], 1.95, 0])
+    here_label = text("now: MCP server next", 17, CLAY.edge, bold=True)
+    here_label.next_to(here, m.UP, buff=0.1)
     s.play(m.FadeIn(here, shift=m.DOWN * 0.2), m.FadeIn(here_label))
     open_head = serif("Open decisions", 26, bold=True)
     opens = m.VGroup(
