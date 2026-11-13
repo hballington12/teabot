@@ -30,3 +30,7 @@ htmlcov/
 .idea/
 .vscode/
 .DS_Store
+
+# quality-gate tool output (crapper, dryer, mutator)
+.metrics/
+target/

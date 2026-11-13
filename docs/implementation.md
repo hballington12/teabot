@@ -28,6 +28,8 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 5. Public `teapot.sdk` names have docstrings.
 6. Any design change is reflected in `README.md` and `plan.md`.
 7. The work package's exit check, listed below, has been run and its result noted in the commit message.
+8. `scripts/quality.sh` passes: every function under CRAP 10 (crapper), no structural duplicates at 0.8 or above (dryer), and no surviving mutants in the changed files (mutator). These are the ub-mode gates; the tools run locally and are not part of CI.
+9. `docs/worklog.md` records what was done and why, and `docs/glossary.md` gains any new domain term.
 
 ## Setup before milestone 1
 
