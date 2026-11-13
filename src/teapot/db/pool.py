@@ -8,12 +8,14 @@
   there raises, because it would take another connection and miss the block's writes.
 """
 
+import json
 import logging
 import time
-from collections.abc import AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable, Mapping
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -106,10 +108,13 @@ class Database(Queries):
             started = self.timing.clock()
             try:
                 async with conn.transaction():
-                    yield Transaction(conn)
+                    yield self._transaction_for(conn)
             finally:
                 _open_block.reset(token)
                 self._log_if_slow(started)
+
+    def _transaction_for(self, conn: AnyConn) -> Transaction:
+        return Transaction(conn)
 
     def _log_if_slow(self, started: float) -> None:
         held_ms = (self.timing.clock() - started) * 1000
@@ -122,6 +127,7 @@ class PluginDatabase(Database):
 
     def __init__(self, pool: Pool, name: str, naming: Naming, timing: Timing | None = None) -> None:
         super().__init__(pool, name, timing)
+        self.naming = naming
         self.role = naming.plugin_role(name)
         self.schema = naming.plugin_schema(name)
 
@@ -134,6 +140,48 @@ class PluginDatabase(Database):
             finally:
                 if not conn.is_closed():
                     await conn.execute("RESET ROLE; RESET search_path")
+
+
+SCHEDULE = "SELECT schedule_job($1, $2, coalesce($3, now()), $4::jsonb)"
+
+
+class ServerScheduling(Queries):
+    """Queue one of the plugin's jobs for this server, through the plugin's own `schedule_job` (S1, D31)."""
+
+    guild_id: int
+
+    async def schedule(
+        self, handler: str, *, run_at: datetime | None = None, payload: Mapping[str, Any] | None = None
+    ) -> int:
+        job_id: int = await self.fetchval(
+            SCHEDULE, self.guild_id, handler, run_at, json.dumps(dict(payload or {}))
+        )
+        return job_id
+
+
+class GuildTransaction(ServerScheduling, Transaction):
+    """A plugin's transaction in one server. A job queued here commits with the block's writes."""
+
+    def __init__(self, conn: AnyConn, guild_id: int) -> None:
+        super().__init__(conn)
+        self.guild_id = guild_id
+
+
+class GuildPluginDatabase(ServerScheduling, PluginDatabase):
+    """What one action or job of a plugin gets as `ctx.db` and `ctx.queue`: bound to one server (D2)."""
+
+    def __init__(self, base: PluginDatabase, guild_id: int) -> None:
+        super().__init__(base.pool, base.name, base.naming, base.timing)
+        self.guild_id = guild_id
+
+    def _transaction_for(self, conn: AnyConn) -> Transaction:
+        return GuildTransaction(conn, self.guild_id)
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncGenerator[GuildTransaction]:  # pyright: ignore[reportIncompatibleMethodOverride]
+        async with super().transaction() as tx:
+            assert isinstance(tx, GuildTransaction)
+            yield tx
 
 
 @dataclass
@@ -150,6 +198,9 @@ class Pools:
 
     def plugin_db(self, plugin_id: str) -> PluginDatabase:
         return PluginDatabase(self.plugins, plugin_id, self.naming, self.timing)
+
+    def guild_plugin_db(self, plugin_id: str, guild_id: int) -> GuildPluginDatabase:
+        return GuildPluginDatabase(self.plugin_db(plugin_id), guild_id)
 
     async def close(self) -> None:
         await self.core.close()

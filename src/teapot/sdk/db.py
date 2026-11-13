@@ -8,7 +8,11 @@ from contextlib import AbstractAsyncContextManager
 from datetime import datetime
 from typing import Any, Protocol
 
-type Row = Mapping[str, Any]
+
+class Row(Protocol):
+    """One result row: values by column name."""
+
+    def __getitem__(self, key: str, /) -> Any: ...
 
 
 class Queries(Protocol):

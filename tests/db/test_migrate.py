@@ -173,3 +173,12 @@ async def test_a_plugin_without_migrations_still_gets_its_schema(
     report = await migrate(admin, naming, [PluginMigrations("bare", None)])
     assert report.applied["bare"] == [] and not report.failed
     assert await admin.fetchval("SELECT 1 FROM pg_namespace WHERE nspname = 'plugin_bare'") == 1
+
+
+async def test_a_server_bound_handle_queues_for_its_server_with_an_empty_payload(
+    admin: Conn, naming: Naming, ready: Pools, tmp_path: Path
+) -> None:
+    await migrate(admin, naming, [PluginMigrations("alpha", write(tmp_path / "a", {"0001_e.sql": ENTRIES}))])
+    job_id = await ready.guild_plugin_db("alpha", 7).schedule("ping")
+    row = await admin.fetchrow("SELECT guild_id, handler, payload FROM core.jobs WHERE id = $1", job_id)
+    assert row is not None and (row["guild_id"], row["handler"], row["payload"]) == (7, "ping", "{}")
