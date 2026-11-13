@@ -57,6 +57,7 @@ class NewJob:
     run_at: datetime | None = None
     payload: dict[str, Any] = field(default_factory=dict[str, Any])
     started_by: int | None = None
+    max_attempts: int = 5
 
 
 @dataclass(frozen=True)
@@ -128,8 +129,8 @@ class Queue:
         queries = within or self.db
         job_id: int = await queries.fetchval(
             """
-            INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload, started_by)
-            VALUES ($1, $2, $3, coalesce($4, now()), $5::jsonb, $6) RETURNING id
+            INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload, started_by, max_attempts)
+            VALUES ($1, $2, $3, coalesce($4, now()), $5::jsonb, $6, $7) RETURNING id
             """,
             job.guild_id,
             job.plugin_id,
@@ -137,6 +138,7 @@ class Queue:
             job.run_at,
             json.dumps(job.payload),
             job.started_by,
+            job.max_attempts,
         )
         await queries.execute("SELECT pg_notify($1, $2)", NOTIFY_CHANNEL, str(job_id))
         self.wake()

@@ -27,6 +27,9 @@ from teapot.sdk import Risk
 log = logging.getLogger(__name__)
 
 POST_HANDLER = "post_audit"
+# With back-off capped at an hour, 48 attempts span more than a day: an outage, or a log channel the bot cannot
+# see until an admin fixes its permissions, delays a post without losing it (D24).
+POST_ATTEMPTS = 48
 INPUT_SHOWN = 1000
 
 INSERT_CHANGE = """
@@ -70,7 +73,13 @@ class AuditLog:
             await self._queue_post(tx, call.guild_id, audit_id)
 
     async def _queue_post(self, tx: Any, guild_id: int, audit_id: int) -> None:
-        job = NewJob("core", POST_HANDLER, guild_id=guild_id, payload={"audit_id": audit_id})
+        job = NewJob(
+            "core",
+            POST_HANDLER,
+            guild_id=guild_id,
+            payload={"audit_id": audit_id},
+            max_attempts=POST_ATTEMPTS,
+        )
         await self.queue.schedule(job, within=tx)
 
 

@@ -250,3 +250,10 @@ async def test_a_long_job_keeps_its_lease(admin: Conn, pools: Pools, queue: Queu
     await asyncio.sleep(0.2)
     await workers.stop()
     assert stolen is None
+
+
+async def test_a_job_can_carry_its_own_attempt_limit(queue: Queue, admin: Conn) -> None:
+    default = await queue.schedule(NewJob("alpha", "x", guild_id=SHARD0_GUILD))
+    patient = await queue.schedule(NewJob("alpha", "x", guild_id=SHARD0_GUILD, max_attempts=48))
+    limits = {r["id"]: r["max_attempts"] for r in await admin.fetch("SELECT id, max_attempts FROM core.jobs")}
+    assert (limits[default], limits[patient]) == (5, 48)

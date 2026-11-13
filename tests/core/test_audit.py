@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import discord
 import pytest
 
-from teapot.core.audit import AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
+from teapot.core.audit import POST_ATTEMPTS, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
 from teapot.core.queue import Queue
 from teapot.core.registry import CallRecord
 from teapot.core.worker import Workers
@@ -186,3 +186,12 @@ async def test_nothing_is_posted_without_a_usable_log_channel(
     await audit.finished(await audit.started(record()), "ok", None)
     await run_posts(queue, FakeClient({}))
     assert await admin.fetchval("SELECT state FROM core.jobs WHERE handler = 'post_audit'") == "done"
+
+
+async def test_a_post_retries_for_over_a_day_so_an_outage_never_loses_it(queue: Queue, admin: Conn) -> None:
+    audit = AuditLog(queue)
+    await audit.finished(await audit.started(record()), "ok", None)
+    attempts = await admin.fetchval("SELECT max_attempts FROM core.jobs WHERE handler = 'post_audit'")
+    assert attempts == POST_ATTEMPTS
+    hours = sum(min(2**n, 3600) for n in range(1, POST_ATTEMPTS)) / 3600
+    assert hours > 24
