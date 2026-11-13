@@ -152,7 +152,7 @@ DECLARE new_id bigint;
 BEGIN
     INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload)
     VALUES (p_guild_id, '{plugin_id}', p_handler, p_run_at, p_payload) RETURNING id INTO new_id;
-    IF p_run_at <= now() THEN PERFORM pg_notify('teapot_jobs', new_id::text); END IF;
+    PERFORM pg_notify('teapot_jobs', new_id::text);
     RETURN new_id;
 END $$
 """
