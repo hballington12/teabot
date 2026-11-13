@@ -14,6 +14,14 @@ dependencies = [
     "uvicorn>=0.35",
 ]
 
+[project.optional-dependencies]
+testing = [
+    "psycopg[binary]>=3.3",
+    "pytest>=9.2",
+    "pytest-asyncio>=1.5",
+    "pytest-postgresql>=10.0",
+]
+
 [project.scripts]
 teapot = "teapot.cli:app"
 

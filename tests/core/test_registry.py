@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import discord
 import pytest
@@ -17,6 +17,7 @@ from teapot.db.naming import Naming
 from teapot.db.pool import Pools
 from teapot.db.types import Conn
 from teapot.sdk import ActionContext, ActionSpec, Actor, Manifest, Risk
+from teapot.testing import FakeClient, FakeGuild, FakeMember
 
 GUILD, MEMBER, STRANGER, UNCACHED = 1001, 2001, 2002, 2003
 
@@ -65,40 +66,6 @@ SPECS = [
     ActionSpec("alpha.add", "Add an entry", Add, Added, Risk.WRITE, add, default_permissions=MANAGE),
     ActionSpec("alpha.boom", "Fail", Count, Counted, Risk.WRITE, boom),
 ]
-
-
-@dataclass
-class FakeMember:
-    id: int
-    guild_permissions: discord.Permissions
-
-
-@dataclass
-class FakeGuild:
-    id: int
-    members: dict[int, FakeMember]
-    fetchable: dict[int, FakeMember] = field(default_factory=dict[int, FakeMember])
-
-    def get_member(self, user_id: int) -> FakeMember | None:
-        return self.members.get(user_id)
-
-    async def fetch_member(self, user_id: int) -> FakeMember:
-        if user_id not in self.fetchable:
-            raise discord.NotFound(cast(Any, _FakeResponse()), "Unknown Member")
-        return self.fetchable[user_id]
-
-
-class _FakeResponse:
-    status = 404
-    reason = "Not Found"
-
-
-@dataclass
-class FakeClient:
-    guilds: dict[int, FakeGuild]
-
-    def get_guild(self, guild_id: int) -> FakeGuild | None:
-        return self.guilds.get(guild_id)
 
 
 @dataclass

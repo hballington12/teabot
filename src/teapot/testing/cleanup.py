@@ -7,6 +7,7 @@ Concurrent runs never share a name, so they never collide.
 
 import os
 import re
+from collections.abc import Callable
 from typing import Any
 
 import psycopg
@@ -36,20 +37,26 @@ def _alive(pid: int) -> bool:
     return True
 
 
+def _dead_runs(names: list[str], pattern: re.Pattern[str], legacy: Callable[[str], bool]) -> list[str]:
+    """Names from runs whose pid is gone, plus the legacy names of earlier versions."""
+    stale = [n for n in names if (m := pattern.fullmatch(n)) and not _alive(int(m.group(1)))]
+    return stale + [n for n in names if legacy(n)]
+
+
 def _stale_databases(conn: Any) -> list[str]:
     names = [r[0] for r in conn.execute("SELECT datname FROM pg_database").fetchall()]
-    stale = [n for n in names if (m := DB_RE.fullmatch(n)) and not _alive(int(m.group(1)))]
-    return stale + [n for n in names if n in LEGACY_DATABASES]
+    return _dead_runs(names, DB_RE, LEGACY_DATABASES.__contains__)
 
 
 def _stale_roles(conn: Any) -> list[str]:
     names = [r[0] for r in conn.execute("SELECT rolname FROM pg_roles").fetchall()]
-    stale = [n for n in names if (m := ROLE_RE.fullmatch(n)) and not _alive(int(m.group(1)))]
-    return stale + [n for n in names if LEGACY_ROLE_RE.fullmatch(n)]
+    return _dead_runs(names, ROLE_RE, lambda n: LEGACY_ROLE_RE.fullmatch(n) is not None)
 
 
 def cleanup(conn: Any) -> None:
-    """Drop dead runs' databases, then their roles. `conn` is an autocommit psycopg connection."""
+    """Drop dead runs' databases, then their roles. `DROP DATABASE` cannot run in a transaction, so this
+    switches the psycopg connection to autocommit itself."""
+    conn.autocommit = True
     for name in _stale_databases(conn):
         conn.execute(f'ALTER DATABASE "{name}" IS_TEMPLATE false')
         conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')

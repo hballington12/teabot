@@ -1438,6 +1438,14 @@ dependencies = [
     { name = "uvicorn" },
 ]
 
+[package.optional-dependencies]
+testing = [
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-postgresql" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "asyncpg-stubs" },
@@ -1456,12 +1464,17 @@ dev = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.30" },
     { name = "discord-py", specifier = ">=2.6" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'testing'", specifier = ">=3.3" },
     { name = "pydantic", specifier = ">=2.11" },
     { name = "pydantic-settings", specifier = ">=2.7" },
+    { name = "pytest", marker = "extra == 'testing'", specifier = ">=9.2" },
+    { name = "pytest-asyncio", marker = "extra == 'testing'", specifier = ">=1.5" },
+    { name = "pytest-postgresql", marker = "extra == 'testing'", specifier = ">=10.0" },
     { name = "starlette", specifier = ">=0.47" },
     { name = "typer", specifier = ">=0.29" },
     { name = "uvicorn", specifier = ">=0.35" },
 ]
+provides-extras = ["testing"]
 
 [package.metadata.requires-dev]
 dev = [

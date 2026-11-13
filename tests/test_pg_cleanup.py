@@ -6,7 +6,7 @@ from typing import Any
 import psycopg
 import pytest
 
-from tests.pg_cleanup import cleanup, role_prefix, run_db_name
+from teapot.testing.cleanup import cleanup, role_prefix, run_db_name
 
 DEAD_PID = 2**22 + 12345  # above Linux's largest pid, so never alive
 
