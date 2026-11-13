@@ -50,3 +50,4 @@ Each action taken while building teapot, and why. Newest last. Commits carry the
     - an untestable "core was readable" branch in devtools, which now raises, since that would mean isolation is broken
     - an untested cached-member default
   The quality gates now cover `plugins/` too.
+- **WP2.10 authoring guide.** `docs/plugin-authoring.md` covers the package, actions and input types, the database rules (one statement per call, `tx` inside blocks, nothing slow inside a block, no dynamic SQL from member input), migrations, config, jobs safe to run twice, `ActionError`, testing with `teapot_harness`, and the review checklist the new PR template repeats. Its examples use only names that exist in the SDK today.
