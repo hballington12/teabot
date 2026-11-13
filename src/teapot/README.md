@@ -7,6 +7,7 @@
 - `logs.py`: logging setup, text in dev mode and JSON lines in production.
 - `envfile.py`: edits to an env file that keep every other line, used by `teapot init`.
 - `db/`: database access, see its README.
+- `core/`: actions, plugins, the queue and process ownership, see its README.
 - `sdk/`: the public plugin API (D45). Plugins import only from here.
 - `py.typed`: marks the package as typed for plugin authors.
 

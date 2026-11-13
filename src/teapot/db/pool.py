@@ -19,7 +19,7 @@ from typing import Any
 import asyncpg
 
 from teapot.db.naming import Naming
-from teapot.db.types import AnyConn, Pool, Record
+from teapot.db.types import AnyConn, Conn, Pool, Record
 
 log = logging.getLogger(__name__)
 
@@ -156,6 +156,26 @@ class ConnectionInfo:
     host: str
     port: int
     database: str
+
+
+@dataclass(frozen=True)
+class Login:
+    """Everything one direct connection needs: where, and as whom."""
+
+    info: ConnectionInfo
+    user: str
+    password: str
+
+
+async def connect(login: Login) -> Conn:
+    """A single connection outside any pool, such as the lock connection (D40) or the migration runner."""
+    return await asyncpg.connect(
+        host=login.info.host,
+        port=login.info.port,
+        database=login.info.database,
+        user=login.user,
+        password=login.password,
+    )
 
 
 @dataclass(frozen=True)
