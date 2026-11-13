@@ -13,6 +13,7 @@ import json
 import re
 import threading
 from pathlib import Path
+from typing import ClassVar
 
 from playwright.sync_api import Page, sync_playwright
 
@@ -25,7 +26,10 @@ STEPS = 5
 class NoRange(http.server.SimpleHTTPRequestHandler):
     """Serves the player and the film, always whole: no Range support, as on some hosts."""
 
-    extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".html": "text/html; charset=utf-8"}
+    extensions_map: ClassVar[dict[str, str]] = {
+        **http.server.SimpleHTTPRequestHandler.extensions_map,
+        ".html": "text/html; charset=utf-8",
+    }
 
     def translate_path(self, path: str) -> str:
         return str(MP4) if path.endswith(".mp4") else super().translate_path(path)

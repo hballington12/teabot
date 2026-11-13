@@ -289,7 +289,7 @@ def _progress(total: int, width: float = 4.6) -> tuple[m.ValueTracker, m.VGroup]
         return bar.align_to(track, m.LEFT).set_y(track.get_y())
 
     def count() -> m.Mobject:
-        return mono(f"{int(round(t.get_value()))}/{total} members", 16, INK).next_to(track, m.RIGHT, buff=0.2)
+        return mono(f"{round(t.get_value())}/{total} members", 16, INK).next_to(track, m.RIGHT, buff=0.2)
 
     bar = m.always_redraw(fill)
     label = m.always_redraw(count)
