@@ -1,7 +1,6 @@
 name: teapot
-# The instance template's Compose file (D43).
-# For now it only holds Postgres, used for development and tests.
-# The bot service is added in WP5.1.
+# The instance template's quick setup (D43): the bot and Postgres 16 on one machine.
+# teapot's own development uses only the postgres service: `docker compose -f template/compose.yaml up -d postgres`.
 services:
   postgres:
     image: postgres:16
@@ -18,6 +17,27 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  bot:
+    build:
+      context: .
+      ssh: [default]
+    # The env file is mounted, not loaded, so `teapot init` can write the passwords it generates into it. It
+    # holds secrets and is kept at mode 0600, so the bot runs as the file's owner: your user, 1000 by default.
+    user: "${TEAPOT_UID:-1000}:${TEAPOT_GID:-1000}"
+    volumes:
+      - ./teapot.env:/app/teapot.env
+    environment:
+      TEAPOT_DB_HOST: postgres
+      TEAPOT_DB_PORT: "5432"
+      TEAPOT_HTTP_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:${TEAPOT_HTTP_PORT:-8780}:8780"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 30s
 
 volumes:
   teapot-pgdata:

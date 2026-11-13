@@ -1,0 +1,11 @@
+# One pgBackRest backup of the teapot stanza; %i is the type, `full` or `diff`. Started by the timers.
+[Unit]
+Description=pgBackRest %i backup of teapot
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/pgbackrest --stanza=teapot --type=%i backup

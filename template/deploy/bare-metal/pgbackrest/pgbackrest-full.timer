@@ -1,0 +1,12 @@
+# A full backup every Sunday night. Persistent catches up on a run missed while the host was down.
+[Unit]
+Description=Weekly full pgBackRest backup of teapot
+
+[Timer]
+OnCalendar=Sun *-*-* 03:15
+RandomizedDelaySec=15min
+Persistent=true
+Unit=pgbackrest-backup@full.service
+
+[Install]
+WantedBy=timers.target

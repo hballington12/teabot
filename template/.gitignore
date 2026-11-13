@@ -1,0 +1,4 @@
+# Secrets and local state never go into git.
+teapot.env
+.venv/
+__pycache__/

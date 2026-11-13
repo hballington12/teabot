@@ -1,0 +1,12 @@
+# A differential backup every other night. Between backups, archived WAL covers every change.
+[Unit]
+Description=Daily differential pgBackRest backup of teapot
+
+[Timer]
+OnCalendar=Mon..Sat *-*-* 03:15
+RandomizedDelaySec=15min
+Persistent=true
+Unit=pgbackrest-backup@diff.service
+
+[Install]
+WantedBy=timers.target
