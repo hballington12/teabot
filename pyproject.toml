@@ -5,7 +5,13 @@ description = "A plugin-based Discord bot framework, built to self-host and to s
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "asyncpg>=0.30",
+    "discord-py>=2.6",
+    "pydantic>=2.11",
+    "pydantic-settings>=2.7",
+    "starlette>=0.47",
     "typer>=0.29",
+    "uvicorn>=0.35",
 ]
 
 [project.scripts]
@@ -13,6 +19,7 @@ teapot = "teapot.cli:app"
 
 [dependency-groups]
 dev = [
+    "asyncpg-stubs>=0.30",
     "import-linter>=2.16",
     "psycopg[binary]>=3.3",
     "pyright>=1.1.414",
