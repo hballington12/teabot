@@ -38,7 +38,7 @@ These steps need the maintainers, because they create accounts and secrets.
 - [x] Create a private GitHub repository for the framework and push `main`. It stays private until milestone 7 releases it. Done: `hballington12/teapot`.
 - [x] Create the **dev** Discord application and bot (D38). Turn on the Server Members intent. Leave Message Content off.
 - [x] Create a test server and invite the dev bot with the `bot` and `applications.commands` scopes and Administrator.
-- [x] Put the dev bot token in a local `teapot.env`, which `.gitignore` already excludes. It holds `TEAPOT_DISCORD_TOKEN` and `TEAPOT_DEV_GUILD_ID`.
+- [x] Put the dev bot token in a local `teapot.env`, which `.gitignore` already excludes. It holds `TEAPOT_DISCORD_TOKEN`. (`TEAPOT_DEV_GUILD_ID` served development registration until WP3.2's command sync replaced it.)
 - [x] Install Docker or Podman with Compose locally, for the dev Postgres. Done: Docker with Compose is installed.
 
 ## Spikes

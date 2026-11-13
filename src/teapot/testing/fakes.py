@@ -103,6 +103,13 @@ class FakeClient:
     """The bot's view of its servers and their channels."""
 
     guilds: dict[int, FakeGuild] = field(default_factory=dict[int, FakeGuild])
+    command_overwrites: list[tuple[int | None, list[dict[str, Any]]]] = field(
+        default_factory=list[tuple[int | None, list[dict[str, Any]]]]
+    )
+
+    async def overwrite_commands(self, guild_id: int | None, commands: list[dict[str, Any]], /) -> None:
+        """Record a bulk overwrite: the global commands when `guild_id` is None, else one server's."""
+        self.command_overwrites.append((guild_id, commands))
 
     def get_guild(self, guild_id: int, /) -> FakeGuild | None:
         return self.guilds.get(guild_id)

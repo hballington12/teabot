@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TEAPOT_", extra="ignore", frozen=True)
 
     discord_token: SecretStr = SecretStr("")
-    dev_guild_id: int | None = None
     dev_mode: bool = False
 
     db_host: str = "127.0.0.1"

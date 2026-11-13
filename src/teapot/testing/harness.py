@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from teapot.builtin.admin import Admin
 from teapot.core.audit import AuditLog
+from teapot.core.command_sync import CommandSync
 from teapot.core.config import ConfigStore
 from teapot.core.loader import from_plugins, load
 from teapot.core.queue import Queue
@@ -64,11 +65,15 @@ async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: P
     statuses = report.labels()
     configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
     admin_plugin = Admin(pools.core_db(), statuses=statuses, configs=configs)
+    queue = Queue(pools.core_db())
+    sources = sources_from(report.loaded) | admin_plugin.sources()
+    sync = CommandSync(pools.core_db(), queue, sources, client)
+    admin_plugin.on_change = sync.request
     registry = Registry(
-        sources_from(report.loaded) | admin_plugin.sources(),
+        sources,
         pools=pools,
         config=ConfigStore(pools.core_db()),
         client=client,
-        audit=AuditLog(Queue(pools.core_db())),
+        audit=AuditLog(queue),
     )
     return PluginHarness(registry, statuses, client, guild, member, admin, pools)

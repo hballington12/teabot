@@ -48,47 +48,41 @@ async def test_the_client_caches_members_lazily_without_message_content() -> Non
 
 class FakeHttp:
     def __init__(self) -> None:
-        self.uploads: list[tuple[int, int, list[dict[str, object]]]] = []
+        self.uploads: list[tuple[int, int | None, list[dict[str, object]]]] = []
 
     async def bulk_upsert_guild_commands(
         self, app_id: int, guild_id: int, payload: list[dict[str, object]]
     ) -> None:
         self.uploads.append((app_id, guild_id, payload))
 
+    async def bulk_upsert_global_commands(self, app_id: int, payload: list[dict[str, object]]) -> None:
+        self.uploads.append((app_id, None, payload))
 
-def client_with(
-    commands: list[dict[str, object]] | None, dev_guild_id: int | None, app_id: int | None = 555
-) -> tuple[TeapotClient, FakeHttp]:
-    client = TeapotClient(lock=None, commands=commands, dev_guild_id=dev_guild_id)  # type: ignore[arg-type]
+
+def client_with(app_id: int | None = 555) -> tuple[TeapotClient, FakeHttp]:
+    client = TeapotClient(lock=None)  # type: ignore[arg-type]
     http = FakeHttp()
     client.http = http  # type: ignore[assignment]
     client._connection.application_id = app_id  # pyright: ignore[reportPrivateUsage]
     return client, http
 
 
-async def test_development_registers_the_commands_in_the_dev_server() -> None:
-    client, http = client_with([{"name": "announcements"}], dev_guild_id=42)
-    await client._register_dev_commands()  # pyright: ignore[reportPrivateUsage]
-    assert http.uploads == [(555, 42, [{"name": "announcements"}])]
+@pytest.mark.parametrize("guild_id", [42, None])
+async def test_an_overwrite_goes_to_one_server_or_to_the_global_commands(guild_id: int | None) -> None:
+    client, http = client_with()
+    await client.overwrite_commands(guild_id, [{"name": "announcements"}])
+    assert http.uploads == [(555, guild_id, [{"name": "announcements"}])]
 
 
-async def test_no_commands_registers_an_empty_set() -> None:
-    client, http = client_with(None, dev_guild_id=42)
-    await client._register_dev_commands()  # pyright: ignore[reportPrivateUsage]
-    assert http.uploads == [(555, 42, [])]
-
-
-@pytest.mark.parametrize(("dev_guild_id", "app_id"), [(None, 555), (42, None)])
-async def test_without_a_dev_server_or_an_application_nothing_is_registered(
-    dev_guild_id: int | None, app_id: int | None
-) -> None:
-    client, http = client_with([{"name": "announcements"}], dev_guild_id=dev_guild_id, app_id=app_id)
-    await client._register_dev_commands()  # pyright: ignore[reportPrivateUsage]
+async def test_an_overwrite_before_login_is_refused() -> None:
+    client, http = client_with(app_id=None)
+    with pytest.raises(RuntimeError, match="not logged in"):
+        await client.overwrite_commands(42, [])
     assert http.uploads == []
 
 
 async def test_interactions_go_to_the_router_once_there_is_one() -> None:
-    client, _ = client_with([], dev_guild_id=None)
+    client, _ = client_with()
     seen: list[object] = []
 
     class Router:

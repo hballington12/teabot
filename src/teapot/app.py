@@ -19,9 +19,9 @@ import uvicorn
 
 import teapot
 from teapot.adapters.interactions import InteractionRouter, prune_drafts
-from teapot.adapters.schema import commands_for
 from teapot.builtin.admin import Admin
 from teapot.core.audit import POST_HANDLER, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
+from teapot.core.command_sync import SYNC_HANDLER, CommandSync
 from teapot.core.config import ConfigStore
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
@@ -71,12 +71,7 @@ def token_or_exit(token: str) -> str:
 class TeapotClient(discord.AutoShardedClient):
     """The Discord client. Members are cached lazily (D25); interactions are routed by the core (D32)."""
 
-    def __init__(
-        self,
-        lock: LockConnection,
-        commands: list[dict[str, Any]] | None = None,
-        dev_guild_id: int | None = None,
-    ) -> None:
+    def __init__(self, lock: LockConnection) -> None:
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = False
@@ -86,8 +81,6 @@ class TeapotClient(discord.AutoShardedClient):
             member_cache_flags=discord.MemberCacheFlags.from_intents(intents),
         )
         self.lock = lock
-        self.commands = commands or []
-        self.dev_guild_id = dev_guild_id
         self.router: InteractionRouter | None = None
         self._shards: asyncio.Future[int] = asyncio.get_running_loop().create_future()
 
@@ -98,16 +91,19 @@ class TeapotClient(discord.AutoShardedClient):
         await self.lock.take_shards(self.shard_ids)
         self._shards.set_result(count)
         log.info("shards locked", extra={"shard_count": count})
-        await self._register_dev_commands()
 
-    async def _register_dev_commands(self) -> None:
-        """Until per-server sync (WP3.2), development registers every command group in the dev server."""
-        if self.dev_guild_id is None or self.application_id is None:
-            return
-        await self.http.bulk_upsert_guild_commands(self.application_id, self.dev_guild_id, self.commands)
-        log.info(
-            "dev commands registered", extra={"guild_id": self.dev_guild_id, "groups": len(self.commands)}
-        )
+    async def overwrite_commands(self, guild_id: int | None, commands: list[dict[str, Any]], /) -> None:
+        """One bulk overwrite (D32): the global commands when `guild_id` is None, else one server's.
+
+        Sync jobs run only once the shards are locked, which is after login, so the application id is known.
+        """
+        if self.application_id is None:
+            raise RuntimeError("not logged in to Discord yet")
+        if guild_id is None:
+            await self.http.bulk_upsert_global_commands(self.application_id, commands)
+        else:
+            await self.http.bulk_upsert_guild_commands(self.application_id, guild_id, commands)
+        log.info("commands synced", extra={"guild_id": guild_id, "groups": len(commands)})
 
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         if self.router is not None:
@@ -170,7 +166,11 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
     admin = Admin(pools.core_db(), statuses=statuses, configs=configs)
     sources = sources_from(report.loaded) | admin.sources()
-    client = TeapotClient(lock, commands_for(sources), settings.dev_guild_id)
+    client = TeapotClient(lock)
+    sync = CommandSync(pools.core_db(), queue, sources, client)
+    admin.on_change = sync.request
+    queue.register("core", SYNC_HANDLER, sync)
+    log.info("command syncs queued", extra={"count": await sync.startup()})
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     register_plugin_jobs(queue, report.loaded, pools, client)
     registry = Registry(

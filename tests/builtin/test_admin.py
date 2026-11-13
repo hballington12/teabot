@@ -215,3 +215,10 @@ def test_admin_commands_are_the_plugins_and_audit_groups(harness: PluginHarness)
     admin = Admin(harness.pools.core_db(), statuses={}, configs={})
     names = {c["name"]: sorted(o["name"] for o in c["options"]) for c in commands_for(admin.sources())}
     assert names == {"plugins": ["config", "disable", "enable", "list"], "audit": ["channel", "recent"]}
+
+
+@pytest.mark.parametrize("action", ["plugins.enable", "plugins.disable"])
+async def test_enabling_or_disabling_queues_a_command_sync_here(harness: PluginHarness, action: str) -> None:
+    await harness.invoke(action, {"plugin": "echo"})
+    queued = await harness.admin.fetch("SELECT guild_id FROM core.jobs WHERE handler = 'sync_commands'")
+    assert [r["guild_id"] for r in queued] == [harness.guild.id]
