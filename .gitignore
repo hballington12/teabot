@@ -1,6 +1,9 @@
 # scratch space for experiments and test output
 tmp/
 
+# local Claude Code worktrees
+.claude/worktrees/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -72,6 +72,8 @@ template/                       the instance template (D43)
 tests/                          core tests
 docs/
     plan.md                     this file
+    implementation.md           work packages, spikes and their order
+    spikes.md                   findings from the spikes, added as they run
     plugin-authoring.md         written in milestone 2, published with the SDK
     self-hosting.md             written in milestone 7
 ```
