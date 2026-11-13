@@ -116,6 +116,8 @@ Met on 2026-11-13. In the test server, `/plugins disable announcements` removed 
 
 **Exit check.** The milestone 4 "done when" list in `plan.md`. The OAuth timing (open decision 2) is reviewed here.
 
+Met on 2026-11-13, except the role-removal step, which no second account was at hand to run live. Claude Code connected to `/mcp` with a `/tokens create` token, found `📋-bot-testing` with `admin_describe_guild`, and posted there twice. The log channel showed the posts and not the lookups, which went to `core.audit_reads` only. Every member-written name came back as `untrusted_text`. With `curl`, a `read` token was refused the post (403 `above_token_risk`) and allowed the lookup, and a token allowed only `announcements.post` posted and was refused everything else (403 `not_allowed_by_token`). The role-removal step rests on `test_losing_the_permission_cuts_access_on_the_next_call`, which runs the same call path, and on the live permission check every call makes (D18). A token for another server is covered by tests, since no call takes a server id. Open decision 2 is unchanged: Claude Code works with bearer tokens, and no one needs claude.ai or the desktop app yet, so OAuth stays later.
+
 ## Milestone 5: the Tea clan's instance
 
 | WP | Scope | Depends on |
