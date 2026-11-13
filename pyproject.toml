@@ -49,6 +49,12 @@ include = ["*.py", "*.pyi"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "RUF", "ASYNC", "PL"]
 ignore = ["PLR2004"]
 
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR0913", "PLR0917"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 

@@ -40,7 +40,7 @@ The design targets a framework that many people run and that grows to many serve
 ### Architecture
 
 1. **One action registry with several front doors.** A plugin registers actions, each with a typed input model, a required permission and a risk level. Slash commands, MCP tools and the service API are thin adapters over that registry. Every call goes through the same permission check and audit log, including the core's own tools.
-2. **Everything is scoped to one server.** Every action runs with a context for a single server, and the plugin API hands out nothing that reaches across servers. Every core and plugin table carries a `guild_id` column, which the migration runner checks (D9), and plugin config is stored per server.
+2. **Everything is scoped to one server.** Every action runs with a context for a single server, and the plugin API hands out nothing that reaches across servers. Every plugin table carries a `guild_id` column, which the migration runner checks (D9), and so does every core table that holds a server's data. Bookkeeping tables such as `core.migrations` hold none. Plugin config is stored per server.
 3. **Installing a plugin and enabling it are separate steps.** The operator installs plugins, which is the trusted, code-reviewed step. Each server's admins enable and configure the installed plugins they want. A plugin's commands appear only in servers where it is enabled. The full lifecycle is D7.
 4. **Plugins are Python packages found through entry points and pinned in the instance's lockfile.**
     - The loader loads every installed package that declares a `teapot.plugins` entry point. Nothing checks a signature or asks the teapot maintainers, so an operator can run plugins they wrote themselves (D44).
