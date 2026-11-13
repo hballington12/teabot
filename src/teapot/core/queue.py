@@ -7,7 +7,7 @@ at claim time and never stored, so resharding leaves nothing stale. A job for no
 
 import json
 import logging
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -95,9 +95,9 @@ class JobContext:
         self.job = job
         self._db = db
 
-    async def report(self, progress: dict[str, Any]) -> None:
+    async def report(self, progress: Mapping[str, Any]) -> None:
         await self._db.execute(
-            "UPDATE core.jobs SET progress = $2::jsonb WHERE id = $1", self.job.id, json.dumps(progress)
+            "UPDATE core.jobs SET progress = $2::jsonb WHERE id = $1", self.job.id, json.dumps(dict(progress))
         )
 
 

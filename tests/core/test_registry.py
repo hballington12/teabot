@@ -9,7 +9,6 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.core.config import ConfigStore
 from teapot.core.loader import Loaded
 from teapot.core.registry import (
     ActionFailed,
@@ -132,7 +131,6 @@ async def world(admin: Conn, naming: Naming, pools: Pools, tmp_path: Path) -> Wo
     registry = Registry(
         sources_from(loaded),
         pools=pools,
-        config=ConfigStore(pools.core_db()),
         client=FakeClient({GUILD: guild}),
         audit=audit,
     )

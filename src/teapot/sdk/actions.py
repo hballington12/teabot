@@ -1,10 +1,10 @@
 """Actions (D1, D17, D21, D29): what a plugin offers, and what each call receives."""
 
 import re
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Flag, IntEnum, auto
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 import discord
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from teapot.sdk.db import Db, Scheduler
 from teapot.sdk.ids import PLUGIN_ID_RE
 from teapot.sdk.inputs import input_fields
+from teapot.sdk.plans import Diff
 
 ACTION_NAME_RE = re.compile(rf"({PLUGIN_ID_RE.pattern})\.([a-z][a-z0-9_]{{0,31}})")
 
@@ -69,6 +70,11 @@ class ActionContext(Protocol):
     @property
     def queue(self) -> Scheduler: ...
 
+    async def report(self, progress: Mapping[str, Any], /) -> None:
+        """Record how far the action has got. A destructive action's apply runs as a job, and this is its
+        progress, which `admin.job_status` shows; elsewhere it does nothing (D21, D31)."""
+        ...
+
 
 @dataclass(frozen=True)
 class ActionSpec[I: BaseModel, O: BaseModel]:
@@ -82,7 +88,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     run: Callable[[ActionContext, I], Awaitable[O]]
     default_permissions: discord.Permissions = field(default_factory=discord.Permissions.none)
     surfaces: Surface = Surface.ALL
-    plan: Callable[[ActionContext, I], Awaitable[BaseModel]] | None = None
+    plan: Callable[[ActionContext, I], Awaitable[Diff]] | None = None
     render: Callable[[O], discord.Embed | str] | None = None
 
     def __post_init__(self) -> None:

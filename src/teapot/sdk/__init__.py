@@ -9,6 +9,7 @@ from teapot.sdk.db import Db, Queries, Row, Scheduler, Tx
 from teapot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teapot.sdk.ids import InvalidPluginId
 from teapot.sdk.inputs import InputError, InputField
+from teapot.sdk.plans import Diff, DiffEntry
 from teapot.sdk.plugin import EmptyConfig, JobContext, JobHandler, Manifest, Plugin, Registrar
 
 __all__ = [
@@ -18,6 +19,8 @@ __all__ = [
     "Actor",
     "ChannelRef",
     "Db",
+    "Diff",
+    "DiffEntry",
     "EmptyConfig",
     "InputError",
     "InputField",

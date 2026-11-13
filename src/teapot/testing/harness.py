@@ -12,6 +12,7 @@ from teapot.auth.tokens import Tokens
 from teapot.core.loader import from_plugins, load
 from teapot.core.queue import Queue
 from teapot.core.registry import Call, Registry
+from teapot.core.worker import Workers
 from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
@@ -38,6 +39,7 @@ class PluginHarness:
     admin: Conn
     pools: Pools
     tokens: Tokens
+    workers: Workers
 
     async def invoke(
         self, action: str, raw_input: Mapping[str, Any] | None = None, *, user: int | None = None
@@ -45,6 +47,14 @@ class PluginHarness:
         """Run an action as a member would from a slash command."""
         actor = Actor(user if user is not None else self.member.id, "slash")
         return await self.registry.invoke(Call(action, self.guild.id, actor, raw_input or {}))
+
+    async def run_jobs(self) -> int:
+        """Run every due job of the core and this plugin through the real worker path, such as a confirmed
+        plan's apply. Returns how many ran."""
+        ran = 0
+        while await self.workers.run_once():
+            ran += 1
+        return ran
 
     async def invoke_with_token(
         self, token: str, action: str, raw_input: Mapping[str, Any] | None = None, *, via: Via = "mcp"
@@ -72,4 +82,7 @@ async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: P
     client = FakeClient({guild.id: guild})
     await admin.execute(ENABLE, guild.id, plugin_id)
     core = assemble(report, pools, Queue(pools.core_db()), client)
-    return PluginHarness(core.registry, core.statuses, client, guild, member, admin, pools, core.tokens)
+    workers = Workers(core.queue, lambda: ["core", plugin_id])
+    return PluginHarness(
+        core.registry, core.statuses, client, guild, member, admin, pools, core.tokens, workers
+    )

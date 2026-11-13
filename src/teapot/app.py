@@ -22,8 +22,7 @@ import teapot
 from teapot.adapters.interactions import InteractionRouter, prune_drafts
 from teapot.adapters.mcp import McpAdapter
 from teapot.assembly import assemble
-from teapot.core.audit import POST_HANDLER, AuditMaintenance, PostAudit, ensure_read_partitions
-from teapot.core.command_sync import SYNC_HANDLER
+from teapot.core.audit import AuditMaintenance, ensure_read_partitions
 from teapot.core.lifecycle import PURGE_GUILD, Guilds
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
@@ -195,11 +194,9 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
     client = TeapotClient(lock)
     core = assemble(report, pools, queue, client)
-    queue.register("core", SYNC_HANDLER, core.sync)
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await core.sync.startup()})
-    queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     register_plugin_jobs(queue, report.loaded, pools, client)
     client.router = InteractionRouter(core.registry, pools.core_db())
     health = Health(

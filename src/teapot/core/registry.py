@@ -7,8 +7,8 @@ the action is known is audited once with the outcome `refused`. Token checks (D1
 """
 
 import logging
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass, replace
 from functools import partial
 from typing import Any, Literal, Protocol
 
@@ -32,6 +32,10 @@ type RefusalCode = Literal[
     "config_invalid",
     "invalid_input",
     "forbidden",
+    "confirm_unknown",
+    "confirm_mismatch",
+    "plan_expired",
+    "plan_used",
 ]
 
 # The front door a call came through, and the surface an action must offer for it (D1).
@@ -114,6 +118,19 @@ class Audit(Protocol):
     async def single(self, call: CallRecord, outcome: str, error: str | None) -> None: ...
 
 
+class PlanBook(Protocol):
+    """Plan then apply (D21), in `teapot.core.plans`: a destructive call plans, or applies a confirmed plan."""
+
+    async def handle(
+        self,
+        spec: "ActionSpec[Any, Any]",
+        ctx: "PluginActionContext",
+        data: BaseModel,
+        record: CallRecord,
+        confirm: str | None,
+    ) -> BaseModel: ...
+
+
 class Member(Protocol):
     @property
     def guild_permissions(self) -> discord.Permissions: ...
@@ -141,6 +158,12 @@ class PluginActionContext:
     actor: Actor
     config: BaseModel
     open_db: Callable[[], GuildPluginDatabase] | None
+    reporter: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None
+
+    async def report(self, progress: Mapping[str, Any], /) -> None:
+        """A destructive action's progress, written to its apply job; elsewhere nothing (D21)."""
+        if self.reporter is not None:
+            await self.reporter(progress)
 
     @property
     def db(self) -> GuildPluginDatabase:
@@ -182,6 +205,14 @@ async def member_permissions(guild: Guild, user_id: int) -> discord.Permissions:
     return (await find_member(guild, user_id)).guild_permissions
 
 
+def split_confirm(spec: ActionSpec[Any, Any], call: Call) -> tuple[str | None, Call]:
+    """A destructive call's `confirm` value, which the core adds to its input (D21), and the call without it."""
+    if spec.risk is not Risk.DESTRUCTIVE or "confirm" not in call.raw_input:
+        return None, call
+    rest = {k: v for k, v in call.raw_input.items() if k != "confirm"}
+    return str(call.raw_input["confirm"]), replace(call, raw_input=rest)
+
+
 def sources_from(loaded: Mapping[str, Loaded]) -> dict[str, ActionSource]:
     return {plugin_id: ActionSource(p.plugin.manifest.config, p.actions) for plugin_id, p in loaded.items()}
 
@@ -192,15 +223,16 @@ class Registry:
         sources: Mapping[str, ActionSource],
         *,
         pools: Pools,
-        config: ConfigStore,
         client: GuildSource,
         audit: Audit,
+        plans: PlanBook | None = None,
     ) -> None:
         self.sources = sources
         self.pools = pools
-        self.config = config
+        self.config = ConfigStore(pools.core_db())
         self.client = client
         self.audit = audit
+        self.plans = plans
         self.actions: dict[str, ActionSpec[Any, Any]] = {
             name: spec for source in sources.values() for name, spec in source.actions.items()
         }
@@ -212,13 +244,49 @@ class Registry:
         guild = self.client.get_guild(call.guild_id)
         if guild is None:
             raise Refused("not_in_guild", "the bot is not in that server")
+        confirm, call = split_confirm(spec, call)
         record = CallRecord(call.action, call.guild_id, call.actor, call.raw_input, spec.risk)
         try:
             ctx, data = await self._prepare(spec, call, guild)
+            if spec.risk is Risk.DESTRUCTIVE:
+                return await self._destructive(spec, ctx, data, record, confirm)
         except Refused as refusal:
             await self.audit.single(record, "refused", refusal.code)
             raise
         return await self._run(spec, record, ctx, data)
+
+    async def _destructive(
+        self,
+        spec: ActionSpec[Any, Any],
+        ctx: PluginActionContext,
+        data: BaseModel,
+        record: CallRecord,
+        confirm: str | None,
+    ) -> BaseModel:
+        if self.plans is None:
+            raise RuntimeError("destructive actions need the core's plans")
+        return await self.plans.handle(spec, ctx, data, record, confirm)
+
+    async def run_apply(
+        self, call: Call, audit_id: int, report: Callable[[Mapping[str, Any]], Awaitable[None]]
+    ) -> None:
+        """The `apply` job: check the member again, then run the confirmed action and record its outcome.
+        A refusal ends it quietly; a failure is recorded and raised, so the job fails and is not retried."""
+        spec = self.actions[call.action]
+        guild = self.client.get_guild(call.guild_id)
+        try:
+            if guild is None:
+                raise Refused("not_in_guild", "the bot is not in that server")
+            ctx, data = await self._prepare(spec, call, guild)
+        except Refused as refusal:
+            await self.audit.finished(audit_id, "refused", refusal.code)
+            return
+        try:
+            await spec.run(replace(ctx, reporter=report), data)
+        except Exception as exc:
+            await self.audit.finished(audit_id, "error", repr(exc))
+            raise
+        await self.audit.finished(audit_id, "ok", None)
 
     async def _prepare(
         self, spec: ActionSpec[Any, Any], call: Call, guild: Guild
