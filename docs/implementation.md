@@ -69,6 +69,8 @@ S1 and S2 run before milestone 1's database work. S3 and S4 run during milestone
 
 **Exit check.** `uv run teapot run` connects to the test server, and a second `teapot run` with the same token refuses to start. pytest, ruff, pyright and import-linter pass in CI.
 
+Met on 2026-11-13: the test server showed one connected shard, a second process exited 1 with `ShardOwnedError`, and SIGTERM gave exit 0.
+
 ## Milestone 2: actions and the interaction router
 
 | WP | Scope | Depends on |

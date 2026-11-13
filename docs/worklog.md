@@ -26,3 +26,15 @@ Each action taken while building teapot, and why. Newest last. Commits carry the
     - **Modelled the scope.** A handle with an optional role made "core with a role" writable. `Database` is now the core handle and `PluginDatabase` adds the role switch, so the role checks are gone. The open-block check now applies to the core too, which has the same read-your-writes trap.
     - **Made timing testable.** A `Timing` value carries the slow threshold and an injectable clock, so the boundary is tested exactly. The cosmetic `round()` went.
     - **Missing tests:** JSON log attribute filtering, the formatter choice, a plugin without migrations, closing the lock connection, the 2³¹ boundary, `--admin-user` and the warning.
+- **WP1.7 app runner.** Written test-first: maintenance, `/healthz` and `plugins list`, then the runner.
+    - The health tests first used Starlette's `TestClient`, which runs the app on its own loop where asyncpg's connections do not work. They call the app in the test's loop instead, as production does.
+    - crapper failed the first runner at CRAP 17.8 on untested orchestration. The orchestration moved into `runtime.py` over two small protocols and is tested with real pools, lock connection and workers and fake Discord and HTTP. `app.py` keeps only the real wiring.
+    - Bugs found on the way:
+        - the process row appeared a minute after start
+        - a duplicate process served HTTP before finding its shard taken
+        - uvicorn logged a traceback on shutdown, because its task was cancelled
+        - an already-recorded failure re-raised during shutdown
+        - text logs dropped the failure reason
+        - uvicorn's colour copy of each message leaked into the logs
+    - Mutator then removed two dead values: `shard_count or 1` and a placeholder count. `wait_for_shards()` and one future replace them.
+    - Checked live: `teapot run` connected to the test server and reported healthy; a second process on the token stopped with exit 1 and one clear reason; SIGTERM gave a clean exit 0 with no process row left. close() after a failed login was checked against Discord with a bad token.

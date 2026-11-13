@@ -12,7 +12,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 
 from teapot.db.lockkeys import PLUGIN_NS, SHARD_NS, objid_to_key, plugin_key
-from teapot.db.pool import Database, Login, connect
+from teapot.db.pool import Database, Login, Queries, connect
 from teapot.db.types import Conn
 
 log = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ async def open_lock_connection(login: Login, on_lost: Callable[[], None]) -> Loc
     return LockConnection(await connect(login), on_lost)
 
 
-async def loaded_plugins(db: Database, known_ids: Iterable[str]) -> set[str]:
+async def loaded_plugins(db: Queries, known_ids: Iterable[str]) -> set[str]:
     """The known plugins that some process holds a shared lock on, read from `pg_locks`."""
     by_key = {plugin_key(p): p for p in known_ids}
     rows = await db.fetch(LOADED_PLUGIN_LOCKS, PLUGIN_NS)

@@ -200,18 +200,19 @@ async def create_pools(
     timing: Timing | None = None,
 ) -> Pools:
     """Open both pools. Each gets `size` connections at most."""
-
-    async def make(user: str, password: str) -> Pool:
-        return await asyncpg.create_pool(
-            host=info.host,
-            port=info.port,
-            database=info.database,
-            user=user,
-            password=password,
-            min_size=1,
-            max_size=size,
-        )
-
-    core = await make(naming.app_role, credentials.app_password)
-    plugins = await make(naming.plugins_role, credentials.plugins_password)
+    core = await open_pool(Login(info, naming.app_role, credentials.app_password), size)
+    plugins = await open_pool(Login(info, naming.plugins_role, credentials.plugins_password), size)
     return Pools(core, plugins, naming, timing or Timing())
+
+
+async def open_pool(login: Login, size: int) -> Pool:
+    """A pool that opens one connection up front and grows to `size`."""
+    return await asyncpg.create_pool(
+        host=login.info.host,
+        port=login.info.port,
+        database=login.info.database,
+        user=login.user,
+        password=login.password,
+        min_size=1,
+        max_size=size,
+    )

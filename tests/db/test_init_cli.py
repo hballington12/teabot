@@ -1,36 +1,15 @@
 """`teapot init` against a real database (WP1.3)."""
 
 import asyncio
-import os
 from pathlib import Path
 from typing import Any
 
-import pytest
 from typer.testing import CliRunner
 
 from teapot.cli import app
 from teapot.db.naming import Naming
 from teapot.db.types import Conn
 from teapot.envfile import read_values
-
-
-@pytest.fixture
-def env_file(
-    tmp_path: Path, owner_kwargs: dict[str, Any], naming: Naming, monkeypatch: pytest.MonkeyPatch
-) -> Path:
-    for name in list(os.environ):
-        if name.startswith("TEAPOT_"):
-            monkeypatch.delenv(name)
-    env = tmp_path / "teapot.env"
-    env.write_text(
-        f"TEAPOT_DB_HOST={owner_kwargs['host']}\n"
-        f"TEAPOT_DB_PORT={owner_kwargs['port']}\n"
-        f"TEAPOT_DB_NAME={owner_kwargs['database']}\n"
-        f"TEAPOT_DB_OWNER_USER={owner_kwargs['user']}\n"
-        f"TEAPOT_DB_OWNER_PASSWORD={owner_kwargs['password']}\n"
-        f"TEAPOT_DB_ROLE_PREFIX={naming.prefix}\n"
-    )
-    return env
 
 
 async def test_init_generates_passwords_and_roles(env_file: Path, admin: Conn, naming: Naming) -> None:
