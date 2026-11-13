@@ -1,0 +1,29 @@
+# scratch space for experiments and test output
+tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# tooling caches
+.pytest_cache/
+.ruff_cache/
+.pyright/
+.coverage
+htmlcov/
+
+# local data and secrets
+*.db
+*.db-wal
+*.db-shm
+*.env
+!*.env.example
+
+# editors and OS
+.idea/
+.vscode/
+.DS_Store
