@@ -33,11 +33,11 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 
 These steps need the maintainers, because they create accounts and secrets.
 
-- [ ] Create a private GitHub repository for the framework and push `main`. It stays private until milestone 7 releases it.
+- [x] Create a private GitHub repository for the framework and push `main`. It stays private until milestone 7 releases it. Done: `hballington12/teapot`.
 - [ ] Create the **dev** Discord application and bot (D38). Turn on the Server Members intent. Leave Message Content off.
 - [ ] Create a test server and invite the dev bot with the `bot` and `applications.commands` scopes and Administrator.
 - [ ] Put the dev bot token in a local `teapot.env`, which `.gitignore` already excludes.
-- [ ] Install Docker or Podman with Compose locally, for the dev Postgres.
+- [x] Install Docker or Podman with Compose locally, for the dev Postgres. Done: Docker with Compose is installed.
 
 ## Spikes
 
@@ -167,6 +167,7 @@ These are settled here and do not need a design decision of their own.
 
 ## Tracking
 
-- Each work package is a GitHub issue named after its id, for example "WP1.3 Database layer", with a milestone M1 to M7.
-- Spikes are issues labelled `spike`, closed by the pull request that adds their findings to `docs/spikes.md`.
+- Each work package is a GitHub issue named after its id, for example "WP1.3 Database layer", labelled `work package` and placed in its milestone, M1 to M7.
+- Spikes are issues labelled `spike`, closed by the pull request that adds their findings to `docs/spikes.md`. S1 to S4 sit in M1 and S5 in M3, where they run.
+- The 42 issues (5 spikes and 37 work packages) were created from this document's tables. A pull request names its issue with "Closes #n".
 - This document is updated when a work package is split, merged or reordered, so it stays the current plan.
