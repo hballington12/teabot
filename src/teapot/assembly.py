@@ -10,6 +10,7 @@ from typing import Protocol
 
 from teapot.auth.tokens import Tokens
 from teapot.builtin.admin import Admin
+from teapot.builtin.lookups import Lookups
 from teapot.builtin.tokens import TokenCommands
 from teapot.core.audit import AuditLog
 from teapot.core.command_sync import CommandApi, CommandSync
@@ -39,7 +40,8 @@ def assemble(report: LoadReport, pools: Pools, queue: Queue, client: Client) -> 
     admin = Admin(pools.core_db(), statuses=statuses, configs=configs)
     tokens = Tokens(pools.core_db())
     token_commands = TokenCommands(tokens)
-    sources = sources_from(report.loaded) | admin.sources() | token_commands.sources()
+    lookups = Lookups(pools.core_db())
+    sources = sources_from(report.loaded) | admin.sources() | token_commands.sources() | lookups.sources()
     sync = CommandSync(pools.core_db(), queue, sources, client)
     admin.on_change = sync.request
     registry = Registry(

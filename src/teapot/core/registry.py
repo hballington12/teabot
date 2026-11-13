@@ -166,15 +166,20 @@ class ActionSource:
     builtin: bool = False
 
 
-async def member_permissions(guild: Guild, user_id: int) -> discord.Permissions:
-    """A member's current permissions, from the cache or over REST when not cached (D18, D25)."""
+async def find_member(guild: Guild, user_id: int) -> Member:
+    """A member, from the cache or over REST when not cached (D18, D25)."""
     member = guild.get_member(user_id)
     if member is None:
         try:
             member = await guild.fetch_member(user_id)
         except discord.NotFound:
             raise Refused("forbidden", "you are not a member of this server") from None
-    return member.guild_permissions
+    return member
+
+
+async def member_permissions(guild: Guild, user_id: int) -> discord.Permissions:
+    """A member's current permissions (D18)."""
+    return (await find_member(guild, user_id)).guild_permissions
 
 
 def sources_from(loaded: Mapping[str, Loaded]) -> dict[str, ActionSource]:
