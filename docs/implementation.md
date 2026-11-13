@@ -103,6 +103,8 @@ Met on 2026-11-13. In the test server, `/announcements post` opened its modal, p
 
 **Exit check.** The milestone 3 "done when" list in `plan.md`.
 
+Met on 2026-11-13. In the test server, `/plugins disable announcements` removed its commands, `/plugins enable` brought them back, and an account without Manage Server could not reach `/plugins`. Kicking the bot and inviting it back within the grace period kept its settings and history; the queued purge was cancelled. Blocking devtools removed its commands and kept its data. `plugins purge devtools` was refused while a process had it loaded, and once it was blocked it dropped the schema, role and rows. With a zero-day grace period, a kick deleted every row for the server from every table.
+
 ## Milestone 4: tokens, MCP and the service API
 
 | WP | Scope | Depends on |
