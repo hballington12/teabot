@@ -73,11 +73,17 @@ setup_postgres() {
     local conf pw changed=""
     conf=$(pg_conf_dir)
     changed+=$(install_if_changed "$HERE/postgresql/teapot.conf" "$conf/conf.d/teapot.conf")
-    if ! grep -q '^local[[:space:]]\+teapot[[:space:]]' "$conf/pg_hba.conf"; then
-        awk 'done == 0 && /^local/ { print "local   teapot          all                                     scram-sha-256"; done = 1 } { print }' \
-            "$conf/pg_hba.conf" > "$conf/pg_hba.conf.new"
-        mv "$conf/pg_hba.conf.new" "$conf/pg_hba.conf"
-        chown postgres:postgres "$conf/pg_hba.conf"
+    # teapot's roles log in with passwords over the socket. The rule goes after the postgres superuser's peer
+    # rule, so `sudo -u postgres psql` keeps working, and before the catch-all `local all all` peer rule.
+    awk '/^local[[:space:]]+teapot[[:space:]]/ { next }
+        done == 0 && /^local[[:space:]]+all[[:space:]]+all[[:space:]]/ {
+            print "local   teapot          all                                     scram-sha-256"; done = 1 }
+        { print }' "$conf/pg_hba.conf" > "$conf/pg_hba.conf.new"
+    if cmp -s "$conf/pg_hba.conf.new" "$conf/pg_hba.conf"; then
+        rm -f "$conf/pg_hba.conf.new"
+    else
+        install -o postgres -g postgres -m 0640 "$conf/pg_hba.conf.new" "$conf/pg_hba.conf"
+        rm -f "$conf/pg_hba.conf.new"
         changed+=changed
     fi
     [ -z "$changed" ] || systemctl restart postgresql
