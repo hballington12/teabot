@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from teapot.sdk import (
     ActionSpec,
     ChannelRef,
+    InputError,
     LongText,
     Manifest,
     MemberRef,
@@ -120,3 +121,11 @@ def test_the_largest_64_bit_id_is_accepted(given: int | str) -> None:
 def test_ids_past_64_bits_are_refused(given: int | str) -> None:
     with pytest.raises(ValidationError):
         Post(channel=given, body="x")  # type: ignore[arg-type]
+
+
+def test_an_action_with_an_unsupported_input_field_cannot_be_built() -> None:
+    class Bad(BaseModel):
+        ratio: float
+
+    with pytest.raises(InputError, match="ratio"):
+        spec(input=Bad)

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from teapot.sdk.db import Db, Scheduler
 from teapot.sdk.ids import PLUGIN_ID_RE
+from teapot.sdk.inputs import input_fields
 
 ACTION_NAME_RE = re.compile(rf"({PLUGIN_ID_RE.pattern})\.([a-z][a-z0-9_]{{0,31}})")
 
@@ -80,6 +81,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
             raise ValueError(f"action name {self.name!r} must be <plugin id>.<action>, in lower case")
         if self.risk is Risk.DESTRUCTIVE and self.plan is None:
             raise ValueError(f"{self.name} is destructive and needs a plan (D21)")
+        input_fields(self.input)
 
     @property
     def plugin_id(self) -> str:

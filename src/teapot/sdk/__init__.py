@@ -8,6 +8,7 @@ from teapot.sdk.actions import ActionContext, ActionSpec, Actor, Risk, Surface
 from teapot.sdk.db import Db, Queries, Row, Scheduler, Tx
 from teapot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teapot.sdk.ids import InvalidPluginId
+from teapot.sdk.inputs import InputError, InputField
 from teapot.sdk.plugin import EmptyConfig, JobContext, JobHandler, Manifest, Plugin, Registrar
 
 __all__ = [
@@ -17,6 +18,8 @@ __all__ = [
     "ChannelRef",
     "Db",
     "EmptyConfig",
+    "InputError",
+    "InputField",
     "InvalidPluginId",
     "JobContext",
     "JobHandler",
