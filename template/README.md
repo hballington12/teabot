@@ -61,6 +61,7 @@ The Tea clan's droplet runs this way (D37), on Ubuntu 24.04:
 3. `ssh -t root@host /opt/teapot/deploy/bare-metal/set-discord-token.sh` asks for the bot token and starts the bot.
 4. `ssh -t root@host /opt/teapot/deploy/bare-metal/setup-backups.sh <bucket> <region>` asks for the bucket's access key and starts continuous backups. It also generates the encryption passphrase. Copy it somewhere safe, because without it no backup can be restored.
 5. Later deploys: `deploy/bare-metal/deploy.sh root@host` pulls `main`, syncs, restarts and waits for `/healthz`.
+6. The restore drill: `deploy/bare-metal/restore-drill.sh root@host`, from a machine with Docker, restores the latest backup into a scratch container and checks it against the host. It also checks a marker written just before, which proves the archived WAL replays. Run it after setup, and again now and then.
 
 Files:
 - `deploy/bare-metal/lib.sh` holds what the scripts share.
