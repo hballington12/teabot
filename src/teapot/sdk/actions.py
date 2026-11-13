@@ -16,6 +16,11 @@ from teapot.sdk.inputs import input_fields
 ACTION_NAME_RE = re.compile(rf"({PLUGIN_ID_RE.pattern})\.([a-z][a-z0-9_]{{0,31}})")
 
 
+class ActionError(Exception):
+    """Raise from an action to tell the member what went wrong. The message is shown to them as written,
+    and recorded in the audit log as the error."""
+
+
 class Risk(IntEnum):
     """Ordered, so a token's maximum risk is one comparison (D17)."""
 

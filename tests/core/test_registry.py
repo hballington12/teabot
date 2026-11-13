@@ -16,7 +16,7 @@ from teapot.db.migrate import PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
 from teapot.db.types import Conn
-from teapot.sdk import ActionContext, ActionSpec, Actor, Manifest, Risk
+from teapot.sdk import ActionContext, ActionError, ActionSpec, Actor, Manifest, Risk
 from teapot.testing import FakeClient, FakeGuild, FakeMember
 
 GUILD, MEMBER, STRANGER, UNCACHED = 1001, 2001, 2002, 2003
@@ -60,11 +60,16 @@ async def boom(_ctx: ActionContext, _data: Count) -> Counted:
     raise RuntimeError("it broke")
 
 
+async def refuse_politely(_ctx: ActionContext, _data: Count) -> Counted:
+    raise ActionError("that channel is not a text channel")
+
+
 MANAGE = discord.Permissions(manage_messages=True)
 SPECS = [
     ActionSpec("alpha.count", "Count entries", Count, Counted, Risk.READ, count),
     ActionSpec("alpha.add", "Add an entry", Add, Added, Risk.WRITE, add, default_permissions=MANAGE),
     ActionSpec("alpha.boom", "Fail", Count, Counted, Risk.WRITE, boom),
+    ActionSpec("alpha.polite", "Fail with a message", Count, Counted, Risk.WRITE, refuse_politely),
 ]
 
 
@@ -200,4 +205,17 @@ async def test_a_failing_action_is_audited_as_an_error_and_raised(world: World) 
 
 
 def test_the_registry_lists_its_actions(world: World) -> None:
-    assert set(world.registry.actions) == {"alpha.count", "alpha.add", "alpha.boom"}
+    assert set(world.registry.actions) == {"alpha.count", "alpha.add", "alpha.boom", "alpha.polite"}
+
+
+async def test_an_action_error_carries_a_message_for_the_member(world: World) -> None:
+    with pytest.raises(ActionFailed) as caught:
+        await world.registry.invoke(call("alpha.polite"))
+    assert caught.value.public_message == "that channel is not a text channel"
+    assert world.audit.events[-1] == ("finished", (1, "error", "that channel is not a text channel"))
+
+
+async def test_other_failures_carry_no_public_message(world: World) -> None:
+    with pytest.raises(ActionFailed) as caught:
+        await world.registry.invoke(call("alpha.boom"))
+    assert caught.value.public_message is None

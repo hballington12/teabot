@@ -4,7 +4,7 @@ It follows semantic versioning from 1.0. Additions are minor releases (D6); ever
 internal and may change in any release.
 """
 
-from teapot.sdk.actions import ActionContext, ActionSpec, Actor, Risk, Surface
+from teapot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk, Surface
 from teapot.sdk.db import Db, Queries, Row, Scheduler, Tx
 from teapot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teapot.sdk.ids import InvalidPluginId
@@ -13,6 +13,7 @@ from teapot.sdk.plugin import EmptyConfig, JobContext, JobHandler, Manifest, Plu
 
 __all__ = [
     "ActionContext",
+    "ActionError",
     "ActionSpec",
     "Actor",
     "ChannelRef",

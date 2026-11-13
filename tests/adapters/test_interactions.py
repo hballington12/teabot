@@ -230,3 +230,11 @@ def test_the_default_embed_shows_each_output_field() -> None:
     embed = default_embed(POST, Posted(message_id=9, preview="Hi there"))
     assert embed.title == "Post an announcement"
     assert [(f.name, f.value) for f in embed.fields] == [("Message id", "9"), ("Preview", "Hi there")]
+
+
+async def test_an_action_error_is_shown_to_the_member(router: tuple[InteractionRouter, FakeRegistry]) -> None:
+    r, registry = router
+    registry.result = ActionFailed("ActionError('no')", public_message="that channel is not a text channel")
+    interaction = command("ping", [])
+    await r.handle(interaction)
+    assert interaction.events[-1] == ("followup", "that channel is not a text channel", True)

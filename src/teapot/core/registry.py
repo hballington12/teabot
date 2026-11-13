@@ -17,7 +17,7 @@ from pydantic import BaseModel, ValidationError
 from teapot.core.config import ConfigError, ConfigStore
 from teapot.core.loader import Loaded
 from teapot.db.pool import GuildPluginDatabase, Pools
-from teapot.sdk import ActionSpec, Actor, Risk
+from teapot.sdk import ActionError, ActionSpec, Actor, Risk
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,12 @@ class Refused(Exception):
 
 
 class ActionFailed(Exception):
-    """The action ran and raised. The audit row holds the error."""
+    """The action ran and raised. The audit row holds the error. `public_message` is set when the action
+    raised `ActionError`, whose message is meant for the member."""
+
+    def __init__(self, error: str, public_message: str | None = None) -> None:
+        super().__init__(error)
+        self.public_message = public_message
 
 
 @dataclass(frozen=True)
@@ -168,6 +173,9 @@ class Registry:
         audit_id = await self.audit.started(record) if spec.risk > Risk.READ else None
         try:
             output = await spec.run(ctx, data)
+        except ActionError as exc:
+            await self._record(spec, record, audit_id, "error", str(exc))
+            raise ActionFailed(repr(exc), public_message=str(exc)) from exc
         except Exception as exc:
             await self._record(spec, record, audit_id, "error", repr(exc))
             raise ActionFailed(repr(exc)) from exc

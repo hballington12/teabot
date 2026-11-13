@@ -132,8 +132,8 @@ class InteractionRouter:
         except Refused as refusal:
             await interaction.followup.send(refusal.message, ephemeral=True)
             return
-        except ActionFailed:
-            await interaction.followup.send(FAILED, ephemeral=True)
+        except ActionFailed as failure:
+            await interaction.followup.send(failure.public_message or FAILED, ephemeral=True)
             return
         await self._reply(interaction, self.registry.actions[name], output)
 
