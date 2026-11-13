@@ -7,11 +7,12 @@ from typing import Any
 import discord
 from pydantic import BaseModel
 
+from teapot.builtin.admin import Admin
 from teapot.core.audit import AuditLog
 from teapot.core.config import ConfigStore
 from teapot.core.loader import from_plugins, load
 from teapot.core.queue import Queue
-from teapot.core.registry import Call, Registry
+from teapot.core.registry import Call, Registry, sources_from
 from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
@@ -30,6 +31,7 @@ class PluginHarness:
     """One plugin, enabled in one fake server whose first member has Administrator."""
 
     registry: Registry
+    statuses: dict[str, str]
     client: FakeClient
     guild: FakeGuild
     member: FakeMember
@@ -59,11 +61,14 @@ async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: P
     member = guild.add_member(discord.Permissions.all())
     client = FakeClient({guild.id: guild})
     await admin.execute(ENABLE, guild.id, plugin_id)
+    statuses = report.labels()
+    configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
+    admin_plugin = Admin(pools.core_db(), statuses=statuses, configs=configs)
     registry = Registry(
-        report.loaded,
+        sources_from(report.loaded) | admin_plugin.sources(),
         pools=pools,
         config=ConfigStore(pools.core_db()),
         client=client,
         audit=AuditLog(Queue(pools.core_db())),
     )
-    return PluginHarness(registry, client, guild, member, admin, pools)
+    return PluginHarness(registry, statuses, client, guild, member, admin, pools)

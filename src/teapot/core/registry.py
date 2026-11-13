@@ -7,8 +7,9 @@ the action is known is audited once with the outcome `refused`. Token checks (D1
 """
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Literal, Protocol
 
 import discord
@@ -93,32 +94,59 @@ class GuildSource(Protocol):
 
 @dataclass(frozen=True)
 class PluginActionContext:
-    """The `ActionContext` one call receives, for one server (D2)."""
+    """The `ActionContext` one call receives, for one server (D2). The plugin's database is opened on first
+    use, so a built-in action, which works through core services, never needs a plugin schema."""
 
     guild: Any
     actor: Actor
-    db: GuildPluginDatabase
     config: BaseModel
-    queue: GuildPluginDatabase
+    open_db: Callable[[], GuildPluginDatabase] | None
+
+    @property
+    def db(self) -> GuildPluginDatabase:
+        if self.open_db is None:
+            raise RuntimeError("built-in actions work through core services, not ctx.db")
+        return self.open_db()
+
+    @property
+    def queue(self) -> GuildPluginDatabase:
+        return self.db
+
+
+@dataclass(frozen=True)
+class ActionSource:
+    """What the registry needs from one plugin: its config model, its actions, and how it is enabled.
+
+    A built-in plugin is always enabled and has no schema; an installed one is enabled per server and acts
+    as its own role in its own schema (D9).
+    """
+
+    config: type[BaseModel]
+    actions: Mapping[str, ActionSpec[Any, Any]]
+    builtin: bool = False
+
+
+def sources_from(loaded: Mapping[str, Loaded]) -> dict[str, ActionSource]:
+    return {plugin_id: ActionSource(p.plugin.manifest.config, p.actions) for plugin_id, p in loaded.items()}
 
 
 class Registry:
     def __init__(
         self,
-        loaded: Mapping[str, Loaded],
+        sources: Mapping[str, ActionSource],
         *,
         pools: Pools,
         config: ConfigStore,
         client: GuildSource,
         audit: Audit,
     ) -> None:
-        self.loaded = loaded
+        self.sources = sources
         self.pools = pools
         self.config = config
         self.client = client
         self.audit = audit
         self.actions: dict[str, ActionSpec[Any, Any]] = {
-            name: spec for plugin in loaded.values() for name, spec in plugin.actions.items()
+            name: spec for source in sources.values() for name, spec in source.actions.items()
         }
 
     async def invoke(self, call: Call) -> BaseModel:
@@ -140,12 +168,11 @@ class Registry:
         self, spec: ActionSpec[Any, Any], call: Call, guild: Guild
     ) -> tuple[PluginActionContext, BaseModel]:
         plugin_id = spec.plugin_id
-        if not await self.pools.core_db().fetchval(ENABLED, call.guild_id, plugin_id):
+        source = self.sources[plugin_id]
+        if not source.builtin and not await self.pools.core_db().fetchval(ENABLED, call.guild_id, plugin_id):
             raise Refused("plugin_not_enabled", f"{plugin_id} is not enabled in this server")
         try:
-            config = await self.config.load(
-                call.guild_id, plugin_id, self.loaded[plugin_id].plugin.manifest.config
-            )
+            config = await self.config.load(call.guild_id, plugin_id, source.config)
         except ConfigError as exc:
             raise Refused("config_invalid", str(exc)) from exc
         try:
@@ -153,8 +180,8 @@ class Registry:
         except ValidationError as exc:
             raise Refused("invalid_input", str(exc)) from exc
         await self._check_permission(spec, call, guild)
-        db = self.pools.guild_plugin_db(plugin_id, call.guild_id)
-        return PluginActionContext(guild, call.actor, db, config, db), data
+        open_db = None if source.builtin else partial(self.pools.guild_plugin_db, plugin_id, call.guild_id)
+        return PluginActionContext(guild, call.actor, config, open_db), data
 
     async def _check_permission(self, spec: ActionSpec[Any, Any], call: Call, guild: Guild) -> None:
         """The member's current permissions, from the cache or over REST (D18), against the action's (D19)."""

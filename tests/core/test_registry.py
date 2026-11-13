@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from teapot.core.config import ConfigStore
 from teapot.core.loader import Loaded
-from teapot.core.registry import ActionFailed, Call, Refused, Registry
+from teapot.core.registry import ActionFailed, Call, PluginActionContext, Refused, Registry, sources_from
 from teapot.db.migrate import PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
@@ -113,7 +113,7 @@ async def world(admin: Conn, naming: Naming, pools: Pools, tmp_path: Path) -> Wo
     )
     audit = RecordingAudit()
     registry = Registry(
-        loaded,
+        sources_from(loaded),
         pools=pools,
         config=ConfigStore(pools.core_db()),
         client=FakeClient({GUILD: guild}),
@@ -219,3 +219,9 @@ async def test_other_failures_carry_no_public_message(world: World) -> None:
     with pytest.raises(ActionFailed) as caught:
         await world.registry.invoke(call("alpha.boom"))
     assert caught.value.public_message is None
+
+
+def test_a_builtin_context_has_no_plugin_database() -> None:
+    ctx = PluginActionContext(None, Actor(1, "slash"), AlphaConfig(), None)
+    with pytest.raises(RuntimeError, match="core services"):
+        _ = ctx.queue

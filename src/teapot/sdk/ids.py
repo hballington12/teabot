@@ -3,7 +3,8 @@
 import re
 
 PLUGIN_ID_RE = re.compile(r"[a-z][a-z0-9_]{1,31}")
-RESERVED_PLUGIN_IDS = frozenset({"core", "admin", "teapot", "plugin"})
+# The admin plugin's command groups are reserved too, so no plugin can take /plugins, /audit or /tokens.
+RESERVED_PLUGIN_IDS = frozenset({"core", "admin", "teapot", "plugin", "plugins", "audit", "tokens"})
 
 
 class InvalidPluginId(ValueError):

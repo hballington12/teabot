@@ -9,7 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from teapot.core.loader import Loaded
+from teapot.core.registry import ActionSource
 from teapot.sdk import ActionSpec, Surface
 from teapot.sdk.inputs import InputError, InputField, input_fields
 
@@ -76,7 +76,7 @@ def tool_name(spec: ActionSpec[Any, Any]) -> str:
     return spec.name.replace(".", "_")
 
 
-def commands_for(loaded: Mapping[str, Loaded]) -> list[dict[str, Any]]:
-    """The command groups of the loaded plugins that have at least one slash action (D32)."""
-    groups = [command_group(plugin_id, plugin.actions.values()) for plugin_id, plugin in loaded.items()]
+def commands_for(sources: Mapping[str, ActionSource]) -> list[dict[str, Any]]:
+    """The command groups of the plugins that have at least one slash action (D32)."""
+    groups = [command_group(plugin_id, source.actions.values()) for plugin_id, source in sources.items()]
     return [g for g in groups if g["options"]]

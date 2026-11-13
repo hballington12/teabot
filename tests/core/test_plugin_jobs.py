@@ -10,6 +10,7 @@ from teapot.adapters.schema import commands_for
 from teapot.core.loader import Loaded
 from teapot.core.plugin_jobs import register_plugin_jobs
 from teapot.core.queue import NewJob, Queue
+from teapot.core.registry import sources_from
 from teapot.core.worker import Workers
 from teapot.db.migrate import PluginMigrations, migrate
 from teapot.db.naming import Naming
@@ -93,7 +94,7 @@ def test_the_command_set_has_a_group_per_plugin_with_slash_actions() -> None:
         ),
         "gamma": Loaded(Plugin("gamma")),
     }
-    commands = commands_for(loaded)
+    commands = commands_for(sources_from(loaded))
     assert [c["name"] for c in commands] == ["alpha"]
     assert [s["name"] for s in commands[0]["options"]] == ["one", "two"]
 

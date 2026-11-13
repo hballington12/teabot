@@ -207,7 +207,7 @@ The design targets a framework that many people run and that grows to many serve
     - A breaking change to `teapot.sdk` needs a major version, and the old form keeps working with a deprecation warning for at least one minor release first.
 46. **Plugin ids are unique within an instance.**
     - An id matches `[a-z][a-z0-9_]{1,31}`, which fits Discord's command names and the Postgres schema and role names of D9.
-    - The ids `core`, `admin`, `teapot` and `plugin` are reserved.
+    - The ids `core`, `admin`, `teapot` and `plugin` are reserved, as are `plugins`, `audit` and `tokens`, the admin plugin's command groups.
     - When two installed packages declare the same id, the loader loads neither and names both packages in the error. A local `giveaways` plugin and a later first-party one therefore never share a schema or a command group by accident.
     - A future plugin hub reserves ids across its listings.
 47. **The hosted service is an instance run by the teapot maintainers.** Server admins sign up by adding its bot, and they enable plugins from a catalogue of plugins the maintainers have reviewed. Custom plugins need a self-hosted instance, because plugins are not sandboxed (D5). Before it opens, the hosted service needs the deferred work for strangers sharing one instance: per-server quotas and fair queue claims, OAuth (D16), member data deletion (D11), egress consent and enforcement (D12), and a privacy policy and terms of service for Discord verification.

@@ -3,6 +3,7 @@
 Domain terms as teapot's code and docs use them. Decision numbers point at the [README](../README.md).
 
 - **Action.** One operation a plugin offers, with a typed input, a risk and a required permission. Slash commands, MCP tools and service routes are front doors onto actions (D1).
+- **Action source.** What the registry knows of one command group: its actions, its config model, and whether it is built in. A built-in source is always enabled and has no schema; the admin plugin has two, `plugins` and `audit`.
 - **Apply.** The second call of a destructive action, with the plan's confirm value, which runs the change as a job (D21).
 - **Core.** The framework itself, as opposed to plugins. Its tables live in the `core` schema and its jobs and roles use the plugin id `core`.
 - **Front door.** One way into the action registry: slash commands, the MCP server or the service API (D1).

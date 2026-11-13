@@ -32,7 +32,7 @@ class Raffles:
 plugin = Raffles()
 ```
 
-- The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teapot` and `plugin` are reserved. Two installed packages with the same id both fail to load (D46).
+- The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teapot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load (D46).
 - `setup` only registers. Anything it raises fails the plugin, which keeps none of its registrations; everything else still loads (D14).
 
 ## Actions

@@ -100,7 +100,9 @@ def test_an_action_knows_its_plugin() -> None:
     assert spec().plugin_id == "announcements"
 
 
-@pytest.mark.parametrize("plugin_id", ["Bad", "x", "core", "admin", "teapot", "plugin"])
+@pytest.mark.parametrize(
+    "plugin_id", ["Bad", "x", "core", "admin", "teapot", "plugin", "plugins", "audit", "tokens"]
+)
 def test_manifests_refuse_bad_and_reserved_ids(plugin_id: str) -> None:
     with pytest.raises(ValueError):
         Manifest(id=plugin_id, version="1.0")

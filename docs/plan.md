@@ -252,7 +252,7 @@ class Plugin(Protocol):
 - **Untrusted text in outputs (D23).** Output models type member-written text as `UntrustedText`. The MCP adapter wraps every such field in an explicit untrusted marker, so plugin authors cannot forget it.
 - **Event hooks receive a guild-scoped context too.** A hook only runs for guilds where its plugin is enabled.
 - **Loading (D14, D46).** `load(plugins=None)` reads entry points, or takes a given list so unit tests can pass fake plugins without packaging them. It then:
-    1. Refuses any manifest whose id breaks the pattern or is reserved (`core`, `admin`, `teapot`, `plugin`), with the reason `failed`.
+    1. Refuses any manifest whose id breaks the pattern or is reserved (`core`, `admin`, `teapot`, `plugin`, and the admin command groups `plugins`, `audit` and `tokens`), with the reason `failed`.
     2. Finds ids declared by more than one package, and loads none of those packages, with the reason `duplicate_id` and both package names in the error.
     3. Skips plugins named in `TEAPOT_DISABLED_PLUGINS`.
     4. Runs migrations and calls `setup`. Any exception leaves that plugin not loaded with the reason `failed`, and loading carries on.
