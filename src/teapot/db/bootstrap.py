@@ -5,6 +5,7 @@ The revoke needs a superuser. Without one, the bootstrap reports that the inject
 to review, and carries on.
 """
 
+import contextlib
 import logging
 from dataclasses import dataclass
 
@@ -29,35 +30,41 @@ async def _quote(conn: Conn, value: str) -> str:
     return quoted
 
 
-async def _ensure_login_role(conn: Conn, role: str, password: str, inherit: bool) -> bool:
+async def _ensure_login_role(conn: Conn, role: str, password: str) -> bool:
+    """Both login roles are NOINHERIT: the plugins role must never use a plugin role's rights without
+    `SET ROLE` (S1), and the app role is granted no roles at all."""
     exists = await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", role)
-    inherit_sql = "INHERIT" if inherit else "NOINHERIT"
     verb = "ALTER" if exists else "CREATE"
-    await conn.execute(f'{verb} ROLE "{role}" LOGIN {inherit_sql} PASSWORD {await _quote(conn, password)}')
+    await conn.execute(f'{verb} ROLE "{role}" LOGIN NOINHERIT PASSWORD {await _quote(conn, password)}')
     return not exists
 
 
 async def _revoke_set_config(conn: Conn, naming: Naming) -> bool:
+    """Try the revoke, then report what the privileges actually are.
+
+    A role that may not revoke gets a warning from Postgres, not an error, so success cannot be inferred
+    from the absence of an exception.
+    """
     owner = await conn.fetchval("SELECT current_user")
-    try:
+    with contextlib.suppress(asyncpg.InsufficientPrivilegeError):
         async with conn.transaction():
             await conn.execute(f"REVOKE EXECUTE ON FUNCTION {SET_CONFIG} FROM PUBLIC")
             await conn.execute(f'GRANT EXECUTE ON FUNCTION {SET_CONFIG} TO "{naming.app_role}", "{owner}"')
-    except asyncpg.InsufficientPrivilegeError:
+    public_can = await conn.fetchval("SELECT has_function_privilege('public', $1, 'EXECUTE')", SET_CONFIG)
+    if public_can:
         log.warning(
             "cannot revoke set_config without a superuser; "
             "a plugin's SQL injection bug could then change its role, so review is the only limit (D9)"
         )
-        return False
-    return True
+    return not public_can
 
 
 async def bootstrap(conn: Conn, naming: Naming, app_password: str, plugins_password: str) -> BootstrapReport:
     """Run on the instance's database as its owner, or as a superuser for the `set_config` revoke."""
     created: list[str] = []
-    if await _ensure_login_role(conn, naming.app_role, app_password, inherit=True):
+    if await _ensure_login_role(conn, naming.app_role, app_password):
         created.append(naming.app_role)
-    if await _ensure_login_role(conn, naming.plugins_role, plugins_password, inherit=False):
+    if await _ensure_login_role(conn, naming.plugins_role, plugins_password):
         created.append(naming.plugins_role)
     database = await conn.fetchval("SELECT current_database()")
     roles = f'"{naming.app_role}", "{naming.plugins_role}"'

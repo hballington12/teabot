@@ -1,9 +1,12 @@
 """The database bootstrap behind `teapot init` (WP1.3)."""
 
+from typing import Any
+
 import pytest
 
 from teapot.db.bootstrap import bootstrap
 from teapot.db.naming import InvalidPluginId, Naming
+from teapot.db.pool import ConnectionInfo, Login, connect
 from teapot.db.types import Conn
 
 
@@ -38,3 +41,34 @@ async def test_set_config_is_revoked_from_public(admin: Conn, naming: Naming) ->
 def test_plugin_ids_are_checked(bad: str) -> None:
     with pytest.raises(InvalidPluginId):
         Naming().plugin_role(bad)
+
+
+async def test_without_a_superuser_set_config_is_reported_not_revoked(
+    admin: Conn, naming: Naming, owner_kwargs: dict[str, Any], info: ConnectionInfo
+) -> None:
+    owner = f"{naming.prefix}_owner"
+    database = owner_kwargs["database"]
+    await admin.execute(f"CREATE ROLE \"{owner}\" LOGIN CREATEROLE PASSWORD 'o'")
+    await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner}"')
+    try:
+        conn = await connect(Login(info, owner, "o"))
+        try:
+            report = await bootstrap(conn, naming, "a", "p")
+        finally:
+            await conn.close()
+        assert report.set_config_revoked is False
+        assert set(report.created_roles) == {naming.app_role, naming.plugins_role}
+    finally:
+        await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner_kwargs["user"]}"')
+
+
+async def test_both_login_roles_are_noinherit(admin: Conn, naming: Naming) -> None:
+    await bootstrap(admin, naming, "a", "p")
+    rows = await admin.fetch(
+        "SELECT rolname, rolinherit FROM pg_roles WHERE rolname = ANY($1::text[])",
+        [naming.app_role, naming.plugins_role],
+    )
+    assert {r["rolname"]: r["rolinherit"] for r in rows} == {
+        naming.app_role: False,
+        naming.plugins_role: False,
+    }

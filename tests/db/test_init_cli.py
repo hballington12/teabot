@@ -52,3 +52,35 @@ async def test_init_twice_keeps_passwords(env_file: Path) -> None:
     assert second_run.exit_code == 0, second_run.output
     assert read_values(env_file) == first
     assert "generated" not in second_run.output
+
+
+async def test_init_accepts_an_admin_user_and_does_not_warn(
+    env_file: Path, owner_kwargs: dict[str, Any]
+) -> None:
+    args = [
+        "init",
+        "--env-file",
+        str(env_file),
+        "--admin-user",
+        owner_kwargs["user"],
+        "--admin-password",
+        owner_kwargs["password"],
+    ]
+    result = await asyncio.to_thread(CliRunner().invoke, app, args)
+    assert result.exit_code == 0, result.output
+    assert "warning" not in result.output
+
+
+async def test_init_warns_when_set_config_cannot_be_revoked(
+    env_file: Path, admin: Conn, naming: Naming, owner_kwargs: dict[str, Any]
+) -> None:
+    owner, database = f"{naming.prefix}_owner", owner_kwargs["database"]
+    await admin.execute(f"CREATE ROLE \"{owner}\" LOGIN CREATEROLE PASSWORD 'o'")
+    await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner}"')
+    try:
+        args = ["init", "--env-file", str(env_file), "--admin-user", owner, "--admin-password", "o"]
+        result = await asyncio.to_thread(CliRunner().invoke, app, args)
+        assert result.exit_code == 0, result.output
+        assert "warning: set_config is still executable by PUBLIC" in result.output
+    finally:
+        await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner_kwargs["user"]}"')
