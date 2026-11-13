@@ -4,7 +4,8 @@ Deletes run in batches so a large backlog never holds a long transaction. Resche
 maintenance job is already pending, so a crash between the two steps never leaves two copies.
 """
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Awaitable, Callable, Sequence
+from datetime import UTC, date, datetime, timedelta
 
 from teapot.core.processes import delete_stale_process_rows
 from teapot.core.queue import JobContext, NewJob, Queue
@@ -21,18 +22,31 @@ OTHER_PENDING = (
 )
 EVERY = timedelta(days=1)
 
+type DailyTask = Callable[[date], Awaitable[None]]
+
 
 class Maintenance:
     """The `core.maintenance` handler."""
 
-    def __init__(self, queue: Queue, *, retention_days: int = 30, batch: int = 5000) -> None:
+    def __init__(
+        self,
+        queue: Queue,
+        *,
+        retention_days: int = 30,
+        batch: int = 5000,
+        daily: Sequence[DailyTask] = (),
+    ) -> None:
         self.queue = queue
         self.retention_days = retention_days
         self.batch = batch
+        self.daily = tuple(daily)
 
     async def __call__(self, ctx: JobContext) -> None:
         await self._prune_jobs()
         await delete_stale_process_rows(self.queue.db)
+        today = datetime.now(UTC).date()
+        for task in self.daily:
+            await task(today)
         if not await self.queue.db.fetchval(OTHER_PENDING):
             await self.queue.schedule(NewJob("core", "maintenance", run_at=datetime.now(UTC) + EVERY))
 

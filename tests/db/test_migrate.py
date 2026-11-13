@@ -7,7 +7,7 @@ from typing import Any
 import asyncpg
 import pytest
 
-from teapot.db.migrate import MigrationError, PluginMigrations, migrate, read_files
+from teapot.db.migrate import CORE_MIGRATIONS, MigrationError, PluginMigrations, migrate, read_files
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
 from teapot.db.types import Conn
@@ -36,7 +36,8 @@ async def test_core_and_plugin_migrate_in_order_once(
         {"0001_entries.sql": ENTRIES, "0002_seed.sql": "INSERT INTO entries VALUES (1, 'a');"},
     )
     report = await migrate(admin, naming, [PluginMigrations("alpha", alpha)])
-    assert report.applied == {"core": [1], "alpha": [1, 2]} and not report.failed
+    core_versions = [f.version for f in read_files(CORE_MIGRATIONS)]
+    assert report.applied == {"core": core_versions, "alpha": [1, 2]} and not report.failed
     again = await migrate(admin, naming, [PluginMigrations("alpha", alpha)])
     assert again.applied == {"core": [], "alpha": []}
     assert await ready.plugin_db("alpha").fetchval("SELECT count(*) FROM entries") == 1

@@ -14,7 +14,7 @@ from typing import Any
 
 import asyncpg
 
-from teapot.db.pool import Database
+from teapot.db.pool import Database, Queries
 from teapot.db.types import Record
 
 log = logging.getLogger(__name__)
@@ -120,9 +120,13 @@ class Queue:
     def register(self, plugin_id: str, name: str, handler: Handler) -> None:
         self.handlers[(plugin_id, name)] = handler
 
-    async def schedule(self, job: NewJob) -> int:
-        """Queue a job from core code. Plugins queue through their own `schedule_job` (D30)."""
-        job_id: int = await self.db.fetchval(
+    async def schedule(self, job: NewJob, *, within: Queries | None = None) -> int:
+        """Queue a job from core code. Plugins queue through their own `schedule_job` (D30).
+
+        Pass `within` to queue inside an open transaction; the notification is then sent at its commit.
+        """
+        queries = within or self.db
+        job_id: int = await queries.fetchval(
             """
             INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload, started_by)
             VALUES ($1, $2, $3, coalesce($4, now()), $5::jsonb, $6) RETURNING id
@@ -134,7 +138,7 @@ class Queue:
             json.dumps(job.payload),
             job.started_by,
         )
-        await self.db.execute("SELECT pg_notify($1, $2)", NOTIFY_CHANNEL, str(job_id))
+        await queries.execute("SELECT pg_notify($1, $2)", NOTIFY_CHANNEL, str(job_id))
         self.wake()
         return job_id
 

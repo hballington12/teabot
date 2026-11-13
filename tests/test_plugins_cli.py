@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 
 from teapot.cli import app
 from teapot.core.processes import open_lock_connection
-from teapot.db.migrate import PluginMigrations, migrate
+from teapot.db.migrate import CORE_MIGRATIONS, PluginMigrations, migrate, read_files
 from teapot.db.naming import Naming
 from teapot.db.pool import Login, Pools
 from teapot.db.types import Conn
@@ -34,4 +34,4 @@ async def test_lists_plugins_with_versions_and_load_state(
     lines = [line.split() for line in result.output.splitlines()]
     assert ["alpha", "2", "loaded"] in lines
     assert ["beta", "1", "not", "loaded"] in lines
-    assert ["core", "schema", "at", "version", "1"] in lines
+    assert ["core", "schema", "at", "version", str(len(read_files(CORE_MIGRATIONS)))] in lines

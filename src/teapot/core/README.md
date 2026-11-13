@@ -7,3 +7,4 @@
 - `loader.py`: the plugin loader (D14, D46): entry points or a given list, unique ids, disabled plugins, plugin locks, migrations and setup, with a status and reason for every plugin.
 - `config.py`: per-server plugin config (D8, D10), validated through the plugin's current model, with a `ConfigError` naming plugin and server when stored config no longer validates.
 - `registry.py`: the action registry and its one call path (D1, D18, D19, D24): server, enabled plugin, config, input, live permissions, audit, run, outcome.
+- `audit.py`: the audit log (D24): started and finished change rows with their post queued in the same transaction, one row per lookup in the day-partitioned reads table, posts to the log channel, and retention.

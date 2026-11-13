@@ -1,5 +1,7 @@
 """The core's maintenance job (WP1.7): prune finished jobs and stale process rows, then come back tomorrow."""
 
+from datetime import UTC, date, datetime
+
 import pytest
 
 from teapot.core.maintenance import Maintenance
@@ -66,3 +68,16 @@ async def test_it_reschedules_itself_once_a_day_and_never_twice(queue: Queue, ad
     )
     assert len(rows) == 1
     assert 23 * 3600 < rows[0]["wait"].total_seconds() <= 24 * 3600
+
+
+async def test_daily_tasks_run_with_todays_date(admin: Conn, naming: Naming, pools: Pools) -> None:
+    await migrate(admin, naming, [])
+    seen: list[date] = []
+
+    async def task(today: date) -> None:
+        seen.append(today)
+
+    queue = Queue(pools.core_db())
+    queue.register("core", "maintenance", Maintenance(queue, daily=[task]))
+    await run_maintenance(queue)
+    assert seen == [datetime.now(UTC).date()]

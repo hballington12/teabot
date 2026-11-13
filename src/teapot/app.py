@@ -11,12 +11,14 @@ import logging
 import math
 import signal
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Protocol
 
 import discord
 import uvicorn
 
 import teapot
+from teapot.core.audit import POST_HANDLER, AuditMaintenance, PostAudit, ensure_read_partitions
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
 from teapot.core.processes import LockConnection, open_lock_connection
@@ -127,11 +129,13 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     report = await _load_plugins(settings, info, naming, lock)
     statuses = report.labels()
     queue = Queue(pools.core_db())
-    queue.register("core", "maintenance", Maintenance(queue))
+    queue.register("core", "maintenance", Maintenance(queue, daily=[AuditMaintenance(pools.core_db()).run]))
+    await ensure_read_partitions(pools.core_db(), datetime.now(UTC).date(), days_ahead=7)
     runnable = ["core", *report.loaded]
     workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
     client = TeapotClient(lock)
+    queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     health = Health(
         teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), lambda: statuses
     )
