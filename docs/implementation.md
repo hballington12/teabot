@@ -90,6 +90,8 @@ Met on 2026-11-13: the test server showed one connected shard, a second process 
 
 **Exit check.** The milestone 2 "done when" list in `plan.md`.
 
+Met on 2026-11-13. In the test server, `/announcements post` opened its modal, posted the embed and replied with a link; `/devtools note` and `/devtools peek_core` worked, the latter showing the core schema refusing the plugin role. Every call reached the audit log and its post reached the log channel. Run separately: devtools failing its setup and a duplicate `devtools` id were both reported while announcements kept working. The run also found that audit posts gave up after about thirty seconds; they now retry for over a day.
+
 ## Milestone 3: guild settings and the lifecycles
 
 | WP | Scope | Depends on |
