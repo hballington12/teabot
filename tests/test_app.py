@@ -27,11 +27,12 @@ def test_connected_shards_report_latency_and_others_none() -> None:
         2: FakeShard(math.inf),
         3: FakeShard(math.nan),
     }
-    assert shard_latencies(shards) == {0: 0.05, 1: None, 2: None, 3: None}
+    assert shard_latencies(shards, ready=True) == {0: 0.05, 1: None, 2: None, 3: None}
+    assert shard_latencies(shards, ready=False) == {0: None, 1: None, 2: None, 3: None}
 
 
 def test_no_shards_yet() -> None:
-    assert shard_latencies({}) == {}
+    assert shard_latencies({}, ready=True) == {}
 
 
 def test_a_missing_token_stops_the_run_with_a_message() -> None:

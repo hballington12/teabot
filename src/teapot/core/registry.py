@@ -73,7 +73,7 @@ class Refused(Exception):
 
     def __init__(self, code: RefusalCode, message: str) -> None:
         super().__init__(f"{code}: {message}")
-        self.code = code
+        self.code: RefusalCode = code
         self.message = message
 
 

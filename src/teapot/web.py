@@ -14,14 +14,22 @@ from starlette.responses import JSONResponse
 from starlette.routing import BaseRoute, Route
 
 from teapot.adapters.mcp import McpAdapter
+from teapot.adapters.service_api import ServiceApi
 from teapot.auth.middleware import BearerTokens
 from teapot.auth.tokens import Tokens
+from teapot.core.registry import Registry
 from teapot.health import Health
 
 GUARDED = ("/mcp", "/api")
 
 
-def build_app(health: Health, *, tokens: Tokens | None = None, mcp: McpAdapter | None = None) -> Starlette:
+def build_app(
+    health: Health,
+    *,
+    tokens: Tokens | None = None,
+    mcp: McpAdapter | None = None,
+    service: Registry | None = None,
+) -> Starlette:
     async def healthz(_request: Request) -> JSONResponse:
         report = await health.check()
         return JSONResponse(report.body, status_code=200 if report.ok else 503)
@@ -29,6 +37,8 @@ def build_app(health: Health, *, tokens: Tokens | None = None, mcp: McpAdapter |
     routes: list[BaseRoute] = [Route("/healthz", healthz)]
     if mcp is not None:
         routes.append(Route("/mcp", endpoint=mcp.asgi()))
+    if service is not None:
+        routes.extend(ServiceApi(service).routes())
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncGenerator[None]:

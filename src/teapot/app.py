@@ -55,8 +55,11 @@ class Shard(Protocol):
     def is_closed(self) -> bool: ...
 
 
-def shard_latencies(shards: Mapping[int, Shard]) -> dict[int, float | None]:
-    """Gateway latency per shard, or None for a shard that is not connected."""
+def shard_latencies(shards: Mapping[int, Shard], ready: bool) -> dict[int, float | None]:
+    """Gateway latency per shard, or None for a shard that is not connected. Until the client is ready, its
+    guild cache is still filling and calls would be refused, so every shard counts as not connected."""
+    if not ready:
+        return dict.fromkeys(shards)
     return {
         shard_id: None if shard.is_closed() or not math.isfinite(shard.latency) else shard.latency
         for shard_id, shard in shards.items()
@@ -200,13 +203,17 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     register_plugin_jobs(queue, report.loaded, pools, client)
     client.router = InteractionRouter(core.registry, pools.core_db())
     health = Health(
-        teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), lambda: statuses
+        teapot.__version__,
+        pools.core_db(),
+        lambda: shard_latencies(client.shards, client.is_ready()),
+        lambda: statuses,
     )
     config = uvicorn.Config(
         build_app(
             health,
             tokens=core.tokens,
             mcp=McpAdapter(core.registry, pools.core_db(), hosts=public_hosts(settings)),
+            service=core.registry,
         ),
         host=settings.http_host,
         port=settings.http_port,
