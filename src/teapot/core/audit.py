@@ -31,6 +31,10 @@ POST_HANDLER = "post_audit"
 # see until an admin fixes its permissions, delays a post without losing it (D24).
 POST_ATTEMPTS = 48
 INPUT_SHOWN = 1000
+# A change the operator made from the CLI has no Discord member, and one that spans the instance no server.
+# Discord ids are never 0.
+OPERATOR = 0
+INSTANCE = 0
 
 INSERT_CHANGE = """
 INSERT INTO core.audit_log (guild_id, user_id, token_id, surface, action, input, risk, outcome, error)
@@ -72,6 +76,27 @@ class AuditLog:
             audit_id: int = await tx.fetchval(INSERT_CHANGE, *_who(call), int(call.risk), outcome, error)
             await self._queue_post(tx, call.guild_id, audit_id)
 
+    async def operator_change(
+        self, tx: Any, guild_id: int | None, action: str, details: dict[str, Any]
+    ) -> int:
+        """Record a change the operator made from the CLI, inside `tx`: for one server, whose log channel is
+        told, or for the instance when `guild_id` is None."""
+        audit_id: int = await tx.fetchval(
+            INSERT_CHANGE,
+            INSTANCE if guild_id is None else guild_id,
+            OPERATOR,
+            None,
+            "cli",
+            action,
+            json.dumps(details),
+            int(Risk.DESTRUCTIVE),
+            "ok",
+            None,
+        )
+        if guild_id is not None:
+            await self._queue_post(tx, guild_id, audit_id)
+        return audit_id
+
     async def _queue_post(self, tx: Any, guild_id: int, audit_id: int) -> None:
         job = NewJob(
             "core",
@@ -99,7 +124,8 @@ def audit_embed(row: Record) -> discord.Embed:
     embed = discord.Embed(
         title=row["action"], colour=COLOURS.get(row["outcome"], discord.Colour.light_grey())
     )
-    embed.add_field(name="Member", value=f"<@{row['user_id']}>")
+    member = "the operator" if row["user_id"] == OPERATOR else f"<@{row['user_id']}>"
+    embed.add_field(name="Member", value=member)
     embed.add_field(name="Outcome", value=row["outcome"])
     embed.add_field(name="Front door", value=row["surface"])
     embed.add_field(name="Input", value=f"```{row['input'][:INPUT_SHOWN]}```", inline=False)
