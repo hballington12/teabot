@@ -1,0 +1,19 @@
+[project]
+name = "teapot-explainer"
+version = "0.1.0"
+description = "An animated slide deck that explains the teapot Discord bot framework, made with ManimGX."
+requires-python = ">=3.13"
+dependencies = ["manimgx==0.1.1"]
+
+[build-system]
+requires = ["uv_build>=0.9,<1"]
+build-backend = "uv_build"
+
+# ManimGX comes from the shared clone in ~/opt/manimgx, built there with
+# `uv build --wheel --package manimgx -o dist`. Remove this source to take the same
+# version from PyPI instead.
+[tool.uv.sources]
+manimgx = { path = "/home/ixguard/opt/manimgx/dist/manimgx-0.1.1-cp313-abi3-linux_x86_64.whl" }
+
+[tool.ruff]
+line-length = 120
