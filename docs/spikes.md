@@ -84,3 +84,40 @@ Run on 2026-11-13 against Postgres 16.16, with plain connections outside any poo
 - **Reading locks back** converts `objid` from unsigned, and maps keys to plugin ids by hashing the known ids.
 - **A dropped lock connection** is detected with asyncpg's termination listener, which makes the process exit (D40).
 - **Re-entrancy confirmed.** Two workers sharing one session could both take the same advisory lock, so the one-apply-per-guild rule stays a unique index (D31).
+
+## S3 raw commands and interactions
+
+Run on 2026-11-13 with discord.py 2.7.1 against the dev bot and the test server.
+
+| Check | Result |
+|---|---|
+| Register a guild command with `http.bulk_upsert_guild_commands`, no `CommandTree` | worked |
+| Overwrite again with the same name and a changed description | the command keeps its id (`1570837903481896980`), and only `version` changes |
+| List after the overwrites, then overwrite with `[]` | one command, then none |
+
+- An overwrite that keeps a command's name updates it in place. Discord's limit of 200 command creates per guild per day counts new commands, so syncing an unchanged or edited command set does not use it up. Adding or renaming a command does. The per-guild sync of D32 therefore costs nothing against that limit for ordinary plugin upgrades.
+- discord.py's `ConnectionState.parse_interaction_create` hands application commands to a `CommandTree` only when one is attached, and components and modals to its view store, which finds nothing when no views are registered. It then dispatches the `interaction` event for every interaction. A client with no tree and no views receives every interaction in `on_interaction`, and nothing answers before the core does.
+- A bot cannot invoke its own slash commands, so receiving a live interaction is confirmed in WP2.7's exit check, with a person running the command in the test server.
+
+### Design changes from S3
+
+None. D29 and D32 hold as written.
+
+## S4 lazy members
+
+Run on 2026-11-13 with discord.py 2.7.1, `AutoShardedClient`, the Server Members intent, `chunk_guilds_at_startup=False` and member cache flags from the intents.
+
+| Check | Result |
+|---|---|
+| Shards and guilds at ready | 1 shard, 1 guild |
+| Members reported against members cached | `member_count` 8, cached 1 (the bot), `chunked` false |
+| `guild.query_members(query=..., limit=5)` | found the bot by name prefix over the gateway |
+| `guild.fetch_member(...)` over REST | worked |
+| Python heap at ready | 0.9 MB, peak 1.2 MB |
+
+- With chunking off, a guild costs memory for the members the bot has seen, not for its member list (D25). Gateway member search works without a full list.
+- The test server has 8 members, so memory for a large server is not measured here. It is checked when a large server is first available, and the plan's design does not depend on the number.
+
+### Design changes from S4
+
+None. D25 holds as written.
