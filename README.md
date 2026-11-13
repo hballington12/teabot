@@ -50,12 +50,12 @@ The design targets a framework that many people run and that grows to many serve
 6. **The protocol holds what current plugins use, and grows by addition.**
     - From the start a plugin can declare:
         - actions, which become slash commands, MCP tools and service routes, on all three front doors unless the action narrows its surfaces
-        - button, select-menu and modal handlers
+        - modals for multi-line `LongText` input (D29)
         - Discord event hooks (join, leave, message, reaction)
         - scheduled jobs
         - a config model (D10) and its own tables with migrations (D9)
         - the permissions its actions require
-    - Added when a plugin needs them: dependencies on other plugins, autocomplete, context-menu commands, voice hooks, MCP resources, HTTP routes, a per-member store, a hook for deleting a member's data (D11) and a machine-readable list of external hosts (D12).
+    - Added when a plugin needs them: buttons and select menus, dependencies on other plugins, autocomplete, context-menu commands, voice hooks, MCP resources, HTTP routes, a per-member store, a hook for deleting a member's data (D11) and a machine-readable list of external hosts (D12).
     - Each addition is a manifest field with a default or an optional protocol detected with `hasattr`, so existing plugins keep working without changes. The protocol is published as `teapot.sdk` (D45).
 
 ### Plugins and data

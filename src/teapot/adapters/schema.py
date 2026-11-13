@@ -3,12 +3,13 @@
 The field rules live in `teapot.sdk.inputs`; this module only maps them onto each front door's format.
 """
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
 
+from teapot.core.loader import Loaded
 from teapot.sdk import ActionSpec, Surface
 from teapot.sdk.inputs import InputError, InputField, input_fields
 
@@ -73,3 +74,9 @@ def mcp_input_schema(spec: ActionSpec[Any, Any]) -> dict[str, Any]:
 
 def tool_name(spec: ActionSpec[Any, Any]) -> str:
     return spec.name.replace(".", "_")
+
+
+def commands_for(loaded: Mapping[str, Loaded]) -> list[dict[str, Any]]:
+    """The command groups of the loaded plugins that have at least one slash action (D32)."""
+    groups = [command_group(plugin_id, plugin.actions.values()) for plugin_id, plugin in loaded.items()]
+    return [g for g in groups if g["options"]]

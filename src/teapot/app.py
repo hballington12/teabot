@@ -11,18 +11,23 @@ import logging
 import math
 import signal
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
-from typing import Protocol
+from datetime import UTC, date, datetime
+from typing import Any, Protocol
 
 import discord
 import uvicorn
 
 import teapot
-from teapot.core.audit import POST_HANDLER, AuditMaintenance, PostAudit, ensure_read_partitions
+from teapot.adapters.interactions import InteractionRouter, prune_drafts
+from teapot.adapters.schema import commands_for
+from teapot.core.audit import POST_HANDLER, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
+from teapot.core.config import ConfigStore
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
+from teapot.core.plugin_jobs import register_plugin_jobs
 from teapot.core.processes import LockConnection, open_lock_connection
 from teapot.core.queue import NOTIFY_CHANNEL, Queue
+from teapot.core.registry import Registry
 from teapot.core.worker import Workers
 from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teapot.db.naming import Naming
@@ -65,7 +70,12 @@ def token_or_exit(token: str) -> str:
 class TeapotClient(discord.AutoShardedClient):
     """The Discord client. Members are cached lazily (D25); interactions are routed by the core (D32)."""
 
-    def __init__(self, lock: LockConnection) -> None:
+    def __init__(
+        self,
+        lock: LockConnection,
+        commands: list[dict[str, Any]] | None = None,
+        dev_guild_id: int | None = None,
+    ) -> None:
         intents = discord.Intents.default()
         intents.members = True
         intents.message_content = False
@@ -75,6 +85,9 @@ class TeapotClient(discord.AutoShardedClient):
             member_cache_flags=discord.MemberCacheFlags.from_intents(intents),
         )
         self.lock = lock
+        self.commands = commands or []
+        self.dev_guild_id = dev_guild_id
+        self.router: InteractionRouter | None = None
         self._shards: asyncio.Future[int] = asyncio.get_running_loop().create_future()
 
     async def setup_hook(self) -> None:
@@ -84,6 +97,20 @@ class TeapotClient(discord.AutoShardedClient):
         await self.lock.take_shards(self.shard_ids)
         self._shards.set_result(count)
         log.info("shards locked", extra={"shard_count": count})
+        await self._register_dev_commands()
+
+    async def _register_dev_commands(self) -> None:
+        """Until per-server sync (WP3.2), development registers every command group in the dev server."""
+        if self.dev_guild_id is None or self.application_id is None:
+            return
+        await self.http.bulk_upsert_guild_commands(self.application_id, self.dev_guild_id, self.commands)
+        log.info(
+            "dev commands registered", extra={"guild_id": self.dev_guild_id, "groups": len(self.commands)}
+        )
+
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        if self.router is not None:
+            await self.router.handle(interaction)
 
     async def wait_for_shards(self) -> int:
         return await asyncio.shield(self._shards)
@@ -129,13 +156,23 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     report = await _load_plugins(settings, info, naming, lock)
     statuses = report.labels()
     queue = Queue(pools.core_db())
-    queue.register("core", "maintenance", Maintenance(queue, daily=[AuditMaintenance(pools.core_db()).run]))
+
+    async def prune(_today: date) -> None:
+        await prune_drafts(pools.core_db())
+
+    daily = [AuditMaintenance(pools.core_db()).run, prune]
+    queue.register("core", "maintenance", Maintenance(queue, daily=daily))
     await ensure_read_partitions(pools.core_db(), datetime.now(UTC).date(), days_ahead=7)
     runnable = ["core", *report.loaded]
     workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
-    client = TeapotClient(lock)
+    client = TeapotClient(lock, commands_for(report.loaded), settings.dev_guild_id)
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
+    register_plugin_jobs(queue, report.loaded, pools, client)
+    registry = Registry(
+        report.loaded, pools=pools, config=ConfigStore(pools.core_db()), client=client, audit=AuditLog(queue)
+    )
+    client.router = InteractionRouter(registry, pools.core_db())
     health = Health(
         teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), lambda: statuses
     )

@@ -453,6 +453,7 @@ Each item is an addition to the design, with what triggers it.
 | Out-of-process plugins | hosted-service users who want custom code | plugins that run on the user's own server and receive actions over signed HTTP, so the hosted process never runs their code |
 | Per-server permission overrides (D19) | event captains, or another role, need an action their Discord permissions do not give | a `core.permission_overrides` table, `/permissions show`, `set` and `reset`, one branch in step 5 of the call path |
 | Plugin dependencies (D6) | a plugin that builds on another | a `requires` manifest field, load and migration order through `graphlib`, failure passed on to dependents, `USAGE` grants on the required plugin's schema, and purge refusing while a dependent is installed |
+| Buttons and select menus (D6, D32) | the first plugin that posts a component, such as role picks or giveaway entry | a component custom id `teapot:<plugin>:<action>:<payload>` routed to that action, so a press goes through the one call path with its permission check and audit (D1) |
 | Autocomplete (D6) | an input field whose choices are too many for a `Literal` | an optional autocomplete function per field, routed by the interaction router |
 | Member data deletion (D11) | the first plugin that keeps per-member data, and before the hosted service opens | `teapot users delete` and a `delete_user_data` plugin hook |
 | A per-member store (D8) | several plugins writing the same small per-member tables | a Red-style scoped store with Pydantic models per scope |
