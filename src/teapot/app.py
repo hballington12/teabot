@@ -11,7 +11,7 @@ import logging
 import math
 import signal
 from collections.abc import Mapping, Sequence
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Protocol
 
 import discord
@@ -23,11 +23,12 @@ from teapot.builtin.admin import Admin
 from teapot.core.audit import POST_HANDLER, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
 from teapot.core.command_sync import SYNC_HANDLER, CommandSync
 from teapot.core.config import ConfigStore
+from teapot.core.lifecycle import PURGE_GUILD, Guilds
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
 from teapot.core.plugin_jobs import register_plugin_jobs
 from teapot.core.processes import LockConnection, open_lock_connection
-from teapot.core.queue import NOTIFY_CHANNEL, Queue
+from teapot.core.queue import NOTIFY_CHANNEL, Queue, ShardFilter
 from teapot.core.registry import Registry, sources_from
 from teapot.core.worker import Workers
 from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
@@ -82,6 +83,7 @@ class TeapotClient(discord.AutoShardedClient):
         )
         self.lock = lock
         self.router: InteractionRouter | None = None
+        self.lifecycle: Guilds | None = None
         self._shards: asyncio.Future[int] = asyncio.get_running_loop().create_future()
 
     async def setup_hook(self) -> None:
@@ -108,6 +110,24 @@ class TeapotClient(discord.AutoShardedClient):
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         if self.router is not None:
             await self.router.handle(interaction)
+
+    async def on_guild_join(self, guild: discord.Guild) -> None:
+        if self.lifecycle is not None:
+            await self.lifecycle.joined(guild.id)
+
+    async def on_guild_remove(self, guild: discord.Guild) -> None:
+        if self.lifecycle is not None:
+            await self.lifecycle.removed(guild.id)
+
+    async def on_ready(self) -> None:
+        """Find servers joined or left while the bot was down (D49). Ready can fire again after a
+        reconnect; the comparison is safe to repeat. Unavailable servers are still in the cache, so an
+        outage is never taken for a removal."""
+        if self.lifecycle is None:
+            return
+        shards = ShardFilter(self.shard_count, tuple(self.shard_ids or range(self.shard_count)))
+        joined, left = await self.lifecycle.reconcile([g.id for g in self.guilds], shards)
+        log.info("servers reconciled", extra={"joined": joined, "left": left})
 
     async def wait_for_shards(self) -> int:
         return await asyncio.shield(self._shards)
@@ -170,6 +190,8 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     sync = CommandSync(pools.core_db(), queue, sources, client)
     admin.on_change = sync.request
     queue.register("core", SYNC_HANDLER, sync)
+    client.lifecycle = Guilds(pools, queue, sync, timedelta(days=settings.guild_retention_days))
+    queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await sync.startup()})
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     register_plugin_jobs(queue, report.loaded, pools, client)

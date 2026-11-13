@@ -1,6 +1,6 @@
-"""Plugin purge (D7): the operator's last lifecycle step, which needs no plugin code.
+"""Plugin purge (D7) and guild removal (D49): the lifecycle steps that delete data, needing no plugin code.
 
-It works with or without the package installed and with the bot running:
+Plugin purge works with or without the package installed and with the bot running:
 
 1. Take the plugin's advisory lock exclusively. Refuse when that fails, because some process has the plugin
    loaded, and hold it to the end so no process can load the plugin meanwhile.
@@ -8,17 +8,23 @@ It works with or without the package installed and with the bot running:
 3. In one transaction: drop the schema as the plugin's role (a schema's owner may drop all it holds), drop
    the role, delete the plugin's rows in `core.guild_plugins`, `core.jobs` and `core.migrations`, queue
    command syncs where it was enabled, and audit the purge for each server and the instance.
+
+Guild removal keeps a server's data for a grace period. Its jobs pause, and a `purge_guild` job is queued
+for the end of the period. A return within it cancels the purge, and everything is as it was. The purge
+deletes the server's rows from every plugin schema, each as its plugin's role, then from every core table.
+Servers that joined or left while the bot was down are found at startup.
 """
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 from teapot.core.audit import AuditLog
-from teapot.core.command_sync import SYNC_HANDLER
-from teapot.core.queue import NewJob
+from teapot.core.command_sync import SYNC_HANDLER, CommandSync
+from teapot.core.queue import JobContext, NewJob, Queue, ShardFilter
 from teapot.db.lockkeys import PLUGIN_NS, plugin_key
 from teapot.db.naming import Naming
-from teapot.db.pool import Transaction
+from teapot.db.pool import Pools, Transaction
 from teapot.db.types import AnyConn
 from teapot.sdk.ids import InvalidPluginId, check_plugin_id_free
 
@@ -129,3 +135,88 @@ class Purge:
             return plan
         finally:
             await self.conn.execute("SELECT pg_advisory_unlock($1, $2)", PLUGIN_NS, key)
+
+
+PURGE_GUILD = "purge_guild"
+ACTIVE = "SELECT guild_id FROM core.guilds WHERE removed_at IS NULL"
+JOIN = """
+INSERT INTO core.guilds (guild_id) VALUES ($1)
+ON CONFLICT (guild_id) DO UPDATE SET removed_at = NULL, purge_job_id = NULL, joined_at = now()
+WHERE core.guilds.removed_at IS NOT NULL
+RETURNING (SELECT purge_job_id FROM core.guilds WHERE guild_id = $1) AS cancelled_job
+"""
+CANCEL = "UPDATE core.jobs SET state = 'cancelled', finished_at = now() WHERE id = $1 AND state = 'pending'"
+REMOVE = """
+INSERT INTO core.guilds (guild_id, removed_at) VALUES ($1, now())
+ON CONFLICT (guild_id) DO UPDATE SET removed_at = now() WHERE core.guilds.removed_at IS NULL
+RETURNING guild_id
+"""
+SET_PURGE_JOB = "UPDATE core.guilds SET purge_job_id = $2 WHERE guild_id = $1"
+FORGET_COMMANDS = "DELETE FROM core.command_sync WHERE guild_id = $1"
+STILL_REMOVED = "SELECT removed_at IS NOT NULL FROM core.guilds WHERE guild_id = $1"
+PLUGIN_SCHEMAS = "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'plugin\\_%' ORDER BY nspname"
+# Ordinary and partitioned tables with a guild_id column; a partition is reached through its parent.
+GUILD_TABLES = """
+SELECT c.relname FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'guild_id' AND NOT a.attisdropped
+WHERE n.nspname = $1 AND c.relkind IN ('r', 'p') AND NOT c.relispartition
+ORDER BY c.relname
+"""
+
+
+class Guilds:
+    """The servers the bot is in, from the gateway's join and remove events and a comparison at startup."""
+
+    def __init__(self, pools: Pools, queue: Queue, sync: CommandSync, retention: timedelta) -> None:
+        self.pools = pools
+        self.db = pools.core_db()
+        self.queue = queue
+        self.sync = sync
+        self.retention = retention
+
+    async def joined(self, guild_id: int) -> None:
+        """Record a new server, or bring back a removed one: its purge is cancelled and its jobs resume."""
+        async with self.db.transaction() as tx:
+            cancelled = await tx.fetchval(JOIN, guild_id)
+            if cancelled is not None:
+                await tx.execute(CANCEL, cancelled)
+        await self.sync.request(guild_id)
+
+    async def removed(self, guild_id: int) -> None:
+        """Start the grace period. A repeated event changes nothing."""
+        async with self.db.transaction() as tx:
+            if await tx.fetchval(REMOVE, guild_id) is None:
+                return
+            job = NewJob("core", PURGE_GUILD, guild_id=guild_id, run_at=datetime.now(UTC) + self.retention)
+            await tx.execute(SET_PURGE_JOB, guild_id, await self.queue.schedule(job, within=tx))
+            # Discord drops a server's commands when the bot leaves, so a return must send them again.
+            await tx.execute(FORGET_COMMANDS, guild_id)
+
+    async def reconcile(self, present: Iterable[int], shards: ShardFilter | None) -> tuple[int, int]:
+        """Compare the servers the gateway reports with `core.guilds`, on this process's shards only.
+        Returns how many joined and how many left while the bot was down."""
+        here = set(present)
+        active = {r["guild_id"] for r in await self.db.fetch(ACTIVE)}
+        if shards is not None:
+            active = {g for g in active if (g >> 22) % shards.shard_count in shards.shard_ids}
+        for guild_id in sorted(here - active):
+            await self.joined(guild_id)
+        for guild_id in sorted(active - here):
+            await self.removed(guild_id)
+        return len(here - active), len(active - here)
+
+    async def purge(self, ctx: JobContext) -> None:
+        """The `purge_guild` handler: one transaction per plugin schema, then one for the core, which deletes
+        this job's own row with the rest. Every step is safe to repeat, so a failed run simply retries."""
+        guild_id = ctx.job.guild_id
+        if guild_id is None or not await self.db.fetchval(STILL_REMOVED, guild_id):
+            return
+        for row in await self.db.fetch(PLUGIN_SCHEMAS):
+            plugin = self.pools.plugin_db(row["nspname"].removeprefix("plugin_"))
+            async with plugin.transaction() as tx:
+                for table in await tx.fetch(GUILD_TABLES, row["nspname"]):
+                    await tx.execute(f"DELETE FROM {quoted(table['relname'])} WHERE guild_id = $1", guild_id)
+        async with self.db.transaction() as tx:
+            for table in await tx.fetch(GUILD_TABLES, "core"):
+                await tx.execute(f"DELETE FROM core.{quoted(table['relname'])} WHERE guild_id = $1", guild_id)

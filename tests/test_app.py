@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pytest
 
 from teapot.app import TeapotClient, shard_latencies, token_or_exit
+from teapot.core.queue import ShardFilter
 
 
 @dataclass
@@ -93,3 +94,43 @@ async def test_interactions_go_to_the_router_once_there_is_one() -> None:
     client.router = Router()  # type: ignore[assignment]
     await client.on_interaction("an interaction")  # type: ignore[arg-type]
     assert seen == ["an interaction"]
+
+
+class Lifecycle:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, object]] = []
+
+    async def joined(self, guild_id: int) -> None:
+        self.calls.append(("joined", guild_id))
+
+    async def removed(self, guild_id: int) -> None:
+        self.calls.append(("removed", guild_id))
+
+    async def reconcile(self, present: list[int], shards: ShardFilter) -> tuple[int, int]:
+        self.calls.append(("reconcile", (present, shards)))
+        return 0, 0
+
+
+class Guild:
+    def __init__(self, guild_id: int) -> None:
+        self.id = guild_id
+
+
+async def test_join_and_remove_events_reach_the_lifecycle_once_there_is_one() -> None:
+    client, _ = client_with()
+    await client.on_guild_join(Guild(7))  # type: ignore[arg-type]
+    lifecycle = Lifecycle()
+    client.lifecycle = lifecycle  # type: ignore[assignment]
+    await client.on_guild_join(Guild(7))  # type: ignore[arg-type]
+    await client.on_guild_remove(Guild(8))  # type: ignore[arg-type]
+    assert lifecycle.calls == [("joined", 7), ("removed", 8)]
+
+
+async def test_ready_compares_the_servers_on_this_processes_shards() -> None:
+    client, _ = client_with()
+    await client.on_ready()
+    lifecycle = Lifecycle()
+    client.lifecycle = lifecycle  # type: ignore[assignment]
+    client.shard_count, client.shard_ids = 2, [1]
+    await client.on_ready()
+    assert lifecycle.calls == [("reconcile", ([], ShardFilter(shard_count=2, shard_ids=(1,))))]
