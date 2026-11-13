@@ -7,9 +7,10 @@ from typing import Any
 import asyncpg
 import pytest
 
+from teapot.db.bootstrap import bootstrap
 from teapot.db.migrate import CORE_MIGRATIONS, MigrationError, PluginMigrations, migrate, read_files
 from teapot.db.naming import Naming
-from teapot.db.pool import Pools
+from teapot.db.pool import ConnectionInfo, Login, Pools, connect
 from teapot.db.types import Conn
 
 ENTRIES = "CREATE TABLE entries (guild_id bigint NOT NULL, name text);"
@@ -183,3 +184,33 @@ async def test_a_server_bound_handle_queues_for_its_server_with_an_empty_payload
     job_id = await ready.guild_plugin_db("alpha", 7).schedule("ping")
     row = await admin.fetchrow("SELECT guild_id, handler, payload FROM core.jobs WHERE id = $1", job_id)
     assert row is not None and (row["guild_id"], row["handler"], row["payload"]) == (7, "ping", "{}")
+
+
+async def test_an_owner_that_is_not_a_superuser_migrates_a_plugin(
+    admin: Conn, naming: Naming, owner_kwargs: dict[str, Any], info: ConnectionInfo, tmp_path: Path
+) -> None:
+    """Managed and carefully set up Postgres runs teapot under an owner without superuser rights. The owner
+    holds each plugin role without inheriting it, so nothing it does in a plugin's schema may rely on that."""
+    owner = f"{naming.prefix}_owner"
+    database = owner_kwargs["database"]
+    await admin.execute(f"CREATE ROLE \"{owner}\" LOGIN CREATEROLE PASSWORD 'o'")
+    await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner}"')
+    directory = tmp_path / "alpha"
+    directory.mkdir()
+    (directory / "0001_t.sql").write_text("CREATE TABLE entries (guild_id bigint);")
+    try:
+        conn = await connect(Login(info, owner, "o"))
+        try:
+            await bootstrap(conn, naming, "a", "p")
+            report = await migrate(conn, naming, [PluginMigrations("alpha", directory)])
+        finally:
+            await conn.close()
+        assert report.failed == {} and report.applied["alpha"] == [1]
+        functions = await admin.fetchval(
+            "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace"
+            " WHERE n.nspname = 'plugin_alpha' AND p.proname = 'schedule_job' AND pg_get_userbyid(p.proowner) = $1",
+            owner,
+        )
+        assert functions == 1
+    finally:
+        await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner_kwargs["user"]}"')

@@ -135,6 +135,15 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
     await conn.execute(f'GRANT "{role}" TO "{naming.plugins_role}" WITH INHERIT FALSE, SET TRUE')
     await conn.execute(f'GRANT "{role}" TO CURRENT_USER WITH INHERIT FALSE, SET TRUE')
     await conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}" AUTHORIZATION "{role}"')
+    # The owner holds the plugin role without inheriting it, so it has no rights in the plugin's schema. The
+    # role, as the schema's owner, grants it CREATE, so the owner can create schedule_job there. The function
+    # stays the owner's, so the plugin cannot rewrite what it runs as SECURITY DEFINER (D9, D30).
+    owner = await conn.fetchval("SELECT current_user")
+    await conn.execute(f'SET ROLE "{role}"')
+    try:
+        await conn.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO "{owner}"')
+    finally:
+        await conn.execute("RESET ROLE")
     await conn.execute(SCHEDULE_JOB.format(schema=schema, plugin_id=plugin_id))
     await conn.execute(
         f'REVOKE ALL ON FUNCTION "{schema}".schedule_job(bigint, text, timestamptz, jsonb) FROM PUBLIC'

@@ -173,7 +173,7 @@ async def test_an_owner_that_is_not_a_superuser_can_purge(
         conn = await connect(Login(info, owner, "o"))
         try:
             await bootstrap(conn, naming, "a", "p")
-            await migrate(conn, naming, [PluginMigrations("alpha", directory)])
+            assert not (await migrate(conn, naming, [PluginMigrations("alpha", directory)])).failed
             pools_audit = AuditLog(Queue(_Single(conn)))  # type: ignore[arg-type]
             await Purge(conn, naming, pools_audit)("alpha", operator="ops", confirm=yes([]))
             assert (
