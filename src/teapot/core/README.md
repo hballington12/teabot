@@ -5,3 +5,4 @@
 - `worker.py`: worker pools that run claimed jobs, keep their leases, and sleep until woken by `NOTIFY` or the next due job.
 - `maintenance.py`: the daily `core.maintenance` job: prunes finished jobs and stale process rows in batches.
 - `loader.py`: the plugin loader (D14, D46): entry points or a given list, unique ids, disabled plugins, plugin locks, migrations and setup, with a status and reason for every plugin.
+- `config.py`: per-server plugin config (D8, D10), validated through the plugin's current model, with a `ConfigError` naming plugin and server when stored config no longer validates.
