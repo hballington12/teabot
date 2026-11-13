@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from teapot.adapters.schema import SchemaError, command_group, mcp_input_schema, slash_fields, tool_name
 from teapot.sdk import ActionSpec, ChannelRef, LongText, MemberRef, Risk, RoleRef
+from teapot.sdk.inputs import input_fields
 
 
 class Everything(BaseModel):
@@ -133,3 +134,17 @@ def test_the_mcp_schema_has_refs_as_digit_strings() -> None:
 
 def test_tool_names_use_underscores() -> None:
     assert tool_name(spec(Everything)) == "announcements_post"
+
+
+type Size = Literal["s", "m"]
+
+
+class Aliased(BaseModel):
+    size: Size
+    maybe: Size | None = None
+
+
+def test_a_type_alias_is_seen_through() -> None:
+    fields = {f.name: f for f in input_fields(Aliased)}
+    assert (fields["size"].choices, fields["size"].required) == (("s", "m"), True)
+    assert (fields["maybe"].choices, fields["maybe"].required) == (("s", "m"), False)

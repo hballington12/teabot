@@ -7,7 +7,7 @@ a front door could not offer.
 
 import types
 from dataclasses import dataclass
-from typing import Annotated, Any, Literal, Union, get_args, get_origin
+from typing import Annotated, Any, Literal, TypeAliasType, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -76,8 +76,16 @@ def _describe(name: str, info: FieldInfo) -> str:
     return text[:DESCRIPTION_MAX]
 
 
+def _unalias(annotation: Any) -> Any:
+    """A `type X = ...` alias is what it names."""
+    while isinstance(annotation, TypeAliasType):
+        annotation = annotation.__value__
+    return annotation
+
+
 def classify(name: str, info: FieldInfo) -> InputField:
-    base, metadata = _split_annotated(_unwrap_optional(info.annotation), list(info.metadata))
+    annotation = _unalias(_unwrap_optional(_unalias(info.annotation)))
+    base, metadata = _split_annotated(annotation, list(info.metadata))
     kind, choices = _kind(name, base, metadata)
     max_length = next((m.max_length for m in metadata if getattr(m, "max_length", None) is not None), None)
     return InputField(name, kind, info.is_required(), _describe(name, info), choices, max_length)

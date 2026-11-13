@@ -19,17 +19,15 @@ import uvicorn
 
 import teapot
 from teapot.adapters.interactions import InteractionRouter, prune_drafts
-from teapot.builtin.admin import Admin
-from teapot.core.audit import POST_HANDLER, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
-from teapot.core.command_sync import SYNC_HANDLER, CommandSync
-from teapot.core.config import ConfigStore
+from teapot.assembly import assemble
+from teapot.core.audit import POST_HANDLER, AuditMaintenance, PostAudit, ensure_read_partitions
+from teapot.core.command_sync import SYNC_HANDLER
 from teapot.core.lifecycle import PURGE_GUILD, Guilds
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
 from teapot.core.plugin_jobs import register_plugin_jobs
 from teapot.core.processes import LockConnection, open_lock_connection
 from teapot.core.queue import NOTIFY_CHANNEL, Queue, ShardFilter
-from teapot.core.registry import Registry, sources_from
 from teapot.core.worker import Workers
 from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teapot.db.naming import Naming
@@ -183,26 +181,15 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     runnable = ["core", *report.loaded]
     workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
-    configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
-    admin = Admin(pools.core_db(), statuses=statuses, configs=configs)
-    sources = sources_from(report.loaded) | admin.sources()
     client = TeapotClient(lock)
-    sync = CommandSync(pools.core_db(), queue, sources, client)
-    admin.on_change = sync.request
-    queue.register("core", SYNC_HANDLER, sync)
-    client.lifecycle = Guilds(pools, queue, sync, timedelta(days=settings.guild_retention_days))
+    core = assemble(report, pools, queue, client)
+    queue.register("core", SYNC_HANDLER, core.sync)
+    client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
-    log.info("command syncs queued", extra={"count": await sync.startup()})
+    log.info("command syncs queued", extra={"count": await core.sync.startup()})
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     register_plugin_jobs(queue, report.loaded, pools, client)
-    registry = Registry(
-        sources,
-        pools=pools,
-        config=ConfigStore(pools.core_db()),
-        client=client,
-        audit=AuditLog(queue),
-    )
-    client.router = InteractionRouter(registry, pools.core_db())
+    client.router = InteractionRouter(core.registry, pools.core_db())
     health = Health(
         teapot.__version__, pools.core_db(), lambda: shard_latencies(client.shards), lambda: statuses
     )

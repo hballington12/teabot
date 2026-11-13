@@ -7,18 +7,17 @@ from typing import Any
 import discord
 from pydantic import BaseModel
 
-from teapot.builtin.admin import Admin
-from teapot.core.audit import AuditLog
-from teapot.core.command_sync import CommandSync
-from teapot.core.config import ConfigStore
+from teapot.assembly import assemble
+from teapot.auth.tokens import Tokens
 from teapot.core.loader import from_plugins, load
 from teapot.core.queue import Queue
-from teapot.core.registry import Call, Registry, sources_from
+from teapot.core.registry import Call, Registry
 from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
 from teapot.db.types import Conn
 from teapot.sdk import Actor, Plugin
+from teapot.sdk.actions import Via
 from teapot.testing.fakes import FakeClient, FakeGuild, FakeMember
 
 ENABLE = """
@@ -38,6 +37,7 @@ class PluginHarness:
     member: FakeMember
     admin: Conn
     pools: Pools
+    tokens: Tokens
 
     async def invoke(
         self, action: str, raw_input: Mapping[str, Any] | None = None, *, user: int | None = None
@@ -45,6 +45,15 @@ class PluginHarness:
         """Run an action as a member would from a slash command."""
         actor = Actor(user if user is not None else self.member.id, "slash")
         return await self.registry.invoke(Call(action, self.guild.id, actor, raw_input or {}))
+
+    async def invoke_with_token(
+        self, token: str, action: str, raw_input: Mapping[str, Any] | None = None, *, via: Via = "mcp"
+    ) -> BaseModel:
+        """Run an action as an MCP client or a backend would with `token`: in its server, as its member,
+        within its limits."""
+        grant = await self.tokens.check(token)
+        actor = Actor(grant.user_id, via, grant.token_id)
+        return await self.registry.invoke(Call(action, grant.guild_id, actor, raw_input or {}, grant.limits))
 
 
 async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: Pools) -> PluginHarness:
@@ -62,18 +71,5 @@ async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: P
     member = guild.add_member(discord.Permissions.all())
     client = FakeClient({guild.id: guild})
     await admin.execute(ENABLE, guild.id, plugin_id)
-    statuses = report.labels()
-    configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
-    admin_plugin = Admin(pools.core_db(), statuses=statuses, configs=configs)
-    queue = Queue(pools.core_db())
-    sources = sources_from(report.loaded) | admin_plugin.sources()
-    sync = CommandSync(pools.core_db(), queue, sources, client)
-    admin_plugin.on_change = sync.request
-    registry = Registry(
-        sources,
-        pools=pools,
-        config=ConfigStore(pools.core_db()),
-        client=client,
-        audit=AuditLog(queue),
-    )
-    return PluginHarness(registry, statuses, client, guild, member, admin, pools)
+    core = assemble(report, pools, Queue(pools.core_db()), client)
+    return PluginHarness(core.registry, core.statuses, client, guild, member, admin, pools, core.tokens)

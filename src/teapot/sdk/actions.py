@@ -38,12 +38,16 @@ class Surface(Flag):
     ALL = SLASH | MCP | SERVICE
 
 
+# The front door a call came through (D1).
+type Via = Literal["slash", "component", "mcp", "service"]
+
+
 @dataclass(frozen=True)
 class Actor:
     """Who asked. Always a member (D16)."""
 
     user_id: int
-    via: Literal["slash", "component", "mcp", "service"]
+    via: Via
     token_id: str | None = None
 
 

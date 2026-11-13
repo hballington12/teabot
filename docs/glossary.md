@@ -7,6 +7,7 @@ Domain terms as teapot's code and docs use them. Decision numbers point at the [
 - **Apply.** The second call of a destructive action, with the plan's confirm value, which runs the change as a job (D21).
 - **Core.** The framework itself, as opposed to plugins. Its tables live in the `core` schema and its jobs and roles use the plugin id `core`.
 - **Front door.** One way into the action registry: slash commands, the MCP server or the service API (D1).
+- **Grant.** What a checked token acts as: its server, its member, and its limits (maximum risk and allow-list).
 - **Guild.** Discord's name for a server. The code says guild; the docs say server.
 - **Instance.** One running teapot with its own Discord application, database and operator (D35).
 - **Job.** A row in `core.jobs`: a handler and a payload with a run time, a state, retries and progress (D31).

@@ -18,13 +18,52 @@ from pydantic import BaseModel, ValidationError
 from teapot.core.config import ConfigError, ConfigStore
 from teapot.core.loader import Loaded
 from teapot.db.pool import GuildPluginDatabase, Pools
-from teapot.sdk import ActionError, ActionSpec, Actor, Risk
+from teapot.sdk import ActionError, ActionSpec, Actor, Risk, Surface
 
 log = logging.getLogger(__name__)
 
 type RefusalCode = Literal[
-    "unknown_action", "not_in_guild", "plugin_not_enabled", "config_invalid", "invalid_input", "forbidden"
+    "unknown_action",
+    "not_in_guild",
+    "wrong_surface",
+    "above_token_risk",
+    "not_allowed_by_token",
+    "plugin_not_enabled",
+    "config_invalid",
+    "invalid_input",
+    "forbidden",
 ]
+
+# The front door a call came through, and the surface an action must offer for it (D1).
+SURFACE_OF = {
+    "slash": Surface.SLASH,
+    "component": Surface.SLASH,
+    "mcp": Surface.MCP,
+    "service": Surface.SERVICE,
+}
+
+
+@dataclass(frozen=True)
+class TokenLimits:
+    """What a token may reach beyond its creator's live permissions: a maximum risk (D17) and, when not
+    empty, an allow-list of action names (D20)."""
+
+    max_risk: Risk
+    allowed: frozenset[str] = frozenset()
+
+
+def door_refusal(spec: "ActionSpec[Any, Any]", via: str, limits: TokenLimits | None) -> "Refused | None":
+    """Why this front door or token may not reach the action, before anything else is looked up."""
+    if SURFACE_OF[via] not in spec.surfaces:
+        return Refused("wrong_surface", f"{spec.name} is not offered through {via}")
+    if limits is None:
+        return None
+    if spec.risk > limits.max_risk:
+        return Refused("above_token_risk", f"this token may not use {spec.risk.name.lower()} actions")
+    if limits.allowed and spec.name not in limits.allowed:
+        return Refused("not_allowed_by_token", f"this token may not use {spec.name}")
+    return None
+
 
 ENABLED = "SELECT enabled FROM core.guild_plugins WHERE guild_id = $1 AND plugin_id = $2"
 
@@ -53,6 +92,7 @@ class Call:
     guild_id: int
     actor: Actor
     raw_input: Mapping[str, Any]
+    token: TokenLimits | None = None
 
 
 @dataclass(frozen=True)
@@ -126,6 +166,17 @@ class ActionSource:
     builtin: bool = False
 
 
+async def member_permissions(guild: Guild, user_id: int) -> discord.Permissions:
+    """A member's current permissions, from the cache or over REST when not cached (D18, D25)."""
+    member = guild.get_member(user_id)
+    if member is None:
+        try:
+            member = await guild.fetch_member(user_id)
+        except discord.NotFound:
+            raise Refused("forbidden", "you are not a member of this server") from None
+    return member.guild_permissions
+
+
 def sources_from(loaded: Mapping[str, Loaded]) -> dict[str, ActionSource]:
     return {plugin_id: ActionSource(p.plugin.manifest.config, p.actions) for plugin_id, p in loaded.items()}
 
@@ -167,6 +218,9 @@ class Registry:
     async def _prepare(
         self, spec: ActionSpec[Any, Any], call: Call, guild: Guild
     ) -> tuple[PluginActionContext, BaseModel]:
+        refusal = door_refusal(spec, call.actor.via, call.token)
+        if refusal is not None:
+            raise refusal
         plugin_id = spec.plugin_id
         source = self.sources[plugin_id]
         if not source.builtin and not await self.pools.core_db().fetchval(ENABLED, call.guild_id, plugin_id):
@@ -184,14 +238,8 @@ class Registry:
         return PluginActionContext(guild, call.actor, config, open_db), data
 
     async def _check_permission(self, spec: ActionSpec[Any, Any], call: Call, guild: Guild) -> None:
-        """The member's current permissions, from the cache or over REST (D18), against the action's (D19)."""
-        member = guild.get_member(call.actor.user_id)
-        if member is None:
-            try:
-                member = await guild.fetch_member(call.actor.user_id)
-            except discord.NotFound:
-                raise Refused("forbidden", "you are not a member of this server") from None
-        if not member.guild_permissions >= spec.default_permissions:
+        """The member's current permissions against the action's (D19)."""
+        if not await member_permissions(guild, call.actor.user_id) >= spec.default_permissions:
             raise Refused("forbidden", f"{spec.name} needs permissions you do not have")
 
     async def _run(

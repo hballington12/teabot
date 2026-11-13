@@ -233,13 +233,14 @@ class Plugin(Protocol):
 - **Testing helpers.** `teapot.testing` provides fake guilds, members and channels, a `plugin_db` fixture that creates a throwaway Postgres schema and role and runs the plugin's migrations, and `invoke(plugin, action, input, actor=...)`, which runs the real call path against the fakes.
 - **One call path.** Every adapter builds an `ActionContext` and calls `registry.invoke(name, guild_id, actor, raw_input)`. Slash calls take the guild from the interaction, and token calls take it from the token (D20). Its steps:
     1. Resolve the guild. Refuse when the bot is not in it.
-    2. Refuse when the plugin is not loaded or not enabled in that guild.
+    2. Refuse when the front door is not one of the action's surfaces (D1). A slash-only action, such as everything under `/plugins` and `/tokens`, is therefore out of any token's reach.
     3. For token calls, refuse when the action's risk is above the token's maximum risk (D17), or when the token has an allow-list without this action (D20).
-    4. Validate the input against the Pydantic model.
-    5. Check permission: `default_permissions` against the member's current permissions, from the cache with a REST fetch when the member is not cached (D18). Per-server overrides (D19) slot in here when they arrive.
-    6. For `WRITE` and `DESTRUCTIVE`, write the audit row with the outcome `started` (D24).
-    7. For `DESTRUCTIVE`, see plan then apply below. Otherwise run the action.
-    8. For `READ`, write one row to `core.audit_reads` with its outcome. For the others, in one transaction, record the outcome on the audit row and queue its `post_audit` job.
+    4. Refuse when the plugin is not loaded or not enabled in that guild.
+    5. Validate the input against the Pydantic model.
+    6. Check permission: `default_permissions` against the member's current permissions, from the cache with a REST fetch when the member is not cached (D18). Per-server overrides (D19) slot in here when they arrive.
+    7. For `WRITE` and `DESTRUCTIVE`, write the audit row with the outcome `started` (D24).
+    8. For `DESTRUCTIVE`, see plan then apply below. Otherwise run the action.
+    9. For `READ`, write one row to `core.audit_reads` with its outcome. For the others, in one transaction, record the outcome on the audit row and queue its `post_audit` job.
 - **Plan then apply (D21).** Every `DESTRUCTIVE` action's input schema gains an optional `confirm: str` field, added by the core.
     1. Without `confirm`, the core calls `plan` and serialises the diff in canonical form (sorted keys and sorted lists). The audit row gets the outcome `planned`, the SHA-256 of the canonical diff and a random confirm value. The response holds the diff's counts, its first page of entries and the confirm value.
     2. With `confirm`, the core finds the `planned` row by its confirm value and refuses unless the actor, guild, action and input match and the row is younger than 15 minutes. It calls `plan` again and compares hashes. On a match it queues the core `apply` handler, which calls `run` and writes progress to the job, and the response holds the job id. On a mismatch it refuses and returns a fresh plan. The apply's audit row stores the plan row's id.

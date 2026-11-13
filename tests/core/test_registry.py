@@ -11,12 +11,20 @@ from pydantic import BaseModel
 
 from teapot.core.config import ConfigStore
 from teapot.core.loader import Loaded
-from teapot.core.registry import ActionFailed, Call, PluginActionContext, Refused, Registry, sources_from
+from teapot.core.registry import (
+    ActionFailed,
+    Call,
+    PluginActionContext,
+    Refused,
+    Registry,
+    TokenLimits,
+    sources_from,
+)
 from teapot.db.migrate import PluginMigrations, migrate
 from teapot.db.naming import Naming
 from teapot.db.pool import Pools
 from teapot.db.types import Conn
-from teapot.sdk import ActionContext, ActionError, ActionSpec, Actor, Manifest, Risk
+from teapot.sdk import ActionContext, ActionError, ActionSpec, Actor, Manifest, Risk, Surface
 from teapot.testing import FakeClient, FakeGuild, FakeMember
 
 GUILD, MEMBER, STRANGER, UNCACHED = 1001, 2001, 2002, 2003
@@ -67,6 +75,15 @@ async def refuse_politely(_ctx: ActionContext, _data: Count) -> Counted:
 MANAGE = discord.Permissions(manage_messages=True)
 SPECS = [
     ActionSpec("alpha.count", "Count entries", Count, Counted, Risk.READ, count),
+    ActionSpec(
+        "alpha.nomcp",
+        "Count, not over MCP",
+        Count,
+        Counted,
+        Risk.READ,
+        count,
+        surfaces=Surface.SLASH | Surface.SERVICE,
+    ),
     ActionSpec("alpha.add", "Add an entry", Add, Added, Risk.WRITE, add, default_permissions=MANAGE),
     ActionSpec("alpha.boom", "Fail", Count, Counted, Risk.WRITE, boom),
     ActionSpec("alpha.polite", "Fail with a message", Count, Counted, Risk.WRITE, refuse_politely),
@@ -205,7 +222,13 @@ async def test_a_failing_action_is_audited_as_an_error_and_raised(world: World) 
 
 
 def test_the_registry_lists_its_actions(world: World) -> None:
-    assert set(world.registry.actions) == {"alpha.count", "alpha.add", "alpha.boom", "alpha.polite"}
+    assert set(world.registry.actions) == {
+        "alpha.count",
+        "alpha.nomcp",
+        "alpha.add",
+        "alpha.boom",
+        "alpha.polite",
+    }
 
 
 async def test_an_action_error_carries_a_message_for_the_member(world: World) -> None:
@@ -225,3 +248,39 @@ def test_a_builtin_context_has_no_plugin_database() -> None:
     ctx = PluginActionContext(None, Actor(1, "slash"), AlphaConfig(), None)
     with pytest.raises(RuntimeError, match="core services"):
         _ = ctx.queue
+
+
+def token_call(
+    action: str,
+    raw: dict[str, Any] | None = None,
+    *,
+    via: Any = "mcp",
+    risk: Risk = Risk.WRITE,
+    allowed: frozenset[str] = frozenset(),
+) -> Call:
+    return Call(action, GUILD, Actor(MEMBER, via, "tok1"), raw or {}, TokenLimits(risk, allowed))
+
+
+async def test_a_token_call_above_the_tokens_maximum_risk_is_refused(world: World) -> None:
+    refusal = await refused(world, token_call("alpha.add", {"name": "x"}, risk=Risk.READ))
+    assert refusal.code == "above_token_risk"
+    assert await world.registry.invoke(token_call("alpha.count", risk=Risk.READ)) is not None
+
+
+async def test_a_token_with_an_allow_list_reaches_only_those_actions(world: World) -> None:
+    allowed = frozenset({"alpha.count"})
+    assert (
+        await refused(world, token_call("alpha.add", {"name": "x"}, allowed=allowed))
+    ).code == "not_allowed_by_token"
+    assert await world.registry.invoke(token_call("alpha.count", allowed=allowed)) is not None
+
+
+@pytest.mark.parametrize(("via", "code"), [("mcp", "wrong_surface"), ("service", None), ("slash", None)])
+async def test_an_action_is_reached_only_through_its_surfaces(
+    world: World, via: Any, code: str | None
+) -> None:
+    c = token_call("alpha.nomcp", via=via)
+    if code is None:
+        assert await world.registry.invoke(c) is not None
+    else:
+        assert (await refused(world, c)).code == code
