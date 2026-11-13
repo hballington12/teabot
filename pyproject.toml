@@ -82,4 +82,15 @@ root_packages = ["teapot"]
 name = "The plugin SDK does not depend on the core's internals (D45)"
 type = "forbidden"
 source_modules = ["teapot.sdk"]
-forbidden_modules = ["teapot.cli"]
+forbidden_modules = [
+    "teapot.app",
+    "teapot.cli",
+    "teapot.core",
+    "teapot.db",
+    "teapot.envfile",
+    "teapot.health",
+    "teapot.logs",
+    "teapot.runtime",
+    "teapot.settings",
+    "teapot.web",
+]
