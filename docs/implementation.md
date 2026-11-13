@@ -34,9 +34,9 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 These steps need the maintainers, because they create accounts and secrets.
 
 - [x] Create a private GitHub repository for the framework and push `main`. It stays private until milestone 7 releases it. Done: `hballington12/teapot`.
-- [ ] Create the **dev** Discord application and bot (D38). Turn on the Server Members intent. Leave Message Content off.
-- [ ] Create a test server and invite the dev bot with the `bot` and `applications.commands` scopes and Administrator.
-- [ ] Put the dev bot token in a local `teapot.env`, which `.gitignore` already excludes.
+- [x] Create the **dev** Discord application and bot (D38). Turn on the Server Members intent. Leave Message Content off.
+- [x] Create a test server and invite the dev bot with the `bot` and `applications.commands` scopes and Administrator.
+- [x] Put the dev bot token in a local `teapot.env`, which `.gitignore` already excludes. It holds `TEAPOT_DISCORD_TOKEN` and `TEAPOT_DEV_GUILD_ID`.
 - [x] Install Docker or Podman with Compose locally, for the dev Postgres. Done: Docker with Compose is installed.
 
 ## Spikes
@@ -59,7 +59,7 @@ S1 and S2 run before milestone 1's database work. S3 and S4 run during milestone
 |---|---|---|
 | 1.1 Workspace and tooling | Root `pyproject.toml` with the workspace, the `teapot` script and the `dev` group. Ruff, pyright and import-linter configuration. pytest with `pytest-postgresql`. The CI workflow. `template/compose.yaml` with a dev Postgres. Directory READMEs. | setup |
 | 1.2 Settings and logging | `settings.py` with pydantic-settings and `teapot.env.example`. Logging setup and dev mode flags. | 1.1 |
-| 1.3 Database layer | The owner and `teapot_app` roles, the database part of `teapot init`, the pool with role switching on acquire, transaction handles, the open-block check, extended-protocol helpers and slow-transaction logging (D30). | 1.2, S1 |
+| 1.3 Database layer | The owner, `teapot_app` and `teapot_plugins` roles and the `set_config` revoke in `teapot init`, the core and plugin pools, role switching on acquire with `RESET ROLE` on release, transaction handles, the open-block check, prepared-statement helpers and slow-transaction logging (D30, S1). | 1.2, S1 |
 | 1.4 Migration runner | The `core` schema, plugin schemas and roles, one transaction per file, the `guild_id` check, the advisory lock, downgrade refusal, and core migration `0001` with `core.migrations`, `core.guilds`, `core.guild_plugins`, `core.jobs` and `core.processes` (D9). Later tables arrive as later core migrations in their own work packages. | 1.3 |
 | 1.5 Locks and process rows | The lock connection, shard locks, plugin lock helpers, exit when the connection drops, and the informational process row (D40). | 1.3, S2 |
 | 1.6 Work queue | Claims with `SKIP LOCKED` and leases, the computed shard filter, `NOTIFY` with `LISTEN` on the lock connection, the poll fallback, retries with back-off, lease reclaim, and the `maintenance` handler shell (D31). | 1.4, 1.5 |

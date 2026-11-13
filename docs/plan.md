@@ -42,7 +42,7 @@ src/teapot/
         tokens.py               issuing, hashing, checking and revoking tokens (D16)
         middleware.py           bearer-token check for `/mcp` and `/api`
     db/
-        pool.py                 the asyncpg pool, role switching on acquire, transaction handles, the open-block check (D30)
+        pool.py                 the core and plugin pools, role switching on acquire, transaction handles, the open-block check (D30)
         migrate.py              the migration runner, plugin schemas and roles, the guild_id check (D9)
         migrations/             the core's numbered SQL files, for the `core` schema
     builtin/
@@ -128,7 +128,9 @@ class GiveawayConfig(BaseModel):
 
 ### Schemas, roles and migrations (D9)
 
-- The database has one owner role, used only by the migration runner, and one runtime role, `teapot_app`, used by the pool. `teapot init` creates both. Each plugin adds a role `teapot_plugin_<id>` with `NOLOGIN`, granted to `teapot_app` so the pool can switch to it.
+- The database has an owner role, used only by the migration runner, and two login roles for the pools: `teapot_app` for the core and `teapot_plugins` for plugin code. `teapot_plugins` has no rights of its own. `teapot init` creates all three, and revokes `EXECUTE` on `pg_catalog.set_config` from `PUBLIC`, granting it back to `teapot_app` and the owner. That step needs a superuser once, and on managed Postgres without one, `teapot init` warns that the injection limit of D9 falls back to review.
+- Each plugin adds a role `teapot_plugin_<id>` with `NOLOGIN`, granted to `teapot_plugins` so the plugin pool can switch to it.
+- The runner also creates `plugin_<id>.schedule_job(guild_id, handler, run_at, payload)`, owned by `teapot_app`, `SECURITY DEFINER`, with `SET search_path = core, pg_temp` and the plugin id written into its body, and grants `EXECUTE` only to the plugin's role. A plugin queues its own jobs through it and cannot read or replace it (S1).
 - When a plugin first appears, the runner creates its schema `plugin_<id>`, owned by its role, and grants the role nothing else. The plugin role has no rights on `core` or on any other plugin's schema, so a query or foreign key that reaches outside fails with a permission error.
 - At start, `teapot run` takes `pg_advisory_lock` on a fixed key, so processes starting together migrate once. The others wait and then find nothing to do.
 - For each installed plugin, in any order since plugins share nothing, the runner applies every file above the plugin's recorded version. Each file runs in its own transaction:
@@ -158,12 +160,13 @@ async def run(ctx: ActionContext, data: EnterInput) -> EnterOutput:
     return EnterOutput(entries=count)
 ```
 
-- Each process holds an asyncpg pool logged in as `teapot_app`. teapot connects to Postgres directly, and the pool is the only pooler.
-- When a plugin acquires a connection, the core runs `SET ROLE teapot_plugin_<id>` and sets `search_path` to the plugin's schema. On release it runs `RESET ROLE` and `RESET search_path`. Plugin SQL names its tables without a prefix, and a single read outside a block needs no transaction.
-- Every `ctx.db` and `tx` helper sends its statement through the extended query protocol, with parameters bound separately, so one call runs exactly one statement. An injection bug cannot stack a `RESET ROLE`, which makes the role a hard limit for such bugs (D9). Plugin code that resets the role on purpose is a review matter (D5).
+- Each process holds two asyncpg pools: the core pool logged in as `teapot_app`, and the plugin pool logged in as `teapot_plugins`. teapot connects to Postgres directly, and the pools are the only poolers.
+- When a plugin acquires a connection from the plugin pool, the core runs `SET ROLE teapot_plugin_<id>` and sets `search_path` to the plugin's schema. On release it runs `RESET ROLE` before asyncpg's own reset, which resets `search_path` but leaves the role in place (S1). Plugin SQL names its tables without a prefix, and a single read outside a block needs no transaction.
+- Every `ctx.db` and `tx` helper runs its statement as a prepared statement, with parameters bound separately, so one call runs exactly one statement. Argument-less `execute` is never used, because asyncpg sends it through the simple protocol, which runs several. Row counts come from the prepared statement's status message.
+- With `set_config` revoked and a session user that has no rights, an injection bug can neither change the role nor reach `core` (D9). Plugin code that changes the role on purpose is a review matter (D5).
 - `ctx.db.transaction()` yields `tx`, and everything inside the block goes through it. The block sets a context variable that only marks it as open. Calling `ctx.db` while it is set raises an error naming `tx`, because that call would take another connection and miss the block's writes.
 - Inside a block, a plugin only runs SQL. Awaiting Discord or HTTP there would hold a pooled connection and its row locks across a slow call. Dev mode logs any block held longer than 100 ms, and the authoring guide states the rule.
-- `tx.schedule(...)` calls the `SECURITY DEFINER` function `core.schedule_job`, which the plugin roles may execute. It derives the plugin id from the current role, so a job is queued in the same transaction as the writes that need it. Outside a block, `ctx.queue.schedule(...)` does the same in its own transaction.
+- `tx.schedule(...)` calls the plugin's own `schedule_job` function, so a job is queued in the same transaction as the writes that need it. Outside a block, `ctx.queue.schedule(...)` does the same in its own transaction.
 
 ## The plugin SDK (D45)
 
@@ -267,7 +270,7 @@ Nothing in this path contacts the teapot maintainers. Publishing the plugin to P
 
 ## Core tables
 
-All in the schema `core`. Plugin roles have no rights on it, except to execute `core.schedule_job`.
+All in the schema `core`. Plugin roles and `teapot_plugins` have no rights on it. Plugins queue jobs through the `schedule_job` function in their own schema.
 
 | Table | Holds |
 |---|---|
@@ -289,7 +292,9 @@ All in the schema `core`. Plugin roles have no rights on it, except to execute `
 
 - Each process opens one dedicated connection outside the pool, the lock connection. It must stay outside the pool, because asyncpg's pool reset releases every advisory lock a pooled connection holds.
 - Before it connects to the gateway, the process takes `pg_try_advisory_lock(<shard namespace>, <shard id>)` on the lock connection for each shard it will run. If any lock is taken, it releases what it has and refuses to start, naming the process row of the current owner.
-- After loading plugins, it takes `pg_try_advisory_lock_shared(<plugin namespace>, hashtext(<plugin id>))` for each loaded plugin. Purge asks for the same key exclusively (D7).
+- After loading plugins, it takes `pg_try_advisory_lock_shared(<plugin namespace>, <plugin key>)` for each loaded plugin, where the key is the first four bytes of the SHA-256 of the plugin id, read as a signed 32-bit integer. The key is computed in Python because Postgres's `hashtext` is not promised to stay stable across major versions (S2). Purge asks for the same key exclusively (D7).
+- Reading the locks back from `pg_locks` converts `objid` from its unsigned form, and maps keys to plugin ids by hashing the known ids.
+- A dropped lock connection is detected with asyncpg's termination listener, which makes the process exit.
 - The lock connection also runs `LISTEN teapot_jobs` for the queue (D31).
 - When the lock connection drops, the process exits with an error, and systemd or Compose restarts it. A crash releases every lock at once, so there are no staleness thresholds and no cleanup of stale owners.
 - `teapot plugins list` reads the plugin locks from `pg_locks` to show what is loaded, and joins the informational `core.processes` rows for hosts and versions. The process updates its row every minute and deletes it on a clean shutdown.
@@ -423,8 +428,8 @@ After milestone 7 the core is complete enough for the real plugins: channels, ro
 - Tests run against a real Postgres started by `pytest-postgresql`, one database per session, with the core schema migrated once and plugin schemas reset per test.
 - Core logic (registry, permissions, plans, queue, transactions, tokens) runs against the fakes in `teapot.testing` and against fake plugins passed straight to the loader. No Discord connection or packaging is needed. Using the same fakes the SDK ships keeps them honest.
 - The migration runner has tests for ordering, rollback of a failed file, a dollar-quoted trigger, a table without `guild_id` being refused, two runners starting at once under the advisory lock, and refusal of a downgrade.
-- Role isolation has tests that a plugin role cannot read or reference `core` or another plugin's schema, that a query string with a stacked `; RESET ROLE` is refused by the helpers, and that the role can call `core.schedule_job`.
-- The database helpers have tests that a pooled connection is back to `teapot_app` after release, and that calling `ctx.db` inside an open block raises.
+- Role isolation has tests, taken from spike S1, that a plugin role cannot read or reference `core` or another plugin's schema, that an injected stacked `; RESET ROLE` and an injected `set_config('role', ...)` are both refused, that `SET ROLE teapot_app` is refused even from a plpgsql function, and that the plugin's own `schedule_job` queues a job under its plugin id.
+- The database helpers have tests that a plugin connection is back to `teapot_plugins` with no role set after release, that no helper runs two statements, and that calling `ctx.db` inside an open block raises.
 - The loader has tests for a bad id, a reserved id and two packages with the same id.
 - The queue has tests for two workers never claiming the same job, shard filtering after a change of shard count, one running apply per guild, and reclaiming a job whose lease ran out.
 - The lifecycles have tests for each row of the lifecycle table, purge refusing while a process holds the plugin's shared lock, an orphaned plugin picked up again on reinstall, and a guild re-added within the grace period or purged after it.
