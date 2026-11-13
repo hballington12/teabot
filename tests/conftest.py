@@ -18,7 +18,7 @@ from pytest_postgresql import factories
 
 from teapot.db.bootstrap import bootstrap
 from teapot.db.naming import Naming
-from teapot.db.pool import ConnectionInfo, Credentials, Login, Pools, create_pools
+from teapot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, create_pools
 from teapot.db.types import Conn
 from tests.pg_cleanup import cleanup, role_prefix, run_db_name
 
@@ -96,7 +96,9 @@ async def naming(admin: Conn) -> AsyncIterator[Naming]:
 @pytest.fixture
 async def pools(admin: Conn, naming: Naming, info: ConnectionInfo) -> AsyncIterator[Pools]:
     await bootstrap(admin, naming, APP_PASSWORD, PLUGINS_PASSWORD)
-    pools = await create_pools(info, naming, Credentials(APP_PASSWORD, PLUGINS_PASSWORD), size=2, slow_ms=100)
+    pools = await create_pools(
+        info, naming, Credentials(APP_PASSWORD, PLUGINS_PASSWORD), size=2, timing=Timing(slow_ms=100)
+    )
     try:
         yield pools
     finally:

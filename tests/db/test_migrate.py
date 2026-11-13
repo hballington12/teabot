@@ -165,3 +165,11 @@ async def test_schedule_job_queues_under_the_plugin_id(
     }
     with pytest.raises(asyncpg.InsufficientPrivilegeError):
         await db.fetch("SELECT * FROM core.jobs")
+
+
+async def test_a_plugin_without_migrations_still_gets_its_schema(
+    admin: Conn, naming: Naming, ready: Pools
+) -> None:
+    report = await migrate(admin, naming, [PluginMigrations("bare", None)])
+    assert report.applied["bare"] == [] and not report.failed
+    assert await admin.fetchval("SELECT 1 FROM pg_namespace WHERE nspname = 'plugin_bare'") == 1

@@ -7,7 +7,7 @@ import asyncpg
 import pytest
 
 from teapot.db.naming import Naming
-from teapot.db.pool import BlockOpenError, Pools
+from teapot.db.pool import BlockOpenError, Database, Pools, Timing
 from teapot.db.types import Conn
 
 
@@ -137,3 +137,41 @@ async def test_slow_transaction_is_logged(world: Pools, caplog: pytest.LogCaptur
     async with world.plugin_db("alpha").transaction():
         await asyncio.sleep(0.15)
     assert any(r.message == "slow transaction" for r in caplog.records)
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.now = 1024.0  # exact in binary, like every step below
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.mark.parametrize(
+    ("slow_ms", "held_s", "logged"),
+    [(125, 0.25, True), (125, 0.125, False), (125, 0.0625, False), (None, 8.0, False)],
+)
+async def test_slow_transactions_are_logged_past_the_threshold(
+    world: Pools, caplog: pytest.LogCaptureFixture, slow_ms: float | None, held_s: float, logged: bool
+) -> None:
+    clock = FakeClock()
+    db = Database(world.core, "core", Timing(slow_ms=slow_ms, clock=clock))
+    caplog.set_level(logging.WARNING, logger="teapot.db.pool")
+    async with db.transaction():
+        clock.now += held_s
+    records = [r for r in caplog.records if r.message == "slow transaction"]
+    assert bool(records) is logged
+    if logged:
+        assert records[0].__dict__["held_ms"] == pytest.approx(held_s * 1000)
+
+
+async def test_core_db_inside_its_own_open_block_raises(world: Pools) -> None:
+    db = world.core_db()
+    async with db.transaction():
+        with pytest.raises(BlockOpenError):
+            await db.fetch("SELECT 1")
+
+
+async def test_pools_open_one_connection_each_up_front(world: Pools) -> None:
+    assert world.core.get_size() == 1
+    assert world.plugins.get_size() == 1

@@ -10,10 +10,10 @@
 
 import logging
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import asyncpg
@@ -76,47 +76,34 @@ class Transaction(Queries):
 
 
 @dataclass(frozen=True)
-class Scope:
-    """Who a `Database` acts as: the core, or one plugin with its role and schema."""
+class Timing:
+    """When a transaction counts as slow, and the clock that measures it. Tests pass their own clock."""
 
-    name: str
-    role: str | None = None
-    schema: str | None = None
+    slow_ms: float | None = None
+    clock: Callable[[], float] = time.perf_counter
 
 
 class Database(Queries):
-    """Query helpers over a pool, acting as the core or as one plugin."""
+    """Query helpers over a pool, acting as the core. `PluginDatabase` acts as one plugin."""
 
-    def __init__(self, pool: Pool, scope: Scope, slow_ms: float | None = None) -> None:
+    def __init__(self, pool: Pool, name: str = "core", timing: Timing | None = None) -> None:
         self.pool = pool
-        self.scope = scope
-        self.slow_ms = slow_ms
+        self.name = name
+        self.timing = timing or Timing()
 
     @asynccontextmanager
     async def _connection(self) -> AsyncGenerator[AnyConn]:
-        if self.scope.role is not None and _open_block.get() == self.scope.name:
-            raise BlockOpenError(f"{self.scope.name}: use tx inside an open transaction block, not db")
+        if _open_block.get() == self.name:
+            raise BlockOpenError(f"{self.name}: use tx inside an open transaction block, not db")
         async with self.pool.acquire() as conn:
-            await self._enter(conn)
-            try:
-                yield conn
-            finally:
-                await self._leave(conn)
-
-    async def _enter(self, conn: AnyConn) -> None:
-        if self.scope.role is not None:
-            await conn.execute(f'SET ROLE "{self.scope.role}"; SET search_path TO "{self.scope.schema}"')
-
-    async def _leave(self, conn: AnyConn) -> None:
-        if self.scope.role is not None and not conn.is_closed():
-            await conn.execute("RESET ROLE; RESET search_path")
+            yield conn
 
     @asynccontextmanager
     async def transaction(self) -> AsyncGenerator[Transaction]:
         """Open a transaction on one pooled connection, committed on exit and rolled back on error."""
         async with self._connection() as conn:
-            token = _open_block.set(self.scope.name)
-            started = time.perf_counter()
+            token = _open_block.set(self.name)
+            started = self.timing.clock()
             try:
                 async with conn.transaction():
                     yield Transaction(conn)
@@ -125,9 +112,28 @@ class Database(Queries):
                 self._log_if_slow(started)
 
     def _log_if_slow(self, started: float) -> None:
-        held_ms = (time.perf_counter() - started) * 1000
-        if self.slow_ms is not None and held_ms > self.slow_ms:
-            log.warning("slow transaction", extra={"scope": self.scope.name, "held_ms": round(held_ms, 1)})
+        held_ms = (self.timing.clock() - started) * 1000
+        if self.timing.slow_ms is not None and held_ms > self.timing.slow_ms:
+            log.warning("slow transaction", extra={"scope": self.name, "held_ms": held_ms})
+
+
+class PluginDatabase(Database):
+    """Query helpers acting as one plugin: its role and its schema, reset on release (S1)."""
+
+    def __init__(self, pool: Pool, name: str, naming: Naming, timing: Timing | None = None) -> None:
+        super().__init__(pool, name, timing)
+        self.role = naming.plugin_role(name)
+        self.schema = naming.plugin_schema(name)
+
+    @asynccontextmanager
+    async def _connection(self) -> AsyncGenerator[AnyConn]:
+        async with super()._connection() as conn:
+            await conn.execute(f'SET ROLE "{self.role}"; SET search_path TO "{self.schema}"')
+            try:
+                yield conn
+            finally:
+                if not conn.is_closed():
+                    await conn.execute("RESET ROLE; RESET search_path")
 
 
 @dataclass
@@ -137,14 +143,13 @@ class Pools:
     core: Pool
     plugins: Pool
     naming: Naming
-    slow_ms: float | None = None
+    timing: Timing = field(default_factory=Timing)
 
     def core_db(self) -> Database:
-        return Database(self.core, Scope("core"), self.slow_ms)
+        return Database(self.core, "core", self.timing)
 
-    def plugin_db(self, plugin_id: str) -> Database:
-        scope = Scope(plugin_id, self.naming.plugin_role(plugin_id), self.naming.plugin_schema(plugin_id))
-        return Database(self.plugins, scope, self.slow_ms)
+    def plugin_db(self, plugin_id: str) -> PluginDatabase:
+        return PluginDatabase(self.plugins, plugin_id, self.naming, self.timing)
 
     async def close(self) -> None:
         await self.core.close()
@@ -192,7 +197,7 @@ async def create_pools(
     credentials: Credentials,
     *,
     size: int = 10,
-    slow_ms: float | None = None,
+    timing: Timing | None = None,
 ) -> Pools:
     """Open both pools. Each gets `size` connections at most."""
 
@@ -209,4 +214,4 @@ async def create_pools(
 
     core = await make(naming.app_role, credentials.app_password)
     plugins = await make(naming.plugins_role, credentials.plugins_password)
-    return Pools(core, plugins, naming, slow_ms)
+    return Pools(core, plugins, naming, timing or Timing())

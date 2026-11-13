@@ -19,7 +19,7 @@ def _print_version(value: bool) -> None:
 @app.callback()
 def main(
     version: Annotated[
-        bool, typer.Option("--version", callback=_print_version, is_eager=True, help="Show the version.")
+        bool, typer.Option("--version", callback=_print_version, help="Show the version.")
     ] = False,
 ) -> None:
     """Run and operate a teapot instance."""

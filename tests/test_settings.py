@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from teapot.logs import JsonFormatter
+from teapot.logs import JsonFormatter, setup_logging
 from teapot.settings import Settings, load_settings
 
 TEMPLATE = Path(__file__).parents[1] / "template" / "teapot.env.example"
@@ -63,3 +63,20 @@ def test_json_formatter_carries_extra_fields() -> None:
     assert entry["message"] == "hello world"
     assert entry["guild_id"] == 42
     assert entry["level"] == "INFO"
+
+
+def test_json_logs_leave_out_standard_and_private_attributes() -> None:
+    record = logging.LogRecord("teapot.test", logging.INFO, __file__, 7, "hi", (), None)
+    record._hidden = "x"
+    entry = json.loads(JsonFormatter().format(record))
+    assert set(entry) == {"time", "level", "logger", "message"}
+
+
+@pytest.mark.parametrize(("fmt", "json_lines"), [("json", True), ("text", False)])
+def test_setup_logging_picks_the_formatter(fmt: str, json_lines: bool) -> None:
+    setup_logging("INFO", fmt)  # type: ignore[arg-type]
+    try:
+        (handler,) = logging.getLogger().handlers
+        assert isinstance(handler.formatter, JsonFormatter) is json_lines
+    finally:
+        logging.getLogger().handlers.clear()

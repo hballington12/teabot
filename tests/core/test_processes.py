@@ -100,3 +100,18 @@ async def test_process_row_is_written_and_deleted(migrated: Pools) -> None:
     assert row is not None and row["shard_ids"] == [0] and '"beta": "failed"' in row["plugins"]
     await delete_process_row(db, identity)
     assert await db.fetchval("SELECT count(*) FROM core.processes") == 0
+
+
+def test_the_unsigned_boundary_maps_to_the_most_negative_key() -> None:
+    assert objid_to_key(2**31) == -(2**31)
+    assert objid_to_key(2**31 - 1) == 2**31 - 1
+
+
+async def test_close_closes_the_lock_connection(owner_login: Login, admin: Conn) -> None:
+    lock = await open_lock_connection(owner_login, lambda: None)
+    await lock.close()
+    assert lock.conn.is_closed()
+    killed = await open_lock_connection(owner_login, lambda: None)
+    await admin.execute("SELECT pg_terminate_backend($1)", killed.conn.get_server_pid())
+    await asyncio.sleep(0.2)
+    await killed.close()
