@@ -17,3 +17,8 @@ manimgx = { path = "/home/ixguard/opt/manimgx/dist/manimgx-0.1.1-cp313-abi3-linu
 
 [tool.ruff]
 line-length = 120
+
+[dependency-groups]
+dev = [
+    "playwright>=1.65.1",
+]
