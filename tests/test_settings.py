@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from teapot.logs import JsonFormatter, setup_logging
+from teapot.logs import JsonFormatter, TextFormatter, setup_logging
 from teapot.settings import Settings, load_settings
 
 TEMPLATE = Path(__file__).parents[1] / "template" / "teapot.env.example"
@@ -80,3 +80,22 @@ def test_setup_logging_picks_the_formatter(fmt: str, json_lines: bool) -> None:
         assert isinstance(handler.formatter, JsonFormatter) is json_lines
     finally:
         logging.getLogger().handlers.clear()
+
+
+def test_text_logs_show_extra_fields_after_the_message() -> None:
+    record = logging.LogRecord("teapot.test", logging.ERROR, __file__, 1, "teapot stopped", (), None)
+    record.reason = "discord stopped: ShardOwnedError()"
+    line = TextFormatter().format(record)
+    assert line.endswith("teapot stopped reason='discord stopped: ShardOwnedError()'")
+
+
+def test_text_logs_without_extras_are_unchanged() -> None:
+    record = logging.LogRecord("teapot.test", logging.INFO, __file__, 1, "plain", (), None)
+    assert TextFormatter().format(record).endswith("teapot.test: plain")
+
+
+def test_uvicorns_colour_copy_of_the_message_is_left_out() -> None:
+    record = logging.LogRecord("uvicorn.error", logging.INFO, __file__, 1, "Started server", (), None)
+    record.color_message = "Started \x1b[36mserver\x1b[0m"
+    assert TextFormatter().format(record).endswith("uvicorn.error: Started server")
+    assert "color_message" not in json.loads(JsonFormatter().format(record))
