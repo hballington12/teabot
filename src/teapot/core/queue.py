@@ -2,7 +2,7 @@
 
 A job runs only when its plugin is loaded and, for a server's job, when the plugin is enabled there and
 the bot has not left the server. Other jobs wait in `pending`. The shard filter is computed from `guild_id`
-at claim time and never stored, so resharding leaves nothing stale.
+at claim time and never stored, so resharding leaves nothing stale. A job for no server runs on any shard.
 """
 
 import json
@@ -29,7 +29,7 @@ SELECT_DUE = """
 SELECT j.id FROM core.jobs j
 WHERE ((j.state = 'pending' AND j.run_at <= now()) OR (j.state = 'running' AND j.lease_until < now()))
   AND j.plugin_id = ANY($1::text[])
-  AND ($2::integer IS NULL OR ((j.guild_id >> 22) % $2) = ANY($3::integer[]))
+  AND ($2::integer IS NULL OR j.guild_id IS NULL OR ((j.guild_id >> 22) % $2) = ANY($3::integer[]))
   AND (j.guild_id IS NULL OR j.plugin_id = 'core' OR (
         EXISTS (SELECT 1 FROM core.guild_plugins gp
                 WHERE gp.guild_id = j.guild_id AND gp.plugin_id = j.plugin_id AND gp.enabled)

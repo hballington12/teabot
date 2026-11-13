@@ -257,3 +257,9 @@ async def test_a_job_can_carry_its_own_attempt_limit(queue: Queue, admin: Conn) 
     patient = await queue.schedule(NewJob("alpha", "x", guild_id=SHARD0_GUILD, max_attempts=48))
     limits = {r["id"]: r["max_attempts"] for r in await admin.fetch("SELECT id, max_attempts FROM core.jobs")}
     assert (limits[default], limits[patient]) == (5, 48)
+
+
+async def test_a_job_for_no_server_is_claimed_by_any_shard(queue: Queue) -> None:
+    await queue.schedule(NewJob("core", "maintenance"))
+    job = await queue.claim(["core"], ShardFilter(shard_count=2, shard_ids=(1,)))
+    assert job is not None and job.guild_id is None
