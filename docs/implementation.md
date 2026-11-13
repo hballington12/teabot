@@ -1,6 +1,6 @@
 # Implementation plan
 
-How teapot gets built. The [README](../README.md) records the decisions (D1 to D50) and [`plan.md`](plan.md) describes what the finished milestones contain. This document turns those milestones into ordered work packages, each small enough for one pull request.
+How teapot gets built. The [README](../README.md) records the decisions (D1 to D50) and [`plan.md`](plan.md) describes what the finished milestones contain. This document turns those milestones into ordered work packages, each small enough to finish in a few focused commits.
 
 ## Ground rules
 
@@ -14,20 +14,20 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 
 ### Working method
 
-- **One work package, one branch, one pull request.** Branches are named `wp/<id>-<slug>`, for example `wp/1.3-database-layer`. Pull requests squash-merge into `main`, and `main` stays green.
-- **CI gates every pull request.** pytest against Postgres, `ruff check`, `ruff format --check`, `pyright` in strict mode and `import-linter`.
-- **The design moves with the code.** When implementation shows that a decision is wrong or incomplete, the same pull request updates `README.md` and `plan.md`.
+- **Solo development on `main`.** Work is committed straight to `main` in small, self-contained commits and pushed. There are no pull requests for the maintainers' own work, and commits carry no tool attribution. Pull requests and the PR template are for outside contributors once the repository is public.
+- **Checks run before every push.** pytest against Postgres, `ruff check`, `ruff format --check`, `pyright` in strict mode and `import-linter`. CI runs the same checks on every push, and `main` stays green.
+- **The design moves with the code.** When implementation shows that a decision is wrong or incomplete, the same commit updates `README.md` and `plan.md`.
 - **Spikes come first where a work package rests on an unverified assumption.** A spike is a throwaway script in `tmp/spikes/`, time-boxed to a day. Its findings go into `docs/spikes.md` before the dependent work package starts, because `tmp/` is not committed.
 
 ### Definition of done for a work package
 
-1. The code and its tests are merged, and CI passes.
+1. The code and its tests are committed and pushed to `main`, and CI passes.
 2. Tests sit in `tests/` for the core and in `plugins/<id>/tests/` for plugins, never beside the code.
 3. Every new subdirectory has a short `README.md` in bullet form saying what it holds.
 4. No function is longer than 150 lines, and deep nesting is split into helpers.
 5. Public `teapot.sdk` names have docstrings.
 6. Any design change is reflected in `README.md` and `plan.md`.
-7. The work package's exit check, listed below, has been run and its result noted in the pull request.
+7. The work package's exit check, listed below, has been run and its result noted in the commit message.
 
 ## Setup before milestone 1
 
@@ -168,6 +168,6 @@ These are settled here and do not need a design decision of their own.
 ## Tracking
 
 - Each work package is a GitHub issue named after its id, for example "WP1.3 Database layer", labelled `work package` and placed in its milestone, M1 to M7.
-- Spikes are issues labelled `spike`, closed by the pull request that adds their findings to `docs/spikes.md`. S1 to S4 sit in M1 and S5 in M3, where they run.
-- The 42 issues (5 spikes and 37 work packages) were created from this document's tables. A pull request names its issue with "Closes #n".
+- Spikes are issues labelled `spike`, closed by the commit that adds their findings to `docs/spikes.md`. S1 to S4 sit in M1 and S5 in M3, where they run.
+- The 42 issues (5 spikes and 37 work packages) were created from this document's tables. The commit that finishes a work package or spike closes its issue with "Closes #n".
 - This document is updated when a work package is split, merged or reordered, so it stays the current plan.
