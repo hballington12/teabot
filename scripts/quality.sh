@@ -17,10 +17,10 @@ if grep -q '^DUPLICATE' <<<"$dry_report"; then
 fi
 echo "dryer: no duplicates at 0.8 or above"
 
-# Test databases share one name, so mutants run one at a time.
+# Test databases and roles carry the test process's pid, so mutants run in parallel safely.
 tests="uv run -q pytest -q -x -p no:cacheprovider"
 if [ "$#" -gt 0 ]; then
-  mutator --max-workers 1 --test-command "$tests" "$@"
+  mutator --max-workers 4 --test-command "$tests" "$@"
 else
-  mutator --max-workers 1 --test-command "$tests" --changed
+  mutator --max-workers 4 --test-command "$tests" --changed
 fi

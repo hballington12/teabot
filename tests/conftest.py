@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import asyncpg
+import psycopg
 import pytest
 from pytest_postgresql import factories
 
@@ -19,6 +20,7 @@ from teapot.db.bootstrap import bootstrap
 from teapot.db.naming import Naming
 from teapot.db.pool import ConnectionInfo, Credentials, Login, Pools, create_pools
 from teapot.db.types import Conn
+from tests.pg_cleanup import cleanup, role_prefix, run_db_name
 
 APP_PASSWORD = "app-test"
 PLUGINS_PASSWORD = "plugins-test"
@@ -28,8 +30,23 @@ postgresql_noproc = factories.postgresql_noproc(  # pyright: ignore[reportUnknow
     port=int(os.environ.get("TEAPOT_TEST_PG_PORT", "55432")),
     user=os.environ.get("TEAPOT_TEST_PG_USER", "teapot_owner"),
     password=os.environ.get("TEAPOT_TEST_PG_PASSWORD", "teapot"),
+    dbname=run_db_name(os.getpid()),
 )
 postgresql = factories.postgresql("postgresql_noproc")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _drop_dead_runs(postgresql_noproc: Any) -> None:
+    """Drop databases and roles that killed test runs left behind (see tests/pg_cleanup.py)."""
+    with psycopg.connect(
+        host=postgresql_noproc.host,
+        port=postgresql_noproc.port,
+        user=postgresql_noproc.user,
+        password=postgresql_noproc.password,
+        dbname="postgres",
+        autocommit=True,
+    ) as conn:
+        cleanup(conn)
 
 
 @pytest.fixture
@@ -67,7 +84,7 @@ async def admin(owner_kwargs: dict[str, Any]) -> AsyncIterator[Conn]:
 @pytest.fixture
 async def naming(admin: Conn) -> AsyncIterator[Naming]:
     """A unique prefix, and every role under it dropped after the test."""
-    naming = Naming(f"t{secrets.token_hex(4)}")
+    naming = Naming(role_prefix(os.getpid(), secrets.token_hex(2)))
     yield naming
     roles = await admin.fetch("SELECT rolname FROM pg_roles WHERE rolname LIKE $1", f"{naming.prefix}\\_%")
     for row in roles:
