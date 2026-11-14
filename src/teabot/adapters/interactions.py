@@ -93,7 +93,11 @@ def plan_embed(plan: Planned) -> discord.Embed:
         note = "Nothing has changed yet. Confirm within 15 minutes to apply it."
     embed = discord.Embed(title=f"Plan: {plan.action}", description=note, colour=discord.Colour.orange())
     embed.add_field(name="Changes", value=", ".join(f"{k}: {v}" for k, v in plan.counts.items()) or "none")
-    lines = [f"{e.change} {discord.utils.escape_markdown(e.target)}" for e in plan.entries[:PLAN_SHOWN]]
+    lines = [
+        f"{e.change} {discord.utils.escape_markdown(e.target)}"
+        + (f": {discord.utils.escape_markdown(e.detail)}" if e.detail else "")
+        for e in plan.entries[:PLAN_SHOWN]
+    ]
     if plan.total > len(lines):
         lines.append(f"and {plan.total - len(lines)} more")
     embed.add_field(name="First entries", value="\n".join(lines) or "none", inline=False)

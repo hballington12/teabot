@@ -13,27 +13,31 @@ Each problem below starts with what you see.
 
 The action needs a Discord permission you do not have. [Built-in commands](commands.md) and each plugin's page say which. Ask an admin to give your role that permission.
 
+## "... is not enabled in this server"
+
+The plugin was turned off, and Discord still showed its command for a moment. Turn it on with `/plugins enable`, or reload Discord.
+
 ## A plugin says "not loaded"
 
 The plugin failed to load on the operator's side, and cannot be turned on. The reason follows `not loaded`. Tell the operator.
 
 ## "That did not work. The error is in the audit log."
 
-Something went wrong inside teabot. Run `/audit recent`, or look in your [audit channel](audit.md): the entry's **Error** field says what happened. Pass it to the operator if it looks like a bug.
+Something went wrong inside teabot. Look in your [audit channel](audit.md): the post's **Error** field says what happened. Choose an audit channel first if you have none, since `/audit recent` does not show errors. Pass the error to the operator if it looks like a bug.
 
-## "That plan no longer exists"
+## "that plan is more than 15 minutes old"
 
-The plan expired, or was already used. Run the action again for a new plan. See [Confirming changes](confirming.md).
+The plan expired, or, with "that plan has already been applied", was already used. Run the action again for a new plan. See [Confirming changes](confirming.md).
 
 ## "That form has expired"
 
 A form for long text lasts 15 minutes. Run the command again.
 
-## teabot cannot post in a channel
+## "I am not allowed to post in that channel."
 
-Check the channel's permissions. The bot's role needs **View Channel** and **Send Messages** there.
+The bot's role needs **View Channel** and **Send Messages** there. This happens only if the bot was added without **Administrator**; add it again with the invite link and leave Administrator ticked.
 
-## Two bots answer every command
+## Every command shows twice
 
 Two teabots are in your server. Remove one.
 
@@ -43,9 +47,9 @@ Two teabots are in your server. Remove one.
 - Check the token has not expired or been revoked, with `/tokens list`.
 - The header is `Authorization: Bearer ` followed by the whole token.
 
-## An AI assistant's change was refused
+## "this token may not use destructive actions"
 
-The token's limits refused it. A token made with `max_risk:read` can only look things up. Make a new token with the limits you need. See [Limit a token](ai.md#limit-a-token).
+The token's limits refused the change. A token made with the default `max_risk:write` cannot use actions that change a lot, such as cancelling a giveaway, and one made with `read` can only look things up. Make a new token with the limits you need. See [Limit a token](ai.md#limit-a-token).
 
 ## Still stuck
 

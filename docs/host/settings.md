@@ -1,10 +1,12 @@
 # Settings
 
-teabot reads its settings from `teabot.env`, in your instance's folder. After a change, restart the bot:
+teabot reads its settings from `teabot.env`, in your instance's folder. After a change, recreate the bot's container, so it reads the file again:
 
 ```bash
-docker compose restart bot
+docker compose up -d --force-recreate bot
 ```
+
+On a [bare-metal host](bare-metal.md), the file is `/etc/teabot/teabot.env`, and the restart is `systemctl restart teabot`.
 
 ## The ones people change
 
@@ -25,7 +27,7 @@ This is the template's `teabot.env.example`, which `setup.sh` copies to `teabot.
 
 ## The `.env` file
 
-Docker Compose reads `.env`, which `setup.sh` writes. It is separate from `teabot.env`.
+Docker Compose reads `.env`, which `setup.sh` writes. It is separate from `teabot.env`:
 
 ```ini title=".env"
 TEABOT_DB_OWNER_PASSWORD=...   # the database password; Postgres keeps the one it first started with
@@ -33,6 +35,6 @@ TEABOT_UID=1000                # the user and group the bot runs as, who must ow
 TEABOT_GID=1000
 ```
 
-Two more are optional: `TEABOT_DB_PORT` (default `55432`) and `TEABOT_HTTP_PORT` (default `8780`), the ports Postgres and the bot listen on, on this machine only.
+To use other ports on this machine, add `TEABOT_HTTP_PORT` (default `8780`) or `TEABOT_DB_PORT` (default `55432`) to `.env`, not to `teabot.env`, then run `docker compose up -d`.
 
 **Next:** [Adding plugins](adding-plugins.md).

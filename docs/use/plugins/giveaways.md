@@ -23,7 +23,7 @@ teabot announces the giveaway in the channel, with its number and how to enter, 
 /giveaways enter giveaway:3
 ```
 
-teabot replies `You're in. Good luck!` Each member can enter once.
+teabot replies `You're in. Good luck!` Each member can enter once. Entering again, or entering a giveaway that has ended, replies `You are already in, or that giveaway is not running.` A member with the excluded role is told `Your role cannot enter giveaways here.`
 
 ## See the running giveaways
 
@@ -31,11 +31,15 @@ teabot replies `You're in. Good luck!` Each member can enter once.
 /giveaways list
 ```
 
-teabot shows the running giveaways to the whole channel, with their numbers, prizes, end times and entrants.
+teabot shows the running giveaways to the whole channel, one a line: its number, prize, end time in UTC, and entrants.
+
+```text
+- 3 · Discord Nitro · 2026-11-15T12:00:00Z · 5
+```
 
 ## The draw
 
-When time is up, teabot picks the winners at random. It announces them in the giveaway's channel, and mentions only the winners. If nobody entered, it says so.
+When time is up, teabot picks the winners at random. It announces them in the giveaway's channel, and mentions only the winners. If fewer members entered than there are winners, all of them win. If nobody entered, it says so.
 
 ## Cancel a giveaway
 
@@ -43,7 +47,7 @@ When time is up, teabot picks the winners at random. It announces them in the gi
 /giveaways cancel giveaway:3
 ```
 
-teabot shows a plan of what it will cancel. Confirm it within 15 minutes, and the giveaway and its draw are cancelled. See [Confirming changes](../confirming.md).
+teabot shows a plan of what it will cancel. Confirm it within 15 minutes, and the giveaway and its draw are cancelled. See [Confirming changes](../confirming.md). The giveaway's announcement stays in the channel; delete it if you like.
 
 ## Who can use it
 

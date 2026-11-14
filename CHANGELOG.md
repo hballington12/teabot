@@ -20,6 +20,14 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 - `./setup.sh` in the template sets up and starts an instance in one command: it asks for the bot token, writes `.env` and `teabot.env`, builds and starts the bot and Postgres, creates the database roles, and prints the invite link. It can be run again after a failure.
 - The template's Compose file has a `uv` service, so changing an instance's plugins needs only Docker: `docker compose run --rm uv add teabot-foo`.
 - The template's `.dockerignore` keeps `.env`, which holds the database owner's password, out of the image's build context.
+- `teabot plugins purge` works in the bot's container, whose user has no name; the audit log records its id.
+- `setup.sh` checks that it can reach Docker, and a failed health check says how to fix a wrong token.
+- The template's `.gitignore` keeps database backups out of git, and the bare-metal setup installs Caddy and stops when `teabot init` fails.
+
+### For operators
+
+- To use `./setup.sh` and the `uv` service, copy `setup.sh`, `compose.yaml`, `.dockerignore` and `.gitignore` from the new template into your instance. Your `.env`, `teabot.env` and database are unchanged, and `setup.sh` keeps them.
+- A bare-metal host gets Caddy from Ubuntu's packages when `setup-host.sh` runs again. A host that has Caddy already is unaffected.
 
 ### Writing plugins
 

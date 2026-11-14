@@ -33,7 +33,7 @@ teabot replies `giveaways is now enabled here.`, and the plugin's commands appea
 /plugins disable plugin:giveaways
 ```
 
-Its commands disappear from your server. Its data and settings are kept, so turning it on again carries on where it left off.
+Its commands disappear from your server. Its data and settings are kept, so turning it on again carries on where it left off. While it is off, its scheduled work, such as a giveaway's draw or a scheduled announcement, waits, and runs when you turn it back on.
 
 ## Change a plugin's settings
 
@@ -56,7 +56,7 @@ Change one:
 /plugins config plugin:giveaways setting:default_minutes value:90
 ```
 
-- Type numbers, and `true` or `false`, as they are.
+- Type numbers, and `true` or `false`, as they are. To clear a setting, type `null`.
 - A channel, role or member is given by its ID. To copy an ID, turn on **Developer Mode** in Discord's **Advanced** settings, then right-click the channel, role or member and choose **Copy ID**.
 - teabot checks the value, and says what is wrong if it does not fit.
 

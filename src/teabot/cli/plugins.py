@@ -2,6 +2,7 @@
 
 import asyncio
 import getpass
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -54,6 +55,14 @@ async def _overview_for(settings: Settings) -> tuple[int, list[PluginRow]]:
         await pool.close()
 
 
+def operator_name() -> str:
+    """Who is running the command, for the audit log. A container's user often has no name, so its id stands in."""
+    try:
+        return getpass.getuser()
+    except (KeyError, OSError):
+        return os.environ.get("USER") or f"uid {os.getuid()}"
+
+
 def describe(plan: PurgePlan) -> list[str]:
     """What the confirmation prompt shows before a purge."""
     lines = [f"Purging {plan.plugin_id} deletes, everywhere:"]
@@ -76,7 +85,7 @@ async def _purge_for(settings: Settings, plugin_id: str) -> PurgePlan | None:
         audit = AuditLog(Queue(Database(pool)))
         async with pool.acquire() as conn:
             naming = Naming(settings.db_role_prefix)
-            return await Purge(conn, naming, audit)(plugin_id, operator=getpass.getuser(), confirm=ask)
+            return await Purge(conn, naming, audit)(plugin_id, operator=operator_name(), confirm=ask)
     finally:
         await pool.close()
 

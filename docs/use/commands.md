@@ -30,15 +30,17 @@ See [The audit log](audit.md).
 | `/tokens list` | Lists your tokens; with `everyone:true`, everyone's. | nothing; Manage Server for `everyone` |
 | `/tokens revoke` | Ends a token. | nothing for your own; Manage Server for someone else's |
 
+`/tokens` and `/admin` need nothing, so every member sees them.
+
 See [Connect an AI assistant](ai.md).
 
 ## `/admin`
 
-These help AI assistants and programs find their way around a server, and they work as commands too.
+These help AI assistants and programs find their way around a server. They work as commands too, though their replies are written for programs.
 
 | Command | What it does | Needs |
 |---|---|---|
-| `/admin describe_guild` | Lists the server's channels and roles, with their IDs. | nothing |
+| `/admin describe_guild` | Lists the channels you can see and the server's roles, with their IDs. | nothing |
 | `/admin find_members` | Finds members whose name starts with what you type. | nothing |
 | `/admin job_status` | Shows the progress of a job, such as a confirmed change. | nothing for your own jobs; Manage Server for others' |
 

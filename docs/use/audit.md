@@ -16,12 +16,12 @@ teabot replies `Audit posts now go to #staff-log.` Pick a channel only your staf
 |---|---|
 | title | the action, such as `giveaways.start` |
 | Member | who ran it |
-| Outcome | `ok`, `refused`, `error`, or `started` while it runs |
-| Front door | how it came in: `slash` for a command, `component` for a button, `mcp` for an AI assistant, `service` for another program |
-| Input | what was asked for |
+| Outcome | `ok`, `refused` or `error` |
+| Front door | how it came in: `slash` for a command, `component` for a button, `mcp` for an AI assistant, `service` for another program, `cli` when the operator changed something on the bot's machine |
+| Input | what was asked for, with channels, roles and members as their IDs |
 | Error | what went wrong, when something did |
 
-Actions that only look things up, such as `/plugins list`, are recorded but never posted, which keeps the channel readable.
+Actions that only look things up, such as `/plugins list`, are recorded but never posted, which keeps the channel readable. If the audit channel is deleted, posts stop until you choose another.
 
 ## See recent changes
 
@@ -29,7 +29,7 @@ Actions that only look things up, such as `/plugins list`, are recorded but neve
 /audit recent
 ```
 
-teabot shows the last ten changes in your server:
+teabot shows the last ten entries in your server, including plans nobody confirmed, as `planned`:
 
 ```text
 #42 giveaways.start ok by @Sam

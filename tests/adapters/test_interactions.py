@@ -288,6 +288,17 @@ async def planned_row(admin: Conn, raw: dict[str, Any]) -> None:
     )
 
 
+async def test_a_plan_entry_shows_its_detail(router: tuple[InteractionRouter, FakeRegistry]) -> None:
+    handler, registry = router
+    plan = a_plan(entries=1)
+    plan.entries[0] = ShownEntry(change="cancel", target="Discord Nitro", detail="4 entrants")
+    registry.result = plan
+    interaction = command("wipe", [{"name": "ok", "type": 5, "value": True}])
+    await handler.handle(interaction)
+    embed = next(e for e in interaction.events if e[0] == "followup")[1]
+    assert {f.name: f.value for f in embed.fields}["First entries"] == "cancel Discord Nitro: 4 entrants"
+
+
 async def test_a_plan_is_shown_with_a_confirm_button(router: tuple[InteractionRouter, FakeRegistry]) -> None:
     handler, registry = router
     registry.result = a_plan()

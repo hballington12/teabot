@@ -1,13 +1,15 @@
 """`teabot plugins purge` (D7): the prompt, the outcome, and the refusal while loaded."""
 
 import asyncio
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner, Result
 
 from teabot.cli import app
-from teabot.cli.plugins import describe
+from teabot.cli.plugins import describe, operator_name
 from teabot.core.audit import OPERATOR, audit_embed
 from teabot.core.lifecycle import PurgePlan
 from teabot.core.processes import open_lock_connection
@@ -89,3 +91,14 @@ def test_the_log_channel_names_the_operator() -> None:
     }
     member = audit_embed(row).fields[0]  # type: ignore[arg-type]
     assert (member.name, member.value) == ("Member", "the operator")
+
+
+def test_an_operator_without_a_user_name_is_named_by_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A container's user often has no passwd entry, which makes getpass.getuser() raise."""
+
+    def nameless() -> str:
+        raise KeyError("getpwuid(): uid not found: 1000")
+
+    monkeypatch.setattr("teabot.cli.plugins.getpass.getuser", nameless)
+    monkeypatch.delenv("USER", raising=False)
+    assert operator_name() == f"uid {os.getuid()}"

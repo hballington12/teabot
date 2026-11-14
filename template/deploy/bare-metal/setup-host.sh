@@ -15,7 +15,7 @@ REPO=${2:?usage: setup-host.sh <public hostname> <instance repo>}
 install_packages() {
     say "packages"
     apt-get update -q
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -q postgresql-16 pgbackrest git curl
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q postgresql-16 pgbackrest caddy git curl
     if [ "$(uv --version 2>/dev/null | cut -d' ' -f2)" != "$UV_VERSION" ]; then
         curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" | env UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh
     fi
@@ -116,7 +116,9 @@ env_file() {
 # it runs here as postgres, which is what `teabot init --admin-user` would do.
 init_database() {
     say "teabot init"
-    as_teabot "$APP_DIR/.venv/bin/teabot" init --env-file "$ENV_FILE" | grep -v 'set_config' || true
+    # The warning about set_config is answered just below, so it is filtered out; a failed init still stops here.
+    as_teabot "$APP_DIR/.venv/bin/teabot" init --env-file "$ENV_FILE" | { grep -v 'set_config' || true; }
+    [ "${PIPESTATUS[0]}" -eq 0 ] || die "teabot init failed; its output is above"
     sudo -u postgres psql -q -d teabot -v ON_ERROR_STOP=1 <<'SQL'
 REVOKE EXECUTE ON FUNCTION pg_catalog.set_config(text, text, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION pg_catalog.set_config(text, text, boolean) TO teabot_app, teabot_owner;

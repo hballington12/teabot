@@ -10,19 +10,19 @@ A plugin is installed on your instance by you, the operator, and then turned on 
 
 ## Install a plugin
 
-Plugins are Python packages. Add one by its name on PyPI, then rebuild the bot:
+Plugins are Python packages, usually named `teabot-` and the plugin's name. Add one by its package name, then rebuild the bot. Here `teabot-raffles` stands for the plugin you want:
 
 ```bash
-docker compose run --rm uv add teabot-example
+docker compose run --rm uv add teabot-raffles
 docker compose up -d --build
 ```
 
-The first command adds the plugin to `pyproject.toml` and pins its exact version in `uv.lock`. Commit both files.
+The first command adds the plugin to `pyproject.toml`, and pins its exact version in `uv.lock`. Commit both files.
 
 A plugin that is not on PyPI can be added from git, at a tag you have read:
 
 ```bash
-docker compose run --rm uv add "teabot-example @ git+https://github.com/someone/teabot-example@v1.0.0"
+docker compose run --rm uv add "teabot-raffles @ git+https://github.com/someone/teabot-raffles@v1.0.0"
 ```
 
 !!! warning
@@ -37,18 +37,18 @@ Plugins you write yourself live in your instance's `plugins/` folder, and need n
 docker compose run --rm bot teabot plugins list
 ```
 
-It lists each plugin with its database version, and whether the running bot has it loaded.
+It lists each plugin that has tables, with its database version, and whether the running bot has it loaded. `/healthz` shows every plugin's state, with the reason when one failed to load. See [Watch the health check](production.md#watch-the-health-check).
 
 ## Turn a plugin off everywhere
 
-To stop a plugin in every server without removing it, name it in `teabot.env`, then restart:
+To stop a plugin in every server without removing it, name it in `teabot.env`:
 
 ```ini title="teabot.env"
 TEABOT_DISABLED_PLUGINS=giveaways
 ```
 
 ```bash
-docker compose restart bot
+docker compose up -d --force-recreate bot
 ```
 
 Its data is kept, so removing the name turns it back on as it was.
@@ -56,18 +56,20 @@ Its data is kept, so removing the name turns it back on as it was.
 ## Remove a plugin
 
 ```bash
-docker compose run --rm uv remove teabot-example
+docker compose run --rm uv remove teabot-raffles
 docker compose up -d --build
 ```
 
-Removing a plugin keeps its data, so installing it again carries on where it left off. To delete its data in every server, remove it first, then:
+Removing a plugin keeps its data, so installing it again carries on where it left off. To delete its data in every server, remove it first, then purge it by its id, here `raffles`:
 
 ```bash
-docker compose run --rm bot teabot plugins purge example
+docker compose run --rm bot teabot plugins purge raffles
 ```
 
 !!! warning
 
     `purge` deletes the plugin's tables, settings and queued jobs in every server. It cannot be undone. It refuses while the bot still has the plugin loaded.
+
+On a [bare-metal host](bare-metal.md), change `pyproject.toml` and `uv.lock` the same way on your own machine, commit them, and deploy. Run `teabot plugins` there as `sudo -u teabot /opt/teabot/.venv/bin/teabot plugins list --env-file /etc/teabot/teabot.env`.
 
 **Next:** [Run it in production](production.md).

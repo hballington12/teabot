@@ -173,7 +173,7 @@ def render_created(out: Created) -> str:
     return (
         f"Your token, shown only this once:\n```\n{out.token}\n```\n"
         f"It acts as you, up to `{out.max_risk}`, for {scope}, until {out.expires_at:%Y-%m-%d}. "
-        f"Revoke it with `/tokens revoke {out.token_id}`.\n\n"
+        f"Revoke it with `/tokens revoke token_id:{out.token_id}`.\n\n"
         "**Claude Code:** run these in a terminal, and paste the token when the first one waits:\n"
         f"```\nread -rs TEABOT_TOKEN\nclaude mcp add --transport http teabot {out.mcp_url} "
         '--header "Authorization: Bearer $TEABOT_TOKEN"\n```\n'

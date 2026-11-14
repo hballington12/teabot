@@ -11,25 +11,19 @@ Plan: giveaways.cancel
 Nothing has changed yet. Confirm within 15 minutes to apply it.
 
 Changes        cancel: 1
-First entries  cancel A Discord Nitro
+First entries  cancel Discord Nitro: 4 entrants
                [ Confirm ]
 ```
 
 1. Read the plan. Nothing has changed yet.
-2. If it is right, choose **Confirm**.
-3. teabot replies `Applying.`, with a command to follow its progress, such as `/admin job_status job_id:12`.
+2. If it is right, choose **Confirm** within 15 minutes. If it is wrong, do nothing, and it expires.
+3. teabot replies `Applying.`, with a command to follow it, such as `/admin job_status job_id:12`. Its **State** goes from `pending` to `running` to `done`, or `failed` with the reason.
 
-If the plan is wrong, do nothing. It expires after 15 minutes.
-
-## The rules
-
-- You have 15 minutes to confirm.
-- Only the member who ran the action can confirm its plan, and each plan can be confirmed once.
-- Your permissions are checked again when you confirm.
+Only the member who ran the action can confirm its plan, and each plan can be confirmed once. Your permissions are checked again when you confirm.
 
 ## A stale plan
 
-If something the plan shows changes before you confirm, teabot applies nothing. It shows you a fresh plan instead, which says:
+If what the plan shows changes before you confirm, such as someone entering the giveaway, teabot applies nothing. It shows you a fresh plan instead, which says:
 
 ```text
 The target has changed since your last plan, so nothing was applied. This is the fresh plan.

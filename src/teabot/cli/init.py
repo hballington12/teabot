@@ -41,7 +41,7 @@ def discord_settings(token: str) -> list[str]:
     found = application_id(token)
     return [
         "Discord application settings:",
-        "- Bot tab: turn on the Server Members Intent. Leave Message Content off unless a plugin needs it.",
+        "- Bot tab: turn on the Server Members Intent. Leave Message Content off; teabot never asks for it.",
         f"- Invite: {INVITE.format('<application id>' if found is None else found)}",
         "- In each server, drag the bot's role below the owner's and senior staff roles (D26).",
         "- Invite one teabot instance to a server, never two: both would answer its commands.",

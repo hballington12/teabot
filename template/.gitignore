@@ -3,3 +3,6 @@ teabot.env
 .env
 .venv/
 __pycache__/
+# Database backups, which hold every server's data.
+*.sql
+backups/

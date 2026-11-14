@@ -8,9 +8,26 @@ docker compose logs bot
 
 On a [bare-metal host](bare-metal.md), the log is `journalctl -u teabot`.
 
-## `setup.sh` stops with "would lock teabot out of its database"
+## `setup.sh` says "cannot reach Docker"
 
-The database already exists, but `.env`, which holds its password, is missing. Postgres keeps the password it was first started with.
+Docker is not running, or on Linux your user may not use it. Start Docker, or add yourself to the `docker` group, then log out and in again:
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+## "did not become healthy within 90 seconds"
+
+`setup.sh` printed the end of the bot's log above this message.
+
+- **`LoginFailure` or `Improper token`.** The token is wrong. Reset it in the developer portal, put the new one after `TEABOT_DISCORD_TOKEN=` in `teabot.env`, and run `./setup.sh` again.
+- **`PrivilegedIntentsRequired`.** Turn on **Server Members Intent** on the **Bot** tab of the developer portal, then run `./setup.sh` again.
+
+## "A new password would lock teabot out of its database"
+
+Or, from the bot's log: `password authentication failed for user "teabot_owner"`.
+
+The database already exists, but `.env`, which holds its password, is missing or newer than it. Postgres keeps the password it was first started with.
 
 - If you have the old `.env`, put it back and run `./setup.sh` again.
 - On a new install with nothing to keep, delete the database, then run `./setup.sh` again:
@@ -21,21 +38,15 @@ The database already exists, but `.env`, which holds its password, is missing. P
 
     !!! warning
 
-        `down -v` deletes the database. Never run it on an install with data you want.
+        `down -v` deletes the database of every teabot on this machine. Never run it on an install with data you want.
 
-## `/healthz` does not say `"ok":true`
+## `/healthz` stops saying `"ok":true`
 
-- **`PrivilegedIntentsRequired` in the log.** Turn on **Server Members Intent** on the **Bot** tab of the developer portal, then restart:
+The log says why. The two usual causes are the same as at setup: a token that was reset (put the new one in `teabot.env`), or the **Server Members Intent** turned off. After fixing either, recreate the bot:
 
-    ```bash
-    docker compose restart bot
-    ```
-
-- **`LoginFailure` or `Improper token` in the log.** The token in `teabot.env` is wrong. Reset it in the developer portal, put the new one after `TEABOT_DISCORD_TOKEN=` in `teabot.env`, and restart.
-
-## `password authentication failed for user "teabot_owner"`
-
-The database is older than your `.env`, so it expects a different password. This is the case above: put the old `.env` back, or on a new install delete the database with `docker compose down -v`.
+```bash
+docker compose up -d --force-recreate bot
+```
 
 ## `Permission denied` reading `/app/teabot.env`
 
@@ -46,16 +57,27 @@ ls -ln teabot.env
 id -u; id -g
 ```
 
-## A plugin does not load
+Put your ids in `.env`, then run `docker compose up -d`.
 
-The log names each plugin that failed, with the reason. So does:
+## A setting change did nothing
+
+The bot reads `teabot.env` when its container starts. Recreate it, which `restart` does not do:
 
 ```bash
-docker compose run --rm bot teabot plugins list
+docker compose up -d --force-recreate bot
+```
+
+## A plugin does not load
+
+`/healthz` shows each plugin's state, such as `failed` or `duplicate_id`, and the log names the error:
+
+```bash
+curl -s http://127.0.0.1:8780/healthz
+docker compose logs bot | grep -i plugin
 ```
 
 - A plugin you added or changed needs `docker compose up -d --build`.
-- Two plugins with the same id both fail to load. Remove one.
+- `duplicate_id` means two plugins have the same id, so neither loads. Remove one.
 
 ## Commands do not appear in Discord
 

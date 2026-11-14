@@ -13,17 +13,17 @@ Until then, a teabot is run by someone: a friend, your community, or you. That p
 !!! note "Before you start"
 
     - You need **Manage Server** in the Discord server.
-    - Ask the operator for the bot's **invite link**. If you are the operator, it is the link `setup.sh` printed.
+    - Ask the operator for the bot's **invite link**. If you run the bot yourself, it is the link its setup printed.
 
 1. Open the invite link. Discord asks which server to add the bot to.
-2. Choose your server, and choose **Authorize**. The bot joins, with a role of its own named after it.
+2. Choose your server. Leave **Administrator** ticked, and choose **Authorize**. The bot joins, with a role of its own named after it.
 3. Open **Server Settings**, then **Roles**. Drag the bot's role below your own role and your senior staff's roles, and save.
 
 teabot asks for **Administrator**, so its plugins can do their work without asking for more later. Step 3 is what limits it: a bot can never change a member or a role whose role is above its own.
 
 !!! warning
 
-    Add only one teabot to a server. Two would both answer every command.
+    Add only one teabot to a server. With two, every command shows twice, once for each bot.
 
 ## Check it works
 
