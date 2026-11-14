@@ -8,7 +8,7 @@ To run your own teapot, follow [`docs/self-hosting.md`](docs/self-hosting.md); t
 
 ## Goals
 
-- An Apache-2.0 framework that anyone can self-host, with first-party plugins, a stable plugin SDK and a template for new instances (D41 to D48).
+- An MIT-licensed framework that anyone can self-host, with first-party plugins, a stable plugin SDK and a template for new instances (D41 to D48).
 - One long-running Python process to begin with, with Postgres beside it and a reverse proxy in front. The same code scales out to several processes and hosts when one is no longer enough (D40).
 - A small core that holds the Discord connection, the database, plugin config, tokens and permissions, a durable work queue and an audit trail.
 - Plugins provide every feature. Whoever runs an instance decides which plugins it runs, including ones they wrote themselves. A plugin hub may list plugins later.
@@ -51,11 +51,10 @@ The design targets a framework that many people run and that grows to many serve
     - From the start a plugin can declare:
         - actions, which become slash commands, MCP tools and service routes, on all three front doors unless the action narrows its surfaces
         - modals for multi-line `LongText` input (D29)
-        - Discord event hooks (join, leave, message, reaction)
         - scheduled jobs
         - a config model (D10) and its own tables with migrations (D9)
         - the permissions its actions require
-    - Added when a plugin needs them: buttons and select menus, dependencies on other plugins, autocomplete, context-menu commands, voice hooks, MCP resources, HTTP routes, a per-member store, a hook for deleting a member's data (D11) and a machine-readable list of external hosts (D12).
+    - Added when a plugin needs them: Discord event hooks for joins, leaves, messages and reactions (planned for SDK 1.1), buttons and select menus, dependencies on other plugins, autocomplete, context-menu commands, voice hooks, MCP resources, HTTP routes, a per-member store, a hook for deleting a member's data (D11) and a machine-readable list of external hosts (D12).
     - Each addition is a manifest field with a default or an optional protocol detected with `hasattr`, so existing plugins keep working without changes. The protocol is published as `teapot.sdk` (D45).
 
 ### Plugins and data
@@ -193,7 +192,7 @@ The design targets a framework that many people run and that grows to many serve
 
 ### Open source and distribution
 
-41. **teapot uses a permissive licence, with Apache-2.0 the leading choice.** The core, the SDK, the first-party plugins and the instance template all share it. Apache-2.0's explicit patent grant suits a framework that companies may build on, and MIT or BSD-2-Clause remain the alternatives until it is confirmed (open decision 1 in the plan). Third-party plugins choose their own licence.
+41. **teapot uses the MIT licence.** The core, the SDK, the first-party plugins and the instance template all share it. It is short and permissive, which suits the goal of free self-hosting, and it was settled on 2026-11-14, before any outside contribution, because changing it later needs every contributor's agreement. Third-party plugins choose their own licence.
 42. **The framework and the instances are separate projects.**
     - This repository is the framework. It holds the core, the SDK, the first-party plugins, the instance template and the docs, and it publishes `teapot` and each `teapot-<plugin>` to PyPI.
     - An instance is a small project made from the template: a `pyproject.toml` that lists the plugins it runs, a `uv.lock`, an env file and deploy files. The Tea clan's instance is one such repo, and the hosted service is another.
@@ -211,7 +210,7 @@ The design targets a framework that many people run and that grows to many serve
     - When two installed packages declare the same id, the loader loads neither and names both packages in the error. A local `giveaways` plugin and a later first-party one therefore never share a schema or a command group by accident.
     - A future plugin hub reserves ids across its listings.
 47. **The hosted service is an instance run by the teapot maintainers.** Server admins sign up by adding its bot, and they enable plugins from a catalogue of plugins the maintainers have reviewed. Custom plugins need a self-hosted instance, because plugins are not sandboxed (D5). Before it opens, the hosted service needs the deferred work for strangers sharing one instance: per-server quotas and fair queue claims, OAuth (D16), member data deletion (D11), egress consent and enforcement (D12), and a privacy policy and terms of service for Discord verification.
-48. **The repository carries the files an open-source project needs.** `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md` with a private disclosure address, a code of conduct, a changelog kept per release, and release notes that call out any manual step for operators.
+48. **The repository carries the files an open-source project needs.** `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md` with a private way to report a vulnerability, through GitHub's private reporting, a code of conduct, a changelog kept per release, and release notes that call out any manual step for operators.
 49. **When the bot leaves a server, that server's data is deleted after a grace period.**
     - On the guild-remove event, the core records the time and queues a `purge_guild` job 30 days later. If the bot is added back before then, the job is cancelled and everything is as it was.
     - The job deletes the server's rows from every core table and from every plugin table, using the `guild_id` column that D9 requires. No plugin code is needed.

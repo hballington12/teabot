@@ -153,7 +153,7 @@ Met on 2026-11-14 with the dev bot in the test server. Confirming a `devtools.cl
 | 7.1 SDK 1.0 | Review of every public name, docstrings, the deprecation helper, and the import-linter contract across first-party plugins (D45). | M6 |
 | 7.2 Scaffolding and init | `teapot new-plugin` and the complete `teapot init` (D43, D44). | 7.1 |
 | 7.3 Self-hosting docs | `docs/self-hosting.md` and the template README. | 7.2 |
-| 7.4 Project files | `LICENSE` once the licence is confirmed, `CONTRIBUTING.md`, `SECURITY.md`, the code of conduct and `CHANGELOG.md` (D48). | open decision 1 |
+| 7.4 Project files | `LICENSE` (MIT, D41), `CONTRIBUTING.md`, `SECURITY.md`, the code of conduct and `CHANGELOG.md` (D48). | open decision 1 |
 | 7.5 Release pipeline | A release workflow with PyPI trusted publishing for `teapot` and `teapot-announcements`, and a tagged template. | 7.4 |
 | 7.6 Fresh-eyes test | Someone outside the project follows `docs/self-hosting.md` on a clean machine and writes a plugin with `teapot new-plugin`. Every point where they needed help becomes a fix. | 7.3, 7.5 |
 
@@ -167,7 +167,7 @@ setup ─ S1 ─ 1.3 ─ 1.4 ─ 1.6 ─ 1.7 ─ 2.1 ─ 2.2 ─ 2.3 ─ 2.7 ─
 ```
 
 - Milestone 5 runs beside milestone 6 and is off the critical path.
-- The licence (open decision 1) must be settled before 7.4. It does not block anything earlier, because the repository stays private until then.
+- The licence (open decision 1) was settled before 7.4: MIT, on 2026-11-14.
 
 ## Decisions made for implementation
 

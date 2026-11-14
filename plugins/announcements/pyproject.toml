@@ -2,6 +2,8 @@
 name = "teapot-announcements"
 version = "0.1.0"
 description = "Post announcements to a channel, a first-party teapot plugin"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = ["teapot"]
 

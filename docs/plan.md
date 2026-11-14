@@ -9,7 +9,7 @@ The concrete plan behind the decisions in the [README](../README.md). Numbers in
 
 ```text
 pyproject.toml                  workspace root, the `teapot` script, a `dev` dependency group (pytest, pytest-postgresql, ruff, pyright, import-linter, teapot-devtools)
-LICENSE                         the permissive licence of D41
+LICENSE                         the MIT licence of D41
 CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, CHANGELOG.md   (D48)
 .github/
     pull_request_template.md    plugin checklist: external connections (D12), migrations that keep the previous release working, async I/O, jobs safe to run twice
@@ -454,6 +454,7 @@ Each item is an addition to the design, with what triggers it.
 | Guild export and import | a server moving between instances, such as from a self-hosted instance to the hosted service | `teapot guilds export <id>` and `import`, carrying core rows and each plugin's rows by `guild_id` |
 | Out-of-process plugins | hosted-service users who want custom code | plugins that run on the user's own server and receive actions over signed HTTP, so the hosted process never runs their code |
 | Per-server permission overrides (D19) | event captains, or another role, need an action their Discord permissions do not give | a `core.permission_overrides` table, `/permissions show`, `set` and `reset`, one branch in step 5 of the call path |
+| Discord event hooks (D6) | SDK 1.1, the first minor release after 1.0 | `registrar.on(event, handler)` for joins, leaves, messages and reactions, run only for the servers that enable the plugin, each call isolated so one failing hook cannot stop another |
 | Plugin dependencies (D6) | a plugin that builds on another | a `requires` manifest field, load and migration order through `graphlib`, failure passed on to dependents, `USAGE` grants on the required plugin's schema, and purge refusing while a dependent is installed |
 | Buttons and select menus (D6, D32) | the first plugin that posts a component, such as role picks or giveaway entry | a component custom id `teapot:<plugin>:<action>:<payload>` routed to that action, so a press goes through the one call path with its permission check and audit (D1) |
 | Autocomplete (D6) | an input field whose choices are too many for a `Literal` | an optional autocomplete function per field, routed by the interaction router |
@@ -484,6 +485,6 @@ Each of these solved a problem teapot has, and the decisions above borrow from t
 
 ## Open decisions
 
-1. **The licence (D41).** Apache-2.0 is the leading choice for its patent grant. MIT or BSD-2-Clause would also fit the goal of free self-hosting. Settle it before the first outside contribution, because changing it later needs every contributor's agreement.
+1. **The licence (D41).** Settled on 2026-11-14: MIT.
 2. **When OAuth lands (D16).** Claude Code works with a bearer token from milestone 4. If staff need claude.ai or the desktop app early, the OAuth issuer moves into milestone 4.
 3. **The plugin hub catalogue.** Its format, and how it reserves ids across listings (D46), can wait until a second plugin author exists.
