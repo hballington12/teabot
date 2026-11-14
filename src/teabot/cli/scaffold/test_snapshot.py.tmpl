@@ -1,7 +1,8 @@
 """What teabot-$id shows Discord, MCP clients and its queued jobs, kept in snapshot.json.
 
 A change to a command, a tool or a job's payload fails this test with the difference. When the change is meant,
-accept it with `uv run pytest --teabot-accept`.
+accept it with
+`uv run --env-file .env --package teabot-$id pytest plugins/$id --teabot-accept`.
 """
 
 from pathlib import Path

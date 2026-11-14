@@ -1,10 +1,10 @@
 # Tutorial: a giveaways plugin
 
-This builds the first-party giveaways plugin step by step. Moderators start a giveaway in a channel, members enter, and a job draws the winners when time is up. The finished plugin is [`plugins/giveaways`](../plugins/giveaways), and its tests run with the rest of teabot's, so every line here is checked. [plugin-authoring.md](plugin-authoring.md) is the reference for each piece. Decision numbers such as (D21) point at [design.md](design.md).
+This builds the first-party giveaways plugin step by step. Moderators start a giveaway in a channel, members enter, and a job draws the winners when time is up. The finished plugin is [`plugins/giveaways`](https://github.com/hballington12/teabot/tree/main/plugins/giveaways) in the teabot repository, and its tests run with the rest of teabot's, so every line here is checked. [plugin-authoring.md](plugin-authoring.md) is the reference for each piece. Decision numbers such as (D21) point at [design.md](design.md).
 
 ## 1. Start the plugin
 
-In your instance (see [self-hosting.md](self-hosting.md)):
+In an instance set up by [self-hosting.md](self-hosting.md), whose `.env` holds the database password the tests use:
 
 ```
 docker compose up -d --wait postgres
@@ -27,7 +27,7 @@ plugins/giveaways/
         test_giveaways_snapshot.py       the commands, MCP tools and job payloads, as a snapshot
 ```
 
-The example action is called `hello`. Replace it, and rename the migration to `0001_giveaways.sql`. A plugin is one file until it grows. Section 10 covers splitting it.
+The example action is called `hello`. Replace it, and rename the migration to `0001_giveaways.sql`. The snapshot test then fails once, since the commands changed. Accept the new ones with `uv run --env-file .env --package teabot-giveaways pytest plugins/giveaways --teabot-accept`. A plugin is one file until it grows. Section 10 covers splitting it.
 
 ## 2. The plugin object and its config
 
@@ -277,10 +277,11 @@ async def test_the_excluded_role_cannot_enter(teabot_harness: HarnessFactory) ->
 - `harness.call(start, ...)` runs the action through the real call path, permissions and audit included. Pyright checks the arguments against the function, and the result is a `Started`. It calls as the server's first member, who has Administrator. `harness.as_member(member).call(...)` calls as someone else.
 - `harness.advance(minutes=31)` moves the clock for `ctx.now`, for `now()` in the plugin's SQL, and for when jobs fall due.
 - `harness.plan(cancel, ...)` returns the plan, and `harness.confirm(plan)` confirms it and runs the apply.
-- `harness.run_jobs()` runs every due job, and raises `JobFailed` with the job's own traceback when one fails.
+- `harness.run_jobs()` runs every due job, and raises `JobFailed` with the job's own traceback when one fails. `advance` only moves the clock, so `run_jobs` follows it.
+- `harness.run_job(draw.bind(giveaway=giveaway))` runs a job again, which tests that a second run changes nothing.
 - `harness.configure(Cfg(...))` sets config the way an admin would.
 - The harness runs `teabot check` on the package when it loads the plugin. It refuses internal imports, clock reads that tests cannot move, `SET` in SQL and a README without "External connections".
-- `test_giveaways_snapshot.py` fails when a command, an MCP tool or a job's payload changes, and prints the difference. Accept a change you meant with `pytest --teabot-accept`. A renamed parameter then never reaches servers by accident, where it would break queued jobs and the commands members know.
+- `test_giveaways_snapshot.py` fails when a command, an MCP tool or a job's payload changes, and prints the difference. Accept a change you meant by adding `--teabot-accept` to the test command. A renamed parameter then never reaches servers by accident, where it would break queued jobs and the commands members know.
 
 ## 10. Growing past one file
 

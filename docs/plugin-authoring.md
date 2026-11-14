@@ -4,11 +4,11 @@ A plugin is a Python package that adds actions and jobs to teabot. Anyone runnin
 
 ## Starting a plugin
 
-- In your instance, `uv run teabot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, one example action, a first migration, a README, tests and a snapshot test.
+- In an instance set up by [self-hosting.md](self-hosting.md), `uv run teabot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, one example action, a first migration, a README, tests and a snapshot test.
 - Start the Compose Postgres the tests use: `docker compose up -d --wait postgres`.
-- Then `uv lock`, and run its tests with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`.
+- Then `uv lock`, and run its tests with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`. The instance's `.env` holds the database password they use.
 - Restart teabot, and turn the plugin on in a server with `/plugins enable plugin:raffles`.
-- Worked examples: the first-party plugins [giveaways](../plugins/giveaways/src/teabot_giveaways/__init__.py) (jobs, config, a plan) and [announcements](../plugins/announcements/src/teabot_announcements/__init__.py) (posting now and later).
+- Worked examples: the first-party plugins [giveaways](https://github.com/hballington12/teabot/tree/main/plugins/giveaways/src/teabot_giveaways/__init__.py) (jobs, config, a plan) and [announcements](https://github.com/hballington12/teabot/tree/main/plugins/announcements/src/teabot_announcements/__init__.py) (posting now and later), in the teabot repository.
 
 ## The package
 
@@ -93,7 +93,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - A destructive action's plan takes the same inputs and returns a `Diff` of what it would change. Without a plan the load fails.
 - The member sees the plan and confirms it within 15 minutes. If what it shows has changed by then, they get a fresh plan, marked stale, instead (D21).
 - The action then runs as a job and reads the confirmed plan as `ctx.diff`. An entry's `key` carries what the apply needs, such as a row id, so it changes exactly what the member saw.
-- A destructive action's output is not shown to the member, who sees the plan and then that the change is applying. Report what it did with `ctx.report({...})`, which `/admin job_status` shows.
+- A destructive action returns a model, a list or a string like any other, but the member does not see it: they see the plan, then that the change is applying. Report what it did with `await ctx.report({...})`, which `/admin job_status` shows.
 
 ## The context
 
@@ -104,8 +104,8 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - `ctx.config`: the plugin's config for this server, as the plugin's own model.
 - `ctx.db`: the plugin's database, as its own role in its own schema.
 - `ctx.now`: the time. Read the clock only through it, since tests move it.
-- `ctx.diff`: in a destructive action, the confirmed plan.
-- `ctx.report(progress)`: progress for `/admin job_status`.
+- `ctx.diff`: in a destructive action's apply, the confirmed plan, and an empty `Diff` everywhere else.
+- `await ctx.report(progress)`: progress for `/admin job_status`.
 
 To post, send to a `TextChannel`:
 
@@ -167,7 +167,7 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 - A job's key is its name and arguments. Scheduling the same bound job again moves it instead of adding another, and `tx.unschedule(bound)` removes it. `key=` sets a key of your own instead.
 - The job's name is the function's name, and queued jobs are stored by it. To rename the function, keep the stored name with `@plugin.job(name="old_name")`.
 - In a job, `ctx.actor` is the member who scheduled it and `ctx.config` is the server's config when it runs. If the bot has left the server, the job is dropped.
-- A job can run twice: after a crash, its lease runs out and another worker takes it. Check state first, so that a second run changes nothing.
+- A job can run twice: after a crash, its lease runs out and another worker takes it. Check state first, so that a second run changes nothing, and test it with `harness.run_job`.
 - A failing job is retried after 2, 4, 8 and 16 seconds, five attempts in all, then stays failed with its error, which `/admin job_status` shows. Raise `ActionError` to give that error in your words.
 
 ## Testing
@@ -191,7 +191,8 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 | `harness.plan(action, ...)` | a destructive action's `Planned` |
 | `harness.confirm(plan)` | confirms the plan and runs the apply |
 | `harness.run_jobs()` | runs every due job through the real worker; a failure raises `JobFailed` with the job's exception as its cause |
-| `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due |
+| `harness.run_job(job.bind(...))` | runs a job now, as if scheduled again; after its own run, it tests that a second run changes nothing |
+| `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |
 | `harness.configure(Cfg(...))` | stores the server's config, as an admin would |
 | `harness.invoke(name, raw)` | calls by name with raw input, as a front door would; for testing refusals of bad input |
 | `harness.admin` | a connection that can read every table, for checking what a test wrote |
@@ -221,7 +222,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 ```
 
 - The snapshot records what the plugin shows the world: its slash commands, its MCP tools and its jobs' payloads. The first run writes it.
-- A change fails the test with the difference. When the change is meant, accept it with `pytest --teabot-accept` and commit the new snapshot. A renamed input or job argument is then a decision, since it breaks queued jobs and the commands members know.
+- A change fails the test with the difference. When the change is meant, add `--teabot-accept` to the test command, such as `uv run --env-file .env --package teabot-raffles pytest plugins/raffles --teabot-accept`, and commit the new snapshot. A renamed input or job argument is then a decision, since it breaks queued jobs and the commands members know.
 - Name the file `test_<id>_snapshot.py`, so that plugins in one instance never share a test module name.
 
 ## Review checklist

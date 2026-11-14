@@ -21,7 +21,7 @@ Every release of `teabot`, `teabot-announcements` and the instance template, new
 
 ### Testing plugins
 
-- `harness.call(action, ...)`, typed by the action, with `as_member(member)`, `plan`, `confirm`, `configure` and `advance`, which moves `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due.
+- `harness.call(action, ...)`, typed by the action, with `as_member(member)`, `plan`, `confirm`, `configure`, `run_job` to run a job again, and `advance`, which moves `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due.
 - The harness lints the plugin's package when it loads it.
 - `teabot_snapshot` keeps a plugin's commands, MCP tools and job payloads in a committed file, and `pytest --teabot-accept` accepts a change.
 - `HarnessFactory` types the `teabot_harness` fixture. Fake roles, and members with roles.

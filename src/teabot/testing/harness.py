@@ -1,5 +1,6 @@
 """A plugin under test (D45): loaded, migrated and invoked through the real loader and call path."""
 
+import json
 import sys
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -25,11 +26,18 @@ from teabot.lint import check_package
 from teabot.sdk import DESTRUCTIVE, Action, Actor, LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
+from teabot.sdk.db import Bound
 from teabot.testing.fakes import FakeClient, FakeGuild, FakeMember
 
 ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
 ON CONFLICT (guild_id, plugin_id) DO UPDATE SET enabled = true
+"""
+
+
+RUN_NOW = """
+INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload, started_by)
+VALUES ($1, $2, $3, now(), $4::jsonb, $5)
 """
 
 
@@ -123,6 +131,15 @@ class PluginHarness:
             raise RuntimeError(f"the plan was stale; the fresh plan has confirm value {outcome.confirm}")
         await self.run_jobs()
 
+    async def run_job(self, job: Bound) -> None:
+        """Run one of the plugin's jobs now, with these arguments, through the real worker, as the first member
+        had scheduled it. Run it after the job's own run to test that a second run changes nothing. A failure
+        raises `JobFailed`."""
+        await self.admin.execute(
+            RUN_NOW, self.guild.id, self.plugin_id, job.handler, json.dumps(job.payload), self.member.id
+        )
+        await self.run_jobs()
+
     def as_member(self, member: FakeMember) -> "MemberCalls":
         """Calls made as `member` rather than the first member."""
         return MemberCalls(self, member.id)
@@ -133,7 +150,7 @@ class PluginHarness:
 
     async def advance(self, *, days: int = 0, hours: int = 0, minutes: int = 0, seconds: int = 0) -> None:
         """Move time forward: `ctx.now`, `now()` in the plugin's SQL, when scheduled jobs fall due, and how old
-        plans are. Then run the jobs that are due."""
+        plans are. Jobs that fall due run at the next `run_jobs`."""
         step = timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
         CLOCK.offset += step
         await self.admin.execute(

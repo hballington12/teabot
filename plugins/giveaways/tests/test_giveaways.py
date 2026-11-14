@@ -4,7 +4,7 @@ import discord
 import pytest
 
 from teabot.testing import ActionFailed, FakeChannel, HarnessFactory, PluginHarness, Refused
-from teabot_giveaways import Cfg, cancel, enter, list_, plugin, start
+from teabot_giveaways import Cfg, cancel, draw, enter, list_, plugin, start
 
 
 async def started(harness: PluginHarness, *, winners: int = 1, minutes: int = 30) -> tuple[FakeChannel, int]:
@@ -34,6 +34,22 @@ async def test_the_draw_announces_the_winners_when_time_is_up(teabot_harness: Ha
     pinged = result.allowed_mentions.to_dict()["users"] if result.allowed_mentions else []
     assert len(pinged) == 2 and set(pinged) <= {p.id for p in players}
     assert all(f"<@{w}>" in (result.content or "") for w in pinged)
+
+
+async def test_a_second_draw_changes_nothing(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel, giveaway = await started(harness)
+    await harness.call(enter, giveaway=giveaway)
+    await harness.advance(minutes=31)
+    await harness.run_jobs()
+    winners = await harness.admin.fetchval("SELECT count(*) FROM plugin_giveaways.entries WHERE won")
+    await harness.run_job(draw.bind(giveaway=giveaway))
+    assert len(channel.sent) == 2
+    assert (
+        await harness.admin.fetchval("SELECT count(*) FROM plugin_giveaways.entries WHERE won")
+        == winners
+        == 1
+    )
 
 
 async def test_nobody_entering_is_said_plainly(teabot_harness: HarnessFactory) -> None:
