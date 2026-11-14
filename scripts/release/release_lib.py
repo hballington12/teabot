@@ -86,7 +86,8 @@ def locked_versions(lock: Path) -> dict[str, str]:
 
 
 def lock_template(staging: Path, version: str, attempts: int, wait: float) -> None:
-    """Lock the template until it resolves to the release, which PyPI can take a minute to serve."""
+    """Lock the template until it resolves to the release. PyPI's index can lag the upload by several minutes on a
+    CI runner, as it did for 1.0.1."""
     error = ""
     for attempt in range(1, attempts + 1):
         done = subprocess.run(
@@ -97,12 +98,14 @@ def lock_template(staging: Path, version: str, attempts: int, wait: float) -> No
             locked = locked_versions(staging / "uv.lock")
             if locked.get(CORE) == version and locked.get(PLUGIN) == version:
                 return
+            error = f"it locked {CORE} {locked.get(CORE)} and {PLUGIN} {locked.get(PLUGIN)}"
+        print(f"attempt {attempt} of {attempts}: {error.strip() or 'no lock'}", flush=True)
         if attempt < attempts:
             time.sleep(wait)
     raise RuntimeError(f"the template did not lock to {version} after {attempts} attempts: {error}")
 
 
-def build_template(version: str, out: Path, root: Path = ROOT, attempts: int = 10, wait: float = 30) -> None:
+def build_template(version: str, out: Path, root: Path = ROOT, attempts: int = 30, wait: float = 30) -> None:
     """`teabot-template.tar.gz`: the template with its lock, its files at the archive's root."""
     staging = out.parent / "template-staging"
     shutil.rmtree(staging, ignore_errors=True)
