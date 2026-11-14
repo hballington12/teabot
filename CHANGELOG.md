@@ -1,6 +1,6 @@
 # Changelog
 
-Every release of `teabot`, `teabot-announcements` and the instance template, newest first. The versions follow semantic versioning, which `teabot.sdk` keeps from 1.0 (D45). A **For operators** section lists any manual step an upgrade needs (D48).
+Every release of `teabot` and the instance template, newest first. Up to 1.0.2, the announcements plugin was released beside them as `teabot-announcements`. The versions follow semantic versioning, which `teabot.sdk` keeps from 1.0 (D45). A **For operators** section lists any manual step an upgrade needs (D48).
 
 ## Unreleased
 
@@ -35,7 +35,7 @@ Every release of `teabot`, `teabot-announcements` and the instance template, new
 - announcements is written on the decorators. Announcements mention nobody, so an `@everyone` in the text stays plain text.
 - `teabot new-plugin` refuses an id an installed plugin already has.
 
-### Upgrading
+### For operators
 
 - Remove `teabot-announcements` from your instance's dependencies, since teabot now carries it: `uv remove teabot-announcements`, then `uv lock --upgrade-package teabot`. With both installed, two plugins share the id `announcements`, and neither loads. Its config, tables and queued jobs carry over, since the id is unchanged.
 
