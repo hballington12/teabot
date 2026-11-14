@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The restore drill (D37): restore the latest backup into a scratch cluster on another machine and check it
+# The restore drill: restore the latest backup into a scratch cluster on another machine and check it
 # starts and holds the host's data. Run it from the operator's machine, which needs Docker:
 #   deploy/bare-metal/restore-drill.sh root@host
 # The bucket's key and the passphrase stream from the host into the container over SSH; they never reach

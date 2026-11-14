@@ -2,6 +2,7 @@
 
 from typing import Any, Literal
 
+import discord
 import pytest
 from pydantic import BaseModel, Field
 
@@ -124,6 +125,31 @@ def test_a_plugins_actions_become_one_command_group() -> None:
     assert set(subcommands) == {"post", "ping"}
     assert subcommands["post"]["type"] == 1 and subcommands["post"]["description"] == "Post an announcement"
     assert subcommands["ping"]["options"] == []
+
+
+def needing(name: str, **permissions: bool) -> ActionSpec[Any, Any]:
+    class Empty(BaseModel):
+        pass
+
+    return ActionSpec(
+        f"giveaways.{name}", "An action", Empty, Out, Risk.WRITE, run, discord.Permissions(**permissions)
+    )
+
+
+def test_a_command_shows_to_members_with_the_permissions_all_its_actions_share() -> None:
+    group = command_group(
+        "giveaways",
+        [needing("start", manage_messages=True, manage_guild=True), needing("cancel", manage_messages=True)],
+    )
+    assert group["default_member_permissions"] == str(discord.Permissions(manage_messages=True).value)
+
+
+def test_a_command_whose_actions_share_no_permission_shows_to_everyone() -> None:
+    for specs in (
+        [needing("start", manage_messages=True), needing("enter")],
+        [needing("start", manage_messages=True), needing("ban", ban_members=True)],
+    ):
+        assert "default_member_permissions" not in command_group("giveaways", specs)
 
 
 def test_the_mcp_schema_has_refs_as_digit_strings() -> None:

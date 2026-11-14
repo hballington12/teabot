@@ -1,14 +1,32 @@
 # Changelog
 
-Every release of `teabot` and the instance template, newest first. Up to 1.0.2, the announcements plugin was released beside them as `teabot-announcements`. The versions follow semantic versioning, which `teabot.sdk` keeps from 1.0 (D45). A **For operators** section lists any manual step an upgrade needs (D48).
+Every release of `teabot` and the instance template, newest first. Up to 1.0.2, the announcements plugin was released beside them as `teabot-announcements`. The versions follow semantic versioning, which `teabot.sdk` keeps from 1.0. A **For operators** section lists any manual step an upgrade needs.
+
+<!-- --8<-- [start:releases] -->
 
 ## Unreleased
+
+### Using teabot
+
+- A plugin's command is shown only to members who hold the permissions all of its actions share, so most members no longer see commands they cannot use. teabot still checks each action's permissions on every call.
+- `/tokens create` replies with the commands to paste into Claude Code, which read the token at a hidden prompt, and with the address and header any other MCP client needs.
+
+### Self-hosting
+
+- `./setup.sh` in the template sets up and starts an instance in one command: it asks for the bot token, writes `.env` and `teabot.env`, builds and starts the bot and Postgres, creates the database roles, and prints the invite link. It can be run again after a failure.
+- The template's Compose file has a `uv` service, so changing an instance's plugins needs only Docker: `docker compose run --rm uv add teabot-foo`.
+- The template's `.dockerignore` keeps `.env`, which holds the database owner's password, out of the image's build context.
+
+### Writing plugins
+
+- Plugin tests read the database password from the instance's `.env` themselves, so test commands need no `--env-file .env`.
+- `teabot new-plugin` runs `uv lock` after writing the package; `--no-lock` skips it.
 
 ## 1.1.0 - 2026-11-14
 
 ### Writing plugins
 
-- `Plugin(id, config=)` with `@plugin.action` and `@plugin.job` decorators. An action's inputs are its function's parameters, described by its docstring's `Args:` section, and its reply is its return value: a model, a list of models or a string. `docs/tutorial.md` builds a plugin with them step by step.
+- `Plugin(id, config=)` with `@plugin.action` and `@plugin.job` decorators. An action's inputs are its function's parameters, described by its docstring's `Args:` section, and its reply is its return value: a model, a list of models or a string. The tutorial builds a plugin with them step by step.
 - `Context[Config]` gives actions and jobs `guild`, `actor`, `config` as the plugin's own model, `db`, `now`, `diff` and `report`.
 - `TextChannel`, `Role` and `Member` parameters arrive as the Discord objects, checked to exist. The SDK's own `Guild`, `TextChannel`, `Member`, `Role` and `Message` protocols are implemented by discord.py's objects and by the test fakes alike.
 - `needs=` takes Discord permission names, which pyright checks. `reply="public"` shows a reply to the channel.
@@ -59,7 +77,7 @@ Fixes from the first plugin authoring trial.
 
 ## 1.0.1 - 2026-11-14
 
-- A new README with the teabot icon and badges. The design decisions and the architecture moved to `docs/design.md` and `docs/architecture.md`.
+- A new README with the teabot icon and badges. The design decisions and the architecture moved into documents of their own.
 - PyPI shows the project's links, keywords and classifiers.
 
 ## 1.0.0 - 2026-11-14
@@ -73,3 +91,5 @@ The first release.
 - `teabot-announcements`: post an announcement now, or schedule it.
 - `teabot init`, `teabot run`, `teabot plugins list | purge` and `teabot new-plugin`.
 - The instance template, with a quick setup on Docker Compose and a careful one on a bare-metal host with continuous backups.
+
+<!-- --8<-- [end:releases] -->

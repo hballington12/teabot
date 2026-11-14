@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Continuous backups of the teabot database to an S3-compatible bucket with pgBackRest (D37). Run as root
+# Continuous backups of the teabot database to an S3-compatible bucket with pgBackRest. Run as root
 # after setup-host.sh; safe to run again.
 #   setup-backups.sh <bucket> <region, e.g. lon1>
 # It asks for the bucket's access key and secret on the terminal, so they never reach a command line or a

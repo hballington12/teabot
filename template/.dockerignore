@@ -1,5 +1,6 @@
 # Keep secrets and local state out of the image build context.
 teabot.env
+.env
 .venv/
 .git/
 **/__pycache__/

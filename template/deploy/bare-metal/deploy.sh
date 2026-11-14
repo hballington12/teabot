@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy what is on the instance repo's main branch to the host, from the operator's machine (D37):
+# Deploy what is on the instance repo's main branch to the host, from the operator's machine:
 #   deploy/bare-metal/deploy.sh root@host
 # It pulls, syncs the locked dependencies, restarts the bot (which runs pending migrations at start), and
 # waits until /healthz on the host's localhost reports ok.

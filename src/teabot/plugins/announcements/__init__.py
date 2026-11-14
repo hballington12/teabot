@@ -1,7 +1,7 @@
-"""teabot-announcements: post an announcement to a channel, now or later (D41). Imports only `teabot.sdk` (D45).
+"""teabot-announcements: post an announcement to a channel, now or later. Imports only `teabot.sdk`.
 
 - `announcements.post` posts it now.
-- `announcements.schedule` checks the channel now and queues the post for later (D31). If the channel has gone
+- `announcements.schedule` checks the channel now and queues the post for later. If the channel has gone
   by then, or the bot may no longer post there, the job fails with the reason, which `/admin job_status` shows.
 """
 

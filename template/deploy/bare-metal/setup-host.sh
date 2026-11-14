@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-time setup of a teabot instance on an Ubuntu 24.04 host (D37, D43). Run as root; safe to run again.
+# One-time setup of a teabot instance on an Ubuntu 24.04 host. Run as root; safe to run again.
 #   setup-host.sh <public hostname> <instance repo, e.g. git@github.com:you/teabot-you.git>
 # It installs Postgres 16, pgBackRest, git and uv; creates the teabot user, its deploy keys and the database;
 # clones the instance into /opt/teabot; runs `teabot init`; adds the Caddy site; and installs the service.
@@ -113,7 +113,7 @@ env_file() {
 }
 
 # `teabot init` creates the runtime roles as the owner. Revoking set_config from PUBLIC needs a superuser, so
-# it runs here as postgres, which is what `teabot init --admin-user` would do (D9, S1).
+# it runs here as postgres, which is what `teabot init --admin-user` would do.
 init_database() {
     say "teabot init"
     as_teabot "$APP_DIR/.venv/bin/teabot" init --env-file "$ENV_FILE" | grep -v 'set_config' || true

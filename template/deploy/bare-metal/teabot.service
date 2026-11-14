@@ -1,4 +1,4 @@
-# teabot on a bare-metal host (D37). Installed by setup-host.sh as /etc/systemd/system/teabot.service.
+# teabot on a bare-metal host. Installed by setup-host.sh as /etc/systemd/system/teabot.service.
 # The code lives in /opt/teabot, synced by deploy.sh; secrets live in /etc/teabot/teabot.env.
 [Unit]
 Description=teabot Discord bot
@@ -13,7 +13,7 @@ Group=teabot
 WorkingDirectory=/opt/teabot
 ExecStart=/opt/teabot/.venv/bin/teabot run --env-file /etc/teabot/teabot.env
 Environment=PYTHONUNBUFFERED=1
-# A lost lock connection or a crash exits with an error; systemd starts it again (D40).
+# A lost lock connection or a crash exits with an error; systemd starts it again.
 Restart=on-failure
 RestartSec=5
 # teabot stops its shards, workers and HTTP server on SIGTERM; give it time to finish a job's step.

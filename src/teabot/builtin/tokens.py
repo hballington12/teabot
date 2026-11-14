@@ -39,6 +39,8 @@ class Created(BaseModel):
     max_risk: RiskName
     actions: list[str]
     expires_at: datetime
+    mcp_url: str = "http://127.0.0.1:8780/mcp"
+    local: bool = True
 
 
 class TokenInfo(BaseModel):
@@ -89,10 +91,15 @@ async def manages_server(ctx: ActionContext) -> bool:
 
 
 class TokenCommands:
-    """`known` holds every action name, set once the registry's actions are all known."""
+    """`known` holds every action name, set once the registry's actions are all known. `mcp_url` is where MCP
+    clients reach this instance, and `local` says it works only on the bot's own machine."""
 
-    def __init__(self, tokens: Tokens) -> None:
+    def __init__(
+        self, tokens: Tokens, mcp_url: str = "http://127.0.0.1:8780/mcp", *, local: bool = True
+    ) -> None:
         self.tokens = tokens
+        self.mcp_url = mcp_url
+        self.local = local
         self.known: Collection[str] = ()
 
     async def create(self, ctx: ActionContext, data: Create) -> Created:
@@ -106,6 +113,8 @@ class TokenCommands:
             max_risk=data.max_risk,
             actions=actions,
             expires_at=issued.expires_at,
+            mcp_url=self.mcp_url,
+            local=self.local,
         )
 
     async def list_tokens(self, ctx: ActionContext, data: ListTokens) -> TokenList:
@@ -153,11 +162,23 @@ class TokenCommands:
 
 
 def render_created(out: Created) -> str:
+    """The token, its limits, and what to paste to connect an MCP client. Claude Code reads the token at a
+    hidden prompt, so it never reaches the shell's history."""
     scope = ", ".join(out.actions) if out.actions else "every action"
+    where = (
+        "\nThis address works only on the machine running teabot. Whoever runs it can give it a public one."
+        if out.local
+        else ""
+    )
     return (
         f"Your token, shown only this once:\n```\n{out.token}\n```\n"
         f"It acts as you, up to `{out.max_risk}`, for {scope}, until {out.expires_at:%Y-%m-%d}. "
-        f"Revoke it with `/tokens revoke {out.token_id}`."
+        f"Revoke it with `/tokens revoke {out.token_id}`.\n\n"
+        "**Claude Code:** run these in a terminal, and paste the token when the first one waits:\n"
+        f"```\nread -rs TEABOT_TOKEN\nclaude mcp add --transport http teabot {out.mcp_url} "
+        '--header "Authorization: Bearer $TEABOT_TOKEN"\n```\n'
+        f"**Other MCP clients:** the address is `{out.mcp_url}`, with the header "
+        f"`Authorization: Bearer <token>`.{where}"
     )
 
 

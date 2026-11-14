@@ -27,7 +27,9 @@ FILES = [
 
 
 def new_plugin(tmp_path: Path, plugin_id: str = "scaffolded") -> Any:
-    return CliRunner().invoke(app, ["new-plugin", plugin_id, "--into", str(tmp_path / "plugins")])
+    return CliRunner().invoke(
+        app, ["new-plugin", plugin_id, "--into", str(tmp_path / "plugins"), "--no-lock"]
+    )
 
 
 @pytest.fixture
@@ -52,7 +54,7 @@ def test_it_writes_the_package(tmp_path: Path) -> None:
     assert "External connections: none" in (root / "README.md").read_text()
     assert 'dependencies = ["teabot>=1.0,<2"]' in (root / "pyproject.toml").read_text()
     assert "/plugins enable plugin:scaffolded" in result.output
-    assert f"uv run --env-file .env --package teabot-scaffolded pytest {root}" in result.output
+    assert f"uv run --package teabot-scaffolded pytest {root}" in result.output
 
 
 async def test_the_scaffolded_plugin_loads_migrates_and_runs(

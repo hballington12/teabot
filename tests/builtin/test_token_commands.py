@@ -120,6 +120,25 @@ def test_the_created_reply_shows_the_token_once_with_its_limits() -> None:
     )
     text = render_created(out)
     assert "teabot_ab_cd" in text and "read" in text and "echo.say" in text and "2026-12-13" in text
+    assert "read -rs TEABOT_TOKEN" in text
+    assert 'teabot http://127.0.0.1:8780/mcp --header "Authorization: Bearer $TEABOT_TOKEN"' in text
+    assert "works only on the machine running teabot" in text
+
+
+def test_a_public_address_goes_in_the_paste_line_without_the_local_warning() -> None:
+    out = Created(
+        token="t",
+        token_id="ab",
+        max_risk="write",
+        actions=[],
+        expires_at=datetime(2026, 12, 13, tzinfo=UTC),
+        mcp_url="https://bot.example.org/mcp",
+        local=False,
+    )
+    text = render_created(out)
+    assert "teabot https://bot.example.org/mcp --header" in text
+    assert "the address is `https://bot.example.org/mcp`" in text
+    assert "works only on" not in text
 
 
 def test_the_list_reply_names_each_token_and_says_when_there_are_none() -> None:

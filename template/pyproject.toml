@@ -1,7 +1,7 @@
 [project]
 name = "teabot-instance"
 version = "0.1.0"
-description = "One teabot instance: the plugins it runs, and how it is deployed (D42, D43)."
+description = "One teabot instance: the plugins it runs, and how it is deployed."
 requires-python = ">=3.12"
 dependencies = [
     # teabot ships with its first-party plugins. Turn one on in a server with `/plugins enable plugin:<id>`.
@@ -12,7 +12,7 @@ dependencies = [
 [tool.uv]
 package = false
 
-# Your own plugins live in plugins/<id>/ as workspace members (D44): `uv run teabot new-plugin <id>`.
+# Your own plugins live in plugins/<id>/ as workspace members: `uv run teabot new-plugin <id>`.
 [tool.uv.workspace]
 members = ["plugins/*"]
 

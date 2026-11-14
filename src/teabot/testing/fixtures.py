@@ -1,8 +1,9 @@
 """pytest fixtures against a real Postgres (D34, D45). Enable with `pytest_plugins = ["teabot.testing.fixtures"]`.
 
 The server's address comes from the TEABOT_TEST_PG_* variables, defaulting to the instance template's Compose
-Postgres. The port and password fall back to Compose's TEABOT_DB_PORT and TEABOT_DB_OWNER_PASSWORD, so
-`uv run --env-file .env` finds them.
+Postgres. The port and password fall back to Compose's TEABOT_DB_PORT and TEABOT_DB_OWNER_PASSWORD, read from
+the environment or from the `.env` file in the directory pytest runs from, so an instance's tests need no
+`--env-file`.
 
 Each test that asks gets a fresh database and a role prefix nobody else uses, because roles live across the
 whole server; names carry the test process's pid, and what killed runs left behind is dropped.
@@ -24,6 +25,7 @@ from teabot.db.bootstrap import bootstrap
 from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, create_pools
 from teabot.db.types import Conn
+from teabot.envfile import read_values
 from teabot.sdk import LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.testing.cleanup import cleanup, role_prefix, run_db_name
@@ -33,12 +35,22 @@ from teabot.testing.snapshot import ACCEPT, SnapshotCheck, compare
 APP_PASSWORD = "app-test"
 PLUGINS_PASSWORD = "plugins-test"
 
-PG_HOST = os.environ.get("TEABOT_TEST_PG_HOST", "127.0.0.1")
-PG_PORT = int(os.environ.get("TEABOT_TEST_PG_PORT") or os.environ.get("TEABOT_DB_PORT") or "55432")
-PG_USER = os.environ.get("TEABOT_TEST_PG_USER", "teabot_owner")
-PG_PASSWORD = (
-    os.environ.get("TEABOT_TEST_PG_PASSWORD") or os.environ.get("TEABOT_DB_OWNER_PASSWORD") or "teabot"
-)
+COMPOSE_ENV = Path(".env")
+
+
+def setting(*names: str, default: str) -> str:
+    """The first of `names` set in the environment, or else in the instance's Compose `.env`."""
+    compose = read_values(COMPOSE_ENV)
+    for name in names:
+        if value := os.environ.get(name) or compose.get(name):
+            return value
+    return default
+
+
+PG_HOST = setting("TEABOT_TEST_PG_HOST", default="127.0.0.1")
+PG_PORT = int(setting("TEABOT_TEST_PG_PORT", "TEABOT_DB_PORT", default="55432"))
+PG_USER = setting("TEABOT_TEST_PG_USER", default="teabot_owner")
+PG_PASSWORD = setting("TEABOT_TEST_PG_PASSWORD", "TEABOT_DB_OWNER_PASSWORD", default="teabot")
 NO_POSTGRES = """teabot's test fixtures could not reach Postgres at {host}:{port} as {user}: {error}
 Start the Postgres of your instance's Compose file:
     docker compose up -d --wait postgres

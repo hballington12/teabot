@@ -1,5 +1,6 @@
 {
   "commands": {
+    "default_member_permissions": "8192",
     "description": "announcements commands",
     "name": "announcements",
     "options": [

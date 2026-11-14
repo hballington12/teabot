@@ -192,7 +192,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
     client = TeabotClient(lock)
-    core = assemble(report, pools, queue, client)
+    core = assemble(report, pools, queue, client, settings.public_url)
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await core.sync.startup()})

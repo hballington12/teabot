@@ -1,9 +1,9 @@
-"""teabot-giveaways: members enter, and winners are drawn when time is up. Imports only `teabot.sdk` (D45).
+"""teabot-giveaways: members enter, and winners are drawn when time is up. Imports only `teabot.sdk`.
 
 - `giveaways.start` announces a giveaway and schedules its draw.
 - `giveaways.enter` enters the calling member.
 - `giveaways.list` shows the running giveaways.
-- `giveaways.cancel` cancels one and its draw, after a plan (D21).
+- `giveaways.cancel` cancels one and its draw, after a plan.
 - The `draw` job picks the winners and announces them.
 """
 

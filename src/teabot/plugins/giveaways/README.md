@@ -7,5 +7,5 @@
 - When time is up, a job draws the winners at random, marks them, and announces them in the channel, mentioning only the winners.
 - Config: `default_minutes`, how long a giveaway runs when `start` is not told; `excluded_role`, a role whose members may not enter.
 - It is the worked example of `docs/tutorial.md`.
-- External connections: none (D12).
+- External connections: none.
 - Tests: `tests/plugins/giveaways/`, through `teabot.testing`.

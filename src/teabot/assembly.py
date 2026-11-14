@@ -39,12 +39,18 @@ class Core:
     queue: Queue
 
 
-def assemble(report: LoadReport, pools: Pools, queue: Queue, client: Client) -> Core:
+def assemble(
+    report: LoadReport, pools: Pools, queue: Queue, client: Client, public_url: str | None = None
+) -> Core:
+    """The core's parts, wired together. `public_url` is the instance's public address, if it has one."""
     statuses = report.labels()
     configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
     admin = Admin(pools.core_db(), statuses=statuses, configs=configs)
     tokens = Tokens(pools.core_db())
-    token_commands = TokenCommands(tokens)
+    if public_url:
+        token_commands = TokenCommands(tokens, f"{public_url.rstrip('/')}/mcp", local=False)
+    else:
+        token_commands = TokenCommands(tokens)
     lookups = Lookups(pools.core_db())
     sources = sources_from(report.loaded) | admin.sources() | token_commands.sources() | lookups.sources()
     sync = CommandSync(pools.core_db(), queue, sources, client)
