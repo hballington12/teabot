@@ -4,6 +4,8 @@
 - Its table is `greetings`, created by `migrations/0001_greetings.sql`. Add a new numbered file for each change.
 - Tests need the Postgres of the instance's Compose file: `docker compose up -d --wait postgres`.
 - Then run them with `uv run --env-file .env --package teabot-$id pytest plugins/$id`, on a development machine, since they create and drop databases.
+- `tests/snapshot.json` records the plugin's commands, tools and job payloads. Accept a change to them with `uv run --env-file .env --package teabot-$id pytest plugins/$id --teabot-accept`.
+- `uv run teabot check plugins/$id` runs the review checklist; the tests run it too.
 - Turn it on in a server with `/plugins enable plugin:$id`.
 - Writing actions, jobs, config and plans: `docs/plugin-authoring.md` in the teabot repository.
 - External connections: none (D12). List every host the plugin contacts here.

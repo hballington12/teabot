@@ -22,6 +22,7 @@ FILES = [
     "src/teabot_scaffolded/migrations/0001_greetings.sql",
     "src/teabot_scaffolded/py.typed",
     "tests/test_scaffolded.py",
+    "tests/test_scaffolded_snapshot.py",
 ]
 
 

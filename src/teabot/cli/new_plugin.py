@@ -27,6 +27,7 @@ def files_for(plugin_id: str) -> dict[str, str]:
         f"{package}/migrations/0001_greetings.sql": "migration.sql.tmpl",
         f"{package}/py.typed": "",
         f"tests/test_{plugin_id}.py": "test_plugin.py.tmpl",
+        f"tests/test_{plugin_id}_snapshot.py": "test_snapshot.py.tmpl",
     }
 
 
