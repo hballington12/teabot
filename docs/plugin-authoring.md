@@ -5,8 +5,10 @@ A plugin is a Python package that adds actions to teabot. Anyone running an inst
 ## Starting a plugin
 
 - In your instance, `uv run teabot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, a manifest with one example action, a first migration, a README and tests.
-- Then `uv lock`, and run its tests against the Compose Postgres with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`.
-- Restart teabot, and `/plugins enable raffles` in a server.
+- Start the Compose Postgres the tests use: `docker compose up -d --wait postgres`.
+- Then `uv lock`, and run its tests with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`.
+- Restart teabot, and turn the plugin on in a server with `/plugins enable plugin:raffles`.
+- For a complete worked example, read the first-party announcements plugin, [`plugins/announcements/src/teabot_announcements/__init__.py`](../plugins/announcements/src/teabot_announcements/__init__.py): it posts to a channel, schedules a job, and handles a channel the bot cannot post in.
 
 ## The package
 
@@ -72,6 +74,7 @@ DRAW = ActionSpec(
     - The ref types hold a Discord ID. Give fields a `description`; Discord shows it.
 - Output is a model. In Discord it is shown through `render` if the action has one, or as an embed of its fields. Mark member-written text in outputs as `UntrustedText`, which MCP wraps (D23).
 - To tell the member what went wrong, raise `ActionError("That channel is not a text channel.")`. The message is shown as written and recorded in the audit log. Any other exception shows a generic reply and keeps its details in the audit log.
+- A destructive action's own output is not shown yet: the member sees the plan, then that the change is applying. Report what it did through `ctx.report(...)` progress, which `/admin job_status` shows.
 
 ## What an action receives
 
@@ -82,10 +85,25 @@ DRAW = ActionSpec(
 - `ctx.db`: the plugin's database, as its own role in its own schema.
 - `ctx.queue`: schedule the plugin's jobs for this server.
 
+To post somewhere, find the channel and send to it; this is how the announcements plugin does it:
+
+```python
+channel = cast(Any, ctx.guild.get_channel(data.channel))
+if channel is None or not hasattr(channel, "send"):
+    raise ActionError("That channel is not a text channel in this server.")
+try:
+    message = await channel.send(embed=discord.Embed(title=data.title, description=data.body))
+except discord.Forbidden:
+    raise ActionError("I am not allowed to post in that channel.") from None
+```
+
+In tests the server is a `FakeGuild`, whose channels are fakes, so code like this works in both. The `cast` is there because pyright cannot see that the fakes and discord.py's channels share `send`; the SDK's own Discord types will remove it.
+
 ## The database
 
 - The plugin owns the schema `plugin_<id>` and a role that can use nothing else (D9). Name tables without a prefix; reading the core or another plugin's tables fails.
 - Every table has a `bigint guild_id` column; the migration runner refuses tables without one. That is how the core deletes a server's data when the bot leaves it (D49).
+- Nothing filters rows for you: every query must filter by `guild_id` itself (`WHERE guild_id = $1` with `ctx.guild.id`). A query without the filter sees every server's rows.
 - Each helper call runs exactly one statement. Pass values as parameters (`$1`, `$2`), never by building strings.
 - Writes go in a transaction block, and everything inside it goes through `tx`:
 
@@ -109,20 +127,23 @@ DRAW = ActionSpec(
 
 ## Config
 
-- A Pydantic model, set by server admins. The plugin never writes to its config; anything the plugin writes goes in its tables.
+- A Pydantic model, set by server admins with `/plugins config plugin:raffles setting:<name> value:<value>`. Without a setting, the command shows the current values. A value is read as JSON when it is JSON (numbers, `true`, `false`), and as the text typed otherwise, then validated through the model.
+- `ctx.config` is typed as `BaseModel`; read your own model with `cast(RafflesConfig, ctx.config)` until the SDK types it.
+- The plugin never writes to its config; anything the plugin writes goes in its tables.
 - Change it only in ways older stored config still validates: new fields with defaults, `AliasChoices` for renames, `extra="ignore"` for removals, `model_validator(mode="before")` for anything else (D10).
 - Keep stored samples from earlier versions in `tests/fixtures/` and test that they still validate.
 
 ## Jobs
 
 - `registrar.job(name, handler)` registers one; `tx.schedule` or `ctx.queue.schedule` queues it for a server (D31).
-- A handler receives `guild_id`, `payload`, `db` (as in actions), `client` and `report(progress)`.
+- A handler receives one `JobContext`, with `guild_id`, `payload`, `db` (as in actions), `client` and `report(progress)`. To post from a job, find the channel with `ctx.client.get_channel(channel_id)`.
 - A job can run twice: after a crash, its lease runs out and another worker takes it. Write handlers so a second run changes nothing.
-- A failing job retries with growing delays, then stays failed with its error.
+- A failing job, including one that raises `ActionError`, is retried after 2, 4, 8 and 16 seconds, five attempts in all, then stays failed with its error, which `/admin job_status` shows.
+- Known gap: `tx.schedule` and `ctx.queue.schedule` go through the plugin's `schedule_job` function, which takes the server's id as an argument, so plugin code could queue a job for another server. Always schedule for `ctx.guild.id`; a later release takes the server from the connection instead.
 
 ## Testing
 
-- Install `teabot[testing]` and run Postgres 16 (the instance template's Compose file has one). Add `-p teabot.testing.fixtures` to pytest's `addopts`.
+- Install `teabot[testing]` and run Postgres 16: `docker compose up -d --wait postgres` starts the instance template's. Add `-p teabot.testing.fixtures` to pytest's `addopts`. If Postgres is not reachable, the run stops at once and says what to start.
 - `teabot_harness` loads the plugin through the real loader and migrations into a fake server, and `harness.invoke` runs actions through the real call path, permissions and audit included:
 
     ```python
@@ -134,6 +155,30 @@ DRAW = ActionSpec(
 
 - Tests import only `teabot.sdk` and `teabot.testing`, which also has what `invoke` raises and returns: `Refused` (check its `code`) before the action runs, `ActionFailed` (check its `public_message`) when the action raised, and a destructive action's `Planned` and `Queued`.
 - `harness.guild.add_member(permissions, cached=False)` adds a member found only over REST. `FakeChannel(forbidden=True)` refuses to send; `FakeVoiceChannel` takes no messages.
+- Set config as an admin would: `await harness.invoke("plugins.config", {"plugin": "raffles", "setting": "max_entries", "value": "50"})`.
+- Confirm a destructive action's plan by calling it again with the plan's confirm value, then run the apply:
+
+    ```python
+    plan = await harness.invoke("raffles.cancel", {"raffle": "3"})
+    assert isinstance(plan, Planned)
+    queued = await harness.invoke("raffles.cancel", {"raffle": "3", "confirm": plan.confirm})
+    await harness.run_jobs()
+    ```
+
+- `harness.run_jobs()` runs every due job through the real worker. If a job fails, it raises `JobFailed` with the job's own exception as its cause, so the traceback shows; a test that expects a failure catches `JobFailed`. Until the SDK has a test clock, make a scheduled job due with `await harness.admin.execute("UPDATE core.jobs SET run_at = now() WHERE id = $1", job_id)`.
+- A refusal raises `Refused` with one of these codes:
+
+    | Code | Meaning |
+    |---|---|
+    | `forbidden` | the member lacks the action's Discord permissions |
+    | `invalid_input` | the input does not fit the action's model |
+    | `plugin_not_enabled` | the plugin is not enabled in this server |
+    | `config_invalid` | the server's stored config no longer fits the plugin's model |
+    | `not_in_guild` | the member is not in the server |
+    | `unknown_action` | no action has that name |
+    | `wrong_surface` | the action is not offered through this front door |
+    | `above_token_risk`, `not_allowed_by_token` | a token's limits refuse the action |
+    | `confirm_unknown`, `confirm_mismatch`, `plan_expired`, `plan_used` | a confirm value does not match a live plan of this member's |
 
 ## Review checklist
 

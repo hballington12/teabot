@@ -266,7 +266,7 @@ The path a self-hoster follows, documented in `docs/plugin-authoring.md`:
 1. In the instance repo, run `uv run teabot new-plugin raffles`. It creates `plugins/raffles/` as a workspace member with its entry point, manifest, first migration, README and tests, and adds it to the instance's dependencies.
 2. Write actions against `teabot.sdk`, and test them with `teabot.testing`.
 3. Restart the instance. The loader finds the new entry point, creates `plugin_raffles` and its role, runs the migration and loads the plugin.
-4. `/plugins enable raffles` in a server.
+4. `/plugins enable plugin:raffles` in a server.
 
 Nothing in this path contacts the teabot maintainers. Publishing the plugin to PyPI or a git repository, so other operators can install it, is the author's choice.
 
