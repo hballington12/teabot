@@ -26,7 +26,7 @@ uv run teabot new-plugin polls
 ```text
 created plugins/polls
 next: uv run --package teabot-polls pytest plugins/polls
-then restart teabot, and enable it in a server with /plugins enable plugin:polls
+then rebuild the bot with docker compose up -d --build, and run /plugins enable plugin:polls
 ```
 
 It writes one package, with an example action called `hello`:
@@ -38,6 +38,7 @@ plugins/polls/
     src/teabot_polls/
         __init__.py                     the plugin
         migrations/0001_greetings.sql   its table
+        py.typed                        tells type checkers the package has types
     tests/
         test_polls.py                   its tests
         test_polls_snapshot.py          a record of its commands, kept in snapshot.json
@@ -81,7 +82,7 @@ Make the reply your own. In `__init__.py`, change `render`:
 
 ```python
     def render(self) -> str:
-        return f"Hi! You have said hello {self.times} times."
+        return f"Hi there! That is hello number {self.times}."
 ```
 
 Run the tests again. They still pass, since they check what the action returns, not how it is shown.
@@ -99,7 +100,7 @@ docker compose up -d --build
 /polls hello
 ```
 
-teabot replies `Hi! You have said hello 1 times.`
+teabot replies `Hi there! That is hello number 1.`
 
 ## Next
 

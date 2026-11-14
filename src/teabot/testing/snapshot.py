@@ -61,8 +61,9 @@ def compare(plugin: LoadablePlugin, path: Path, *, accept: bool) -> None:
             difflib.unified_diff(stored.splitlines(True), current.splitlines(True), str(path), "now")
         )
         pytest.fail(
-            f"{plugin.manifest.id} no longer matches its snapshot. If the change is meant, accept it with\n"
-            f"    uv run pytest {ACCEPT}\n\n{diff}",
+            f"{plugin.manifest.id} no longer matches its snapshot. If the change is meant, run its tests again "
+            f"with {ACCEPT}, such as\n"
+            f"    uv run --package teabot-{plugin.manifest.id} pytest plugins/{plugin.manifest.id} {ACCEPT}\n\n{diff}",
             pytrace=False,
         )
 

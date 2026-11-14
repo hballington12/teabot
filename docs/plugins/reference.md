@@ -196,6 +196,8 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
     ```
 
 - The harness runs `teabot check` on the plugin's package when it loads it, and raises `CheckFailed` with each problem.
+- Everything a test needs is in `teabot.testing`: `HarnessFactory`, the type of the `teabot_harness` fixture; `PluginHarness`, what it returns; the fakes; and `Refused`, `ActionFailed`, `JobFailed`, `CheckFailed` and `Planned`.
+- Pyright checks the calls against your functions. Editors such as VS Code run it as you type; from a terminal, run `uv run --package teabot-<id> --with pyright pyright plugins/<id>`.
 
 | Helper | What it does |
 |---|---|
@@ -204,7 +206,7 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 | `harness.plan(action, ...)` | a destructive action's `Planned` |
 | `harness.confirm(plan)` | confirms the plan and runs the apply |
 | `harness.run_jobs()` | runs every due job through the real worker; a failure raises `JobFailed` with the job's exception as its cause |
-| `harness.run_job(job.bind(...))` | runs a job now, as if scheduled again; after its own run, it tests that a second run changes nothing |
+| `harness.run_job(job.bind(...))` | runs the job now, as if scheduled again; use it after the job's first run, then check that nothing changed again |
 | `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |
 | `harness.configure(Cfg(...))` | stores the server's config, as an admin would |
 | `harness.invoke(name, raw)` | calls by name with raw input, as a front door would; for testing refusals of bad input |

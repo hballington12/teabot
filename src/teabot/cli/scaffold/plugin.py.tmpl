@@ -16,7 +16,7 @@ class Greeted(BaseModel):
     times: int
 
     def render(self) -> str:
-        return f"Hello! That makes {self.times}."
+        return f"Hello! That is hello number {self.times}."
 
 
 @plugin.action()

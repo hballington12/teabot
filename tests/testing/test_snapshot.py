@@ -31,6 +31,10 @@ def test_a_change_fails_with_the_difference_and_how_to_accept_it(tmp_path: Path)
     path.write_text('{"commands": {}}\n')
     with pytest.raises(pytest.fail.Exception) as caught:
         compare(plugin, path, accept=False)
-    assert "uv run pytest --teabot-accept" in str(caught.value) and '+  "jobs"' in str(caught.value)
+    assert (
+        "pytest plugins/" in str(caught.value)
+        and "--teabot-accept" in str(caught.value)
+        and '+  "jobs"' in str(caught.value)
+    )
     compare(plugin, path, accept=True)
     compare(plugin, path, accept=False)

@@ -6,7 +6,13 @@ The finished plugin is [`examples/polls`](https://github.com/hballington12/teabo
 
 ## 1. The plugin and its settings
 
-Replace everything in `src/teabot_polls/__init__.py` below the imports with:
+Start `src/teabot_polls/__init__.py` afresh. Its imports, for the whole tutorial, are:
+
+```python
+--8<-- "examples/polls/src/teabot_polls/__init__.py:imports"
+```
+
+Below them, the plugin and its settings:
 
 ```python
 --8<-- "examples/polls/src/teabot_polls/__init__.py:plugin"
@@ -16,15 +22,11 @@ Replace everything in `src/teabot_polls/__init__.py` below the imports with:
 - `RoleRef` holds a role's ID.
 - `type Ctx = Context[Cfg]` names the settings' type once. Then `ctx.config` is a `Cfg` in every action, and pyright checks it.
 
-The imports the whole tutorial needs are:
-
-```python
---8<-- "examples/polls/src/teabot_polls/__init__.py:imports"
-```
+Delete `tests/test_polls.py`, which tests the old `hello`. Step 8 writes the new tests, so add each step's code to the file as you go, and run the tests at step 8.
 
 ## 2. The tables
 
-Delete `migrations/0001_greetings.sql`, and write `migrations/0001_polls.sql`:
+Delete `src/teabot_polls/migrations/0001_greetings.sql`, and write `src/teabot_polls/migrations/0001_polls.sql`:
 
 ```sql title="src/teabot_polls/migrations/0001_polls.sql"
 --8<-- "examples/polls/src/teabot_polls/migrations/0001_polls.sql"
@@ -100,7 +102,13 @@ The queries this tutorial uses sit together near the top of the file:
 
 ## 8. Tests
 
-Replace `tests/test_polls.py` with tests for each part. The finished file is [`test_polls.py`](https://github.com/hballington12/teabot/blob/main/examples/polls/tests/test_polls.py); here are the parts that show something new.
+Write `tests/test_polls.py`, with tests for each part. The finished file is [`examples/polls/tests/test_polls.py`](https://github.com/hballington12/teabot/blob/main/examples/polls/tests/test_polls.py) in teabot's repository; here are the parts that show something new.
+
+Tests import from `teabot.testing`, and from your plugin:
+
+```python
+--8<-- "examples/polls/tests/test_polls.py:imports"
+```
 
 A helper starts a poll:
 
@@ -156,8 +164,15 @@ Move `plugin = Plugin(...)` and `type Ctx` into `plugin.py`, and import them fro
 
 ## 10. Ship it
 
-```bash
-docker compose up -d --build
-```
+1. Update the plugin's `README.md` and the docstring at the top of `__init__.py`, which still describe `hello`, to list the poll commands.
+2. Rebuild the bot, then turn the plugin on in your server:
 
-Then `/plugins enable plugin:polls` in your server. To share it with other instances, see [Publishing a plugin](publishing.md).
+    ```bash
+    docker compose up -d --build
+    ```
+
+    ```text
+    /plugins enable plugin:polls
+    ```
+
+To share it with other instances, see [Publishing a plugin](publishing.md).

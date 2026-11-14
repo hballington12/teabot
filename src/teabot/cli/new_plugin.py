@@ -99,4 +99,6 @@ def new_plugin(
     locked = lock and lock_instance()
     first = "" if locked else "uv lock, then "
     typer.echo(f"next: {first}uv run --package teabot-{plugin_id} pytest {into / plugin_id}")
-    typer.echo(f"then restart teabot, and enable it in a server with /plugins enable plugin:{plugin_id}")
+    typer.echo(
+        f"then rebuild the bot with docker compose up -d --build, and run /plugins enable plugin:{plugin_id}"
+    )

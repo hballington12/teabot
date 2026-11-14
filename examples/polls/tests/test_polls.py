@@ -1,10 +1,13 @@
 """teabot-polls, through the real loader, migrations and call path, with the test clock."""
 
+# --8<-- [start:imports]
 import discord
 import pytest
 
 from teabot.testing import ActionFailed, FakeChannel, HarnessFactory, PluginHarness, Refused
 from teabot_polls import Cfg, close, delete, list_, plugin, start, vote
+
+# --8<-- [end:imports]
 
 
 # --8<-- [start:helper]
