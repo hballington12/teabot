@@ -7,7 +7,7 @@
 <p><b>An open-source, plugin-based Discord bot.</b></p>
 
 <p>
-  <a href="https://pypi.org/project/teabot/"><img alt="PyPI" src="https://img.shields.io/pypi/v/teabot?color=d4a72c"></a>
+  <a href="https://pypi.org/project/teabot/"><img alt="PyPI" src="https://img.shields.io/pypi/v/teabot?color=d4a72c&cacheSeconds=3600"></a>
   <a href="https://pypi.org/project/teabot/"><img alt="Python 3.12 and 3.13" src="https://img.shields.io/badge/python-3.12%20%7C%203.13-d4a72c"></a>
   <a href="https://github.com/hballington12/teabot/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/hballington12/teabot/ci.yml?branch=main&label=CI"></a>
   <a href="https://github.com/hballington12/teabot/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
