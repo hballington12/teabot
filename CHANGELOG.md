@@ -4,7 +4,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 <!-- --8<-- [start:releases] -->
 
-## Unreleased
+## 1.3.0 - 2026-11-15
 
 ### Using teabot
 
@@ -13,6 +13,11 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 ### Self-hosting
 
 - `teabot run` starts on Windows. Its event loop has no signal handlers, so SIGINT and SIGTERM fall back to the process-wide handler, which still stops the bot cleanly.
+
+### For operators
+
+- For the fixes to the template's own files, copy `setup.sh`, `teabot.env.example`, `.gitignore` and `deploy/bare-metal/` from the new template into your instance. Your settings, `.env` and database are unchanged.
+- The roles plugin arrives with teabot, off in every server until an admin turns it on.
 
 ### Writing plugins
 
