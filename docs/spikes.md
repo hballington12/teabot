@@ -177,3 +177,20 @@ Run on 2026-11-14 with Postgres 16, before building server scoping (D9, D47). It
 - The load-time check for bypassing objects exempts functions owned by the instance owner.
 - Foreign keys without `guild_id` are refused for two reasons, the existence leak and blocked purges.
 - The spike script is `tmp/spikes/s6_rls.py`.
+
+## S7 the decorator API's types
+
+Run on 2026-11-14 with pyright in strict mode on Python 3.12, before building the 1.1 authoring API. A typed prototype of the API (`Plugin`, `@plugin.action`, `@plugin.job`, `bind`, `Context`, `harness.call`) carried a port of the authoring trial's giveaways plugin and its tests. The prototype is `tmp/spikes/s7/`.
+
+- **Inference works end to end.** `Plugin("giveaways", config=Cfg)` is inferred as `Plugin[Cfg]`. A decorated action keeps its signature without the context, as `Action[Cfg, (channel: int, prize: str, winners: int = 1, minutes: int | None = None), Started]`. `harness.call(start, channel=1, prize="x")` is typed as `Started`, and a list action as `list[Running]`. A job's `bind` is typed by the job's own parameters.
+- **Pyright catches every mistake tried:** a wrong argument type, a missing argument and an unknown one, in both `harness.call` and `bind`; a misspelled permission in `needs=`; and an action whose context names the wrong config. That last message is long and generic, so the load error should say it plainly too.
+- **A default config type needs the older form on 3.12.** `class Plugin[C: BaseModel = EmptyConfig]` is PEP 696 syntax, which pyright refuses below Python 3.13. `class Plugin(Generic[Cfg])` with `typing_extensions.TypeVar("Cfg", default=EmptyConfig)` works.
+- **The input model builds from the signature at runtime.** Required and optional fields follow the defaults, the `Args:` section supplies each description, a parameter annotated with the `type Ctx = Context[Cfg]` alias is recognised as injected once the alias's `__value__` is followed, and an action with no parameters gets an empty model.
+- **The docstring rules work at load.** A parameter with no `Args:` entry, an `Args:` entry naming no parameter, and a description over 100 characters each fail with the action's name.
+- **One silent loss found.** `get_type_hints` strips `Annotated` metadata unless called with `include_extras=True`, so `Annotated[int, Field(ge=1, le=20)]` lost its limits without a word. With it, `minimum` and `maximum` reach the schema. The real build needs a test for this.
+
+### Design changes from S7
+
+- `Plugin` is declared with `Generic` and a `typing_extensions.TypeVar` default while teabot supports 3.12.
+- Signatures are read with `get_type_hints(..., include_extras=True)`, tested with a limit on an `Annotated` parameter.
+- A context with the wrong config also fails at load with a plain message, since pyright's is hard to read.
