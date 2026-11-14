@@ -18,7 +18,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### For operators
 
-- For the fixes to the template's own files, copy `setup.sh`, `teabot.env.example`, `.gitignore` and `deploy/bare-metal/` from the new template into your instance. Your settings, `.env` and database are unchanged.
+- Nothing to do by hand: the template is unchanged since 1.2.0. Upgrade teabot and rebuild.
 - The roles plugin arrives with teabot, off in every server until an admin turns it on.
 
 ### Writing plugins
