@@ -43,6 +43,8 @@ For the maintainers. `teabot` and `teabot-announcements` are released together u
 
 A new major version also moves the template's ranges, such as `teabot>=2.0,<3`.
 
+A new first-party package needs a pending publisher on PyPI before its first release. PyPI accepts one only once the publishing settings are no longer pending for another new project, so add it after `teabot` exists.
+
 ## Licence and conduct
 
 - Contributions are under the [MIT licence](LICENSE), as the rest of the project is.
