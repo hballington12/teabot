@@ -63,6 +63,16 @@ class JobContext(Protocol):
         """The bot's Discord client, to find the server's channels and members."""
         ...
 
+    @property
+    def config(self) -> BaseModel:
+        """The job's server's config for the plugin (D10)."""
+        ...
+
+    @property
+    def started_by(self) -> int | None:
+        """The member who started the job, through an action or a job of theirs, or None."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far the job has got, which `admin.job_status` shows."""
         ...

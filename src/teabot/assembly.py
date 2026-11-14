@@ -22,6 +22,7 @@ from teabot.core.plugin_jobs import register_plugin_jobs
 from teabot.core.queue import APPLY_HANDLER, JobContext, Queue
 from teabot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
 from teabot.db.pool import Pools
+from teabot.sdk.plans import Diff
 
 
 class Client(GuildSource, ChannelSource, CommandApi, Protocol):
@@ -57,7 +58,8 @@ def assemble(report: LoadReport, pools: Pools, queue: Queue, client: Client) -> 
         audit_id = int(ctx.job.payload["audit_id"])
         request = await plans.apply_request(audit_id)
         call = Call(request.action, request.guild_id, request.actor, request.raw_input)
-        await registry.run_apply(call, audit_id, ctx.report)
+        diff = Diff.model_validate(ctx.job.payload.get("diff", {}))
+        await registry.run_apply(call, audit_id, ctx.report, diff)
 
     queue.register("core", SYNC_HANDLER, sync)
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))

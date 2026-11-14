@@ -144,26 +144,47 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
         await conn.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO "{owner}"')
     finally:
         await conn.execute("RESET ROLE")
-    await conn.execute(SCHEDULE_JOB.format(schema=schema, plugin_id=plugin_id))
-    await conn.execute(
-        f'REVOKE ALL ON FUNCTION "{schema}".schedule_job(bigint, text, timestamptz, jsonb) FROM PUBLIC'
-    )
-    await conn.execute(
-        f'GRANT EXECUTE ON FUNCTION "{schema}".schedule_job(bigint, text, timestamptz, jsonb) TO "{role}"'
-    )
+    # Earlier releases had a four-argument schedule_job; a new signature is a new function, so the old one goes.
+    await conn.execute(f'DROP FUNCTION IF EXISTS "{schema}".schedule_job(bigint, text, timestamptz, jsonb)')
+    for definition, signature in ((SCHEDULE_JOB, SCHEDULE_SIGNATURE), (UNSCHEDULE_JOB, UNSCHEDULE_SIGNATURE)):
+        await conn.execute(definition.format(schema=schema, plugin_id=plugin_id))
+        await conn.execute(f'REVOKE ALL ON FUNCTION "{schema}".{signature} FROM PUBLIC')
+        await conn.execute(f'GRANT EXECUTE ON FUNCTION "{schema}".{signature} TO "{role}"')
 
 
+SCHEDULE_SIGNATURE = "schedule_job(bigint, text, timestamptz, jsonb, text, bigint)"
+UNSCHEDULE_SIGNATURE = "unschedule_job(bigint, text)"
+
+# A key makes scheduling idempotent: the same key moves the pending job, and the partial unique index of
+# core.jobs makes a running job with that key no obstacle to a new pending one.
 SCHEDULE_JOB = """
 CREATE OR REPLACE FUNCTION "{schema}".schedule_job(
-    p_guild_id bigint, p_handler text, p_run_at timestamptz DEFAULT now(), p_payload jsonb DEFAULT '{{}}'
+    p_guild_id bigint, p_handler text, p_run_at timestamptz DEFAULT now(), p_payload jsonb DEFAULT '{{}}',
+    p_key text DEFAULT NULL, p_started_by bigint DEFAULT NULL
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = core, pg_temp AS $$
 DECLARE new_id bigint;
 BEGIN
-    INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload)
-    VALUES (p_guild_id, '{plugin_id}', p_handler, p_run_at, p_payload) RETURNING id INTO new_id;
+    INSERT INTO core.jobs (guild_id, plugin_id, handler, run_at, payload, key, started_by)
+    VALUES (p_guild_id, '{plugin_id}', p_handler, p_run_at, p_payload, p_key, p_started_by)
+    ON CONFLICT (plugin_id, guild_id, key) WHERE state = 'pending' AND key IS NOT NULL
+    DO UPDATE SET run_at = EXCLUDED.run_at, payload = EXCLUDED.payload, handler = EXCLUDED.handler,
+                  started_by = EXCLUDED.started_by
+    RETURNING id INTO new_id;
     PERFORM pg_notify('teabot_jobs', new_id::text);
     RETURN new_id;
 END $$
+"""
+
+UNSCHEDULE_JOB = """
+CREATE OR REPLACE FUNCTION "{schema}".unschedule_job(p_guild_id bigint, p_key text)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = core, pg_temp AS $$
+    WITH gone AS (
+        DELETE FROM core.jobs
+        WHERE plugin_id = '{plugin_id}' AND guild_id = p_guild_id AND key = p_key AND state = 'pending'
+        RETURNING 1
+    )
+    SELECT EXISTS (SELECT 1 FROM gone)
+$$
 """
 
 

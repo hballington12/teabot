@@ -12,11 +12,13 @@ from teabot.sdk.fields import UntrustedText
 
 class DiffEntry(BaseModel):
     """One change. `change` names its kind, such as `remove` or `skip`; `target` is what it acts on, often a
-    member's or a channel's name, so it is untrusted text (D23)."""
+    member's or a channel's name, so it is untrusted text (D23). `key` identifies it for the apply, such as a row's
+    id: it is part of the plan's hash but never shown, so the apply can act on the diff without parsing text."""
 
     change: str = Field(max_length=32)
     target: UntrustedText
     detail: UntrustedText | None = None
+    key: int | str | None = None
 
 
 class Diff(BaseModel):

@@ -45,11 +45,16 @@ type Via = Literal["slash", "component", "mcp", "service", "job", "event"]
 behind it, a job or a Discord event."""
 
 
+SYSTEM = 0
+"""The `user_id` of an actor with no member behind it, such as a job nobody started."""
+
+
 @dataclass(frozen=True)
 class Actor:
-    """Who asked. Always a member (D16), even when an LLM client or a backend made the call.
+    """Who asked. A member (D16), even when an LLM client or a backend made the call; for a job, the member who
+    started it, or `SYSTEM` when nobody did.
 
-    - `user_id` is the member's Discord ID.
+    - `user_id` is the member's Discord ID, or `SYSTEM`.
     - `via` is the front door the call came through.
     - `token_id` names the token for MCP and service calls, and is None from Discord.
     """
@@ -86,6 +91,11 @@ class ActionContext(Protocol):
     @property
     def queue(self) -> Scheduler:
         """Queues the plugin's jobs for this server (D31)."""
+        ...
+
+    @property
+    def diff(self) -> "Diff | None":
+        """In a destructive action's apply, the diff of the plan the member confirmed; None elsewhere."""
         ...
 
     async def report(self, progress: Mapping[str, Any], /) -> None:

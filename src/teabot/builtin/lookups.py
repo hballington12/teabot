@@ -33,8 +33,10 @@ from teabot.sdk import (
 
 PAGE = 50
 JOB = """
-SELECT id, plugin_id, handler, state, attempts, progress, last_error, run_at, started_by
-FROM core.jobs WHERE id = $1 AND guild_id = $2
+SELECT j.id, j.plugin_id, j.handler, j.state, j.attempts, j.progress, j.last_error, j.run_at, j.started_by,
+       coalesce((SELECT a.action FROM core.audit_log a WHERE a.job_id = j.id ORDER BY a.id LIMIT 1),
+                j.plugin_id || '.' || j.handler) AS label
+FROM core.jobs j WHERE j.id = $1 AND j.guild_id = $2
 """
 
 
@@ -82,6 +84,8 @@ class Found(BaseModel):
 
 class JobInfo(BaseModel):
     id: int
+    label: str = Field(description="What the job does: the action it applies, or its plugin and handler")
+    started_by: MemberRef | None = Field(description="The member who started it, if one did")
     plugin: str
     handler: str
     state: str
@@ -143,6 +147,8 @@ class Lookups:
             raise ActionError("Seeing someone else's job needs Manage Server.")
         return JobInfo(
             id=row["id"],
+            label=row["label"],
+            started_by=row["started_by"] or None,
             plugin=row["plugin_id"],
             handler=row["handler"],
             state=row["state"],

@@ -10,13 +10,13 @@ import pytest
 from pydantic import BaseModel
 
 from teabot.adapters.interactions import InteractionRouter, default_embed
-from teabot.core.plans import Planned, Queued
+from teabot.core.plans import Planned, Queued, ShownEntry
 from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.migrate import migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
-from teabot.sdk import ActionSpec, Actor, ChannelRef, DiffEntry, LongText, Risk, UntrustedText
+from teabot.sdk import ActionSpec, Actor, ChannelRef, LongText, Risk, UntrustedText
 
 GUILD, USER, CHANNEL = 1001, 2001, 3001
 
@@ -261,7 +261,7 @@ CONFIRM = "c" * 22
 
 
 def a_plan(stale: bool = False, entries: int = 2) -> Planned:
-    shown = [DiffEntry(change="remove", target=f"post *{n}*") for n in range(min(entries, 20))]
+    shown = [ShownEntry(change="remove", target=f"post *{n}*") for n in range(min(entries, 20))]
     return Planned(
         action="announcements.wipe",
         counts={"remove": entries},

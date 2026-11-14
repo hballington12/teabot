@@ -20,6 +20,7 @@ one model of an action whichever way a plugin was written.
 
 import importlib.metadata
 import inspect
+import json
 import sys
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
@@ -42,8 +43,8 @@ from teabot.sdk._signature import (
     where,
 )
 from teabot.sdk._views import guild_view
-from teabot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk
-from teabot.sdk.db import Db
+from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk
+from teabot.sdk.db import Bound, Db
 from teabot.sdk.guild import Guild
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, JobContext, Manifest, Registrar
@@ -99,6 +100,12 @@ class Context[C: BaseModel](Protocol):
         """The current time, in UTC."""
         ...
 
+    @property
+    def diff(self) -> Diff:
+        """In a destructive action's apply, the diff of the plan the member confirmed, whose entries' keys say what
+        to change; empty elsewhere."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far a long change has got, which `/admin job_status` shows."""
         ...
@@ -111,6 +118,7 @@ class _Context:
     config: Any
     open_db: Callable[[], Db]
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]]
+    diff: Diff = field(default_factory=Diff)
     now: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     @property
@@ -177,12 +185,12 @@ class Action[C: BaseModel, **P, R]:
 
     async def _plan(self, ctx: ActionContext, data: BaseModel) -> Diff:
         assert self.planner is not None
-        context = _context_of(ctx)
-        return await self.planner(**await _arguments(self.inputs, context, data))
+        return await self.planner(**await _arguments(self.inputs, _context_of(ctx), data))
 
 
 def _context_of(ctx: ActionContext) -> _Context:
-    return _Context(guild_view(ctx.guild), ctx.actor, ctx.config, lambda: ctx.db, ctx.report)
+    diff = getattr(ctx, "diff", None) or Diff()
+    return _Context(guild_view(ctx.guild), ctx.actor, ctx.config, lambda: ctx.db, ctx.report, diff)
 
 
 async def _arguments(inputs: Inputs, context: _Context, data: BaseModel) -> dict[str, Any]:
@@ -204,11 +212,20 @@ class Job[C: BaseModel, **P]:
     name: str
     inputs: Inputs
 
+    def bind(self, *args: P.args, **kwargs: P.kwargs) -> Bound:
+        """The job with its arguments fixed, for `tx.schedule` and `tx.unschedule`. Its key is the job's name and
+        arguments, so scheduling the same bound job again moves the pending one."""
+        if args:
+            raise TypeError(f"{self.name}.bind takes its arguments by name")
+        payload = self.inputs.model.model_validate(kwargs).model_dump(mode="json")
+        return Bound(self.name, payload, f"{self.name}:{json.dumps(payload, sort_keys=True)}")
+
     async def _handle(self, job: JobContext) -> None:
         guild = job.client.get_guild(job.guild_id) if job.guild_id is not None else None
         if guild is None:
             raise ActionError("The bot is no longer in this job's server.")
-        context = _Context(guild_view(guild), Actor(0, "job"), None, lambda: job.db, job.report)
+        actor = Actor(job.started_by or SYSTEM, "job")
+        context = _Context(guild_view(guild), actor, job.config, lambda: job.db, job.report)
         data = self.inputs.model.model_validate(dict(job.payload))
         func: Callable[..., Awaitable[None]] = self.func
         await func(**await _arguments(self.inputs, context, data))

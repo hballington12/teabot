@@ -17,6 +17,7 @@ from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
 from teabot.sdk import ActionSpec, JobContext, LongText, Manifest, Risk, Surface
+from teabot.testing import FakeClient, FakeGuild
 
 GUILD = 1001
 
@@ -54,8 +55,8 @@ async def test_a_plugin_job_runs_with_its_server_payload_and_database(
         await ctx.report({"done": 1})
 
     loaded = {"alpha": Loaded(Plugin("alpha"), jobs={"note": note})}
-    client = object()
-    register_plugin_jobs(queue, loaded, pools, client)  # type: ignore[arg-type]
+    client = FakeClient({GUILD: FakeGuild(id=GUILD)})
+    register_plugin_jobs(queue, loaded, pools, client)
     job_id = await queue.schedule(NewJob("alpha", "note", guild_id=GUILD, payload={"note": "hi"}))
     assert await Workers(queue, lambda: ["alpha"]).run_once()
     assert seen == {"guild": GUILD, "payload": {"note": "hi"}, "client": client}
@@ -112,3 +113,20 @@ async def test_a_plugin_job_without_a_server_fails_with_a_reason(
     assert "belongs to a server" in await admin.fetchval(
         "SELECT last_error FROM core.jobs WHERE id = $1", job_id
     )
+
+
+async def test_a_job_for_a_server_the_bot_has_left_is_dropped(
+    queue: Queue, pools: Pools, admin: Conn
+) -> None:
+    ran: list[int | None] = []
+
+    async def note(ctx: JobContext) -> None:
+        ran.append(ctx.guild_id)
+
+    register_plugin_jobs(
+        queue, {"alpha": Loaded(Plugin("alpha"), jobs={"note": note})}, pools, FakeClient({})
+    )
+    job_id = await queue.schedule(NewJob("alpha", "note", guild_id=GUILD))
+    assert await Workers(queue, lambda: ["alpha"]).run_once()
+    assert ran == []
+    assert await admin.fetchval("SELECT state FROM core.jobs WHERE id = $1", job_id) == "done"

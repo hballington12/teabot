@@ -5,6 +5,7 @@ The core implements these protocols; plugins never import its classes.
 
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, overload
 
@@ -52,17 +53,39 @@ class Queries(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class Bound:
+    """One of a plugin's jobs with its arguments fixed, as `job.bind(...)` makes it.
+
+    - `handler` is the job's name, and `payload` its arguments as JSON values.
+    - `key` is the handler and its arguments, so scheduling the same bound job again moves the pending one.
+    """
+
+    handler: str
+    payload: Mapping[str, Any]
+    key: str
+
+
 class Scheduler(Protocol):
     """Queues jobs for later, through the core's queue (D31)."""
 
+    @overload
+    async def schedule(self, job: Bound, /, *, at: datetime | None = None, key: str | None = None) -> int: ...
+    @overload
     async def schedule(
-        self,
-        handler: str,
-        *,
-        run_at: datetime | None = None,
-        payload: Mapping[str, Any] | None = None,
-    ) -> int:
-        """Queue the plugin's job `handler` for this server, now or at `run_at`, and return its id."""
+        self, job: str, /, *, run_at: datetime | None = None, payload: Mapping[str, Any] | None = None
+    ) -> int: ...
+    async def schedule(self, job: Any, /, **options: Any) -> int:
+        """Queue one of the plugin's jobs for this server, now or at `at`, and return its id.
+
+        A bound job, `draw.bind(giveaway=gid)`, carries its own key, which `key=` can replace: scheduling a key
+        that has a pending job moves that job instead of adding another. The form `schedule("draw",
+        run_at=..., payload=...)` names the job by its handler and has no key.
+        """
+        ...
+
+    async def unschedule(self, job: Bound | str, /) -> bool:
+        """Cancel the pending job with this bound job's key, or this key. Returns whether there was one."""
         ...
 
 

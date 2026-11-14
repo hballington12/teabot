@@ -150,3 +150,9 @@ async def test_a_job_that_has_not_reported_yet_has_no_progress(harness: PluginHa
     job_id = await job(harness)
     await harness.admin.execute("UPDATE core.jobs SET progress = NULL WHERE id = $1", job_id)
     assert dumped(await harness.invoke("admin.job_status", {"job_id": job_id}))["progress"] is None
+
+
+async def test_job_status_names_what_the_job_does_and_who_started_it(harness: PluginHarness) -> None:
+    job_id = await job(harness, started_by=harness.member.id)
+    out = dumped(await harness.invoke("admin.job_status", {"job_id": job_id}))
+    assert (out["label"], out["started_by"]) == ("echo.draw", str(harness.member.id))

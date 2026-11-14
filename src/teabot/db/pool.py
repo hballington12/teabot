@@ -23,6 +23,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from teabot.db.naming import Naming
 from teabot.db.types import AnyConn, Conn, Pool, Record
+from teabot.sdk.db import Bound
 
 log = logging.getLogger(__name__)
 
@@ -176,40 +177,61 @@ class PluginDatabase(Database):
                     await conn.execute("RESET ROLE; RESET search_path")
 
 
-SCHEDULE = "SELECT schedule_job($1, $2, coalesce($3, now()), $4::jsonb)"
+SCHEDULE = "SELECT schedule_job($1, $2, coalesce($3, now()), $4::jsonb, $5, $6)"
+UNSCHEDULE = "SELECT unschedule_job($1, $2)"
 
 
 class ServerScheduling(Queries):
-    """Queue one of the plugin's jobs for this server, through the plugin's own `schedule_job` (S1, D31)."""
+    """Queue one of the plugin's jobs for this server, through the plugin's own `schedule_job` (S1, D31). The
+    job records who started it: the member behind the action, or the starter of the job that queued it."""
 
     guild_id: int
+    started_by: int | None = None
 
     async def schedule(
-        self, handler: str, *, run_at: datetime | None = None, payload: Mapping[str, Any] | None = None
+        self,
+        job: Any,
+        /,
+        *,
+        at: datetime | None = None,
+        key: str | None = None,
+        run_at: datetime | None = None,
+        payload: Mapping[str, Any] | None = None,
     ) -> int:
+        if isinstance(job, Bound):
+            handler, data, job_key = job.handler, job.payload, key or job.key
+        else:
+            handler, data, job_key = str(job), payload or {}, key
         job_id: int = await self.fetchval(
-            SCHEDULE, self.guild_id, handler, run_at, json.dumps(dict(payload or {}))
+            SCHEDULE, self.guild_id, handler, at or run_at, json.dumps(dict(data)), job_key, self.started_by
         )
         return job_id
+
+    async def unschedule(self, job: Any, /) -> bool:
+        job_key = job.key if isinstance(job, Bound) else str(job)
+        gone: bool = await self.fetchval(UNSCHEDULE, self.guild_id, job_key)
+        return gone
 
 
 class GuildTransaction(ServerScheduling, Transaction):
     """A plugin's transaction in one server. A job queued here commits with the block's writes."""
 
-    def __init__(self, conn: AnyConn, guild_id: int) -> None:
+    def __init__(self, conn: AnyConn, guild_id: int, started_by: int | None = None) -> None:
         super().__init__(conn)
         self.guild_id = guild_id
+        self.started_by = started_by
 
 
 class GuildPluginDatabase(ServerScheduling, PluginDatabase):
     """What one action or job of a plugin gets as `ctx.db` and `ctx.queue`: bound to one server (D2)."""
 
-    def __init__(self, base: PluginDatabase, guild_id: int) -> None:
+    def __init__(self, base: PluginDatabase, guild_id: int, started_by: int | None = None) -> None:
         super().__init__(base.pool, base.name, base.naming, base.timing)
         self.guild_id = guild_id
+        self.started_by = started_by
 
     def _transaction_for(self, conn: AnyConn) -> Transaction:
-        return GuildTransaction(conn, self.guild_id)
+        return GuildTransaction(conn, self.guild_id, self.started_by)
 
     @asynccontextmanager
     async def transaction(self) -> AsyncGenerator[GuildTransaction]:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -233,8 +255,11 @@ class Pools:
     def plugin_db(self, plugin_id: str) -> PluginDatabase:
         return PluginDatabase(self.plugins, plugin_id, self.naming, self.timing)
 
-    def guild_plugin_db(self, plugin_id: str, guild_id: int) -> GuildPluginDatabase:
-        return GuildPluginDatabase(self.plugin_db(plugin_id), guild_id)
+    def guild_plugin_db(
+        self, plugin_id: str, guild_id: int, started_by: int | None = None
+    ) -> GuildPluginDatabase:
+        """A plugin's database for one server. Jobs it queues record `started_by` as who started them."""
+        return GuildPluginDatabase(self.plugin_db(plugin_id), guild_id, started_by)
 
     async def close(self) -> None:
         await self.core.close()

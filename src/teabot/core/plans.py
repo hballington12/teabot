@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from teabot.core.queue import APPLY_HANDLER, NewJob, Queue
 from teabot.core.registry import ActionFailed, Audit, CallRecord, Refused
 from teabot.sdk import ActionContext, ActionError, ActionSpec, Actor, Diff, DiffEntry
+from teabot.sdk.fields import UntrustedText
 
 PLAN_AGE = timedelta(minutes=15)
 PAGE = 20
@@ -42,12 +43,20 @@ SET_JOB = "UPDATE core.audit_log SET job_id = $2 WHERE id = $1"
 APPLY_ROW = "SELECT action, guild_id, user_id, token_id, surface, input FROM core.audit_log WHERE id = $1"
 
 
+class ShownEntry(BaseModel):
+    """A diff entry as the member sees it: without its key, which is for the apply only."""
+
+    change: str
+    target: UntrustedText
+    detail: UntrustedText | None = None
+
+
 class Planned(BaseModel):
     """What the member sees before anything changes. `stale` says an earlier plan no longer matched."""
 
     action: str
     counts: dict[str, int]
-    entries: list[DiffEntry]
+    entries: list[ShownEntry]
     total: int
     confirm: str
     expires_at: datetime
@@ -71,14 +80,18 @@ class ApplyRequest:
     raw_input: dict[str, Any]
 
 
-def entry_order(entry: DiffEntry) -> tuple[str, str, str]:
-    return entry.change, entry.target, entry.detail or ""
+def entry_order(entry: DiffEntry) -> tuple[str, str, str, str]:
+    return entry.change, entry.target, entry.detail or "", "" if entry.key is None else str(entry.key)
 
 
 def canonical(diff: Diff) -> str:
     """The diff as JSON with its entries in a fixed order, so equal state always hashes the same. Every entry
     comes from one model, so its keys are always in the same order too."""
-    entries = [e.model_dump(mode="json") for e in sorted(diff.entries, key=entry_order)]
+    # An entry without a key hashes as it did before keys existed, so plans made then stay valid.
+    entries = [
+        e.model_dump(mode="json", exclude={"key"} if e.key is None else None)
+        for e in sorted(diff.entries, key=entry_order)
+    ]
     return json.dumps(entries, separators=(",", ":"))
 
 
@@ -115,7 +128,7 @@ class Plans:
         if diff_hash(diff) != stored:
             await self.audit.single(record, "refused", "plan_stale")
             return (await self.plan(record, diff)).model_copy(update={"stale": True})
-        return await self.queue_apply(record, plan_id)
+        return await self.queue_apply(record, plan_id, diff)
 
     async def _diff(
         self, spec: ActionSpec[Any, Any], ctx: ActionContext, data: BaseModel, record: CallRecord
@@ -139,7 +152,10 @@ class Plans:
         return Planned(
             action=record.action,
             counts=diff.counts,
-            entries=sorted(diff.entries, key=lambda e: (e.change, e.target))[:PAGE],
+            entries=[
+                ShownEntry(change=e.change, target=e.target, detail=e.detail)
+                for e in sorted(diff.entries, key=lambda e: (e.change, e.target))[:PAGE]
+            ],
             total=len(diff.entries),
             confirm=confirm,
             expires_at=expires_at,
@@ -165,10 +181,11 @@ class Plans:
             raise Refused("plan_used", "that plan has already been applied")
         return row["id"], row["diff_hash"]
 
-    async def queue_apply(self, record: CallRecord, plan_id: int) -> Queued:
+    async def queue_apply(self, record: CallRecord, plan_id: int, diff: Diff) -> Queued:
         async with self.db.transaction() as tx:
             audit_id: int = await tx.fetchval(INSERT_APPLY, *_who(record), plan_id)
-            payload = {"audit_id": audit_id}
+            # The apply receives the diff the member confirmed, so it need not repeat the plan's queries.
+            payload = {"audit_id": audit_id, "diff": diff.model_dump(mode="json")}
             user = record.actor.user_id
             job = NewJob(
                 "core",

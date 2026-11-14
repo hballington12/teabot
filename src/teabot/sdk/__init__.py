@@ -18,7 +18,8 @@ A plugin:
 Actions:
 - `ActionSpec`: one action, with its input and output models, `Risk`, permissions and `Surface`.
 - `ActionContext`: what one call receives: the server, the `Actor`, the plugin's `Db`, its config and queue.
-- `Actor`: the member who made the call, and `Via`, the front door it came through.
+- `Actor`: the member who made the call, and `Via`, the front door it came through. `SYSTEM` is the actor of a
+  job nobody started.
 - `ActionError`: raised to tell the member what went wrong.
 - `InputError`: what `ActionSpec` raises for an input field type D29 does not allow.
 
@@ -36,12 +37,13 @@ Plans (D21):
 
 The database (D9, D30):
 - `Db`: the plugin's own tables. `Queries` runs SQL and returns `Row`s; `Tx` is a transaction.
-- `Scheduler`: queues jobs (D31). `JobContext` is what a job receives, and `JobHandler` runs it.
+- `Scheduler`: queues jobs (D31), a `Bound` job or one named by its handler. `JobContext` is what a job
+  receives, and `JobHandler` runs it.
 """
 
-from teabot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
+from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
 from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Permission, Plugin
-from teabot.sdk.db import Db, Queries, Row, Scheduler, Tx
+from teabot.sdk.db import Bound, Db, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teabot.sdk.guild import Guild, Member, Message, Role, TextChannel
 from teabot.sdk.ids import InvalidPluginId
@@ -52,12 +54,14 @@ from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugi
 __all__ = [
     "DESTRUCTIVE",
     "READ",
+    "SYSTEM",
     "WRITE",
     "Action",
     "ActionContext",
     "ActionError",
     "ActionSpec",
     "Actor",
+    "Bound",
     "ChannelRef",
     "Context",
     "Db",

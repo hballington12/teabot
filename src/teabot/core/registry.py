@@ -19,6 +19,7 @@ from teabot.core.config import ConfigError, ConfigStore
 from teabot.core.loader import Loaded
 from teabot.db.pool import GuildPluginDatabase, Pools
 from teabot.sdk import ActionError, ActionSpec, Actor, Risk, Surface
+from teabot.sdk.plans import Diff
 
 log = logging.getLogger(__name__)
 
@@ -159,6 +160,7 @@ class PluginActionContext:
     config: BaseModel
     open_db: Callable[[], GuildPluginDatabase] | None
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None
+    diff: Diff | None = None
 
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """A destructive action's progress, written to its apply job; elsewhere nothing (D21)."""
@@ -268,7 +270,11 @@ class Registry:
         return await self.plans.handle(spec, ctx, data, record, confirm)
 
     async def run_apply(
-        self, call: Call, audit_id: int, report: Callable[[Mapping[str, Any]], Awaitable[None]]
+        self,
+        call: Call,
+        audit_id: int,
+        report: Callable[[Mapping[str, Any]], Awaitable[None]],
+        diff: Diff | None = None,
     ) -> None:
         """The `apply` job: check the member again, then run the confirmed action and record its outcome.
         A refusal ends it quietly; a failure is recorded and raised, so the job fails and is not retried."""
@@ -282,7 +288,7 @@ class Registry:
             await self.audit.finished(audit_id, "refused", refusal.code)
             return
         try:
-            await spec.run(replace(ctx, reporter=report), data)
+            await spec.run(replace(ctx, reporter=report, diff=diff), data)
         except Exception as exc:
             await self.audit.finished(audit_id, "error", repr(exc))
             raise
@@ -307,7 +313,11 @@ class Registry:
         except ValidationError as exc:
             raise Refused("invalid_input", str(exc)) from exc
         await self._check_permission(spec, call, guild)
-        open_db = None if source.builtin else partial(self.pools.guild_plugin_db, plugin_id, call.guild_id)
+        open_db = (
+            None
+            if source.builtin
+            else partial(self.pools.guild_plugin_db, plugin_id, call.guild_id, call.actor.user_id)
+        )
         return PluginActionContext(guild, call.actor, config, open_db), data
 
     async def _check_permission(self, spec: ActionSpec[Any, Any], call: Call, guild: Guild) -> None:

@@ -8,6 +8,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from teabot.adapters.schema import slash_fields
+from teabot.core.plans import canonical, diff_hash
 from teabot.sdk import (
     DESTRUCTIVE,
     READ,
@@ -19,7 +20,7 @@ from teabot.sdk import (
     TextChannel,
 )
 from teabot.sdk._signature import SignatureError
-from teabot.testing import ActionFailed, FakeChannel, Planned, PluginHarness, Refused
+from teabot.testing import ActionFailed, FakeChannel, Planned, PluginHarness, Queued, Refused
 
 MIGRATIONS = Path(__file__).parent / "authoring_migrations"
 
@@ -135,6 +136,7 @@ async def test_names_summaries_and_replies_come_from_the_function(teabot_harness
     assert sorted(n for n in specs if n.startswith("parrot.")) == [
         "parrot.forget",
         "parrot.list",
+        "parrot.prune",
         "parrot.say",
         "parrot.whoami",
     ]
@@ -245,3 +247,53 @@ async def test_a_destructive_action_without_a_plan_fails_to_load(teabot_harness:
 
     with pytest.raises(RuntimeError, match=r"broken\.wipe is destructive and needs a plan"):
         await teabot_harness(broken)
+
+
+@plugin.action(risk=DESTRUCTIVE)
+async def prune(ctx: Ctx, text: str) -> str:
+    """Remove what was said with this text.
+
+    Args:
+        text: The text to remove.
+    """
+    keys = [entry.key for entry in ctx.diff.entries]
+    await ctx.db.execute("DELETE FROM said WHERE guild_id = $1 AND ctid::text = ANY($2)", ctx.guild.id, keys)
+    return f"removed {len(keys)}"
+
+
+@prune.plan
+async def plan_prune(ctx: Ctx, text: str) -> Diff:
+    rows = await ctx.db.fetch(
+        "SELECT ctid::text AS row, text FROM said WHERE guild_id = $1 AND text = $2", ctx.guild.id, text
+    )
+    return Diff(entries=[DiffEntry(change="remove", target=r["text"], key=r["row"]) for r in rows])
+
+
+async def test_the_apply_receives_the_confirmed_diff_with_its_keys(teabot_harness: Any) -> None:
+    harness = await harnessed(teabot_harness)
+    channel = harness.guild.add_channel(FakeChannel())
+    for text in ("keep", "drop", "drop"):
+        await harness.invoke("parrot.say", {"channel": str(channel.id), "text": text})
+    plan = await harness.invoke("parrot.prune", {"text": "drop"})
+    assert isinstance(plan, Planned) and plan.total == 2
+    await harness.invoke("parrot.prune", {"text": "drop", "confirm": plan.confirm})
+    await harness.run_jobs()
+    assert await harness.admin.fetchval("SELECT array_agg(text) FROM plugin_parrot.said") == ["keep"]
+
+
+def test_a_key_is_part_of_the_hash_and_an_entry_without_one_hashes_as_before() -> None:
+    plain = Diff(entries=[DiffEntry(change="remove", target="x")])
+    keyed = Diff(entries=[DiffEntry(change="remove", target="x", key=1)])
+    other = Diff(entries=[DiffEntry(change="remove", target="x", key=2)])
+    assert diff_hash(keyed) != diff_hash(other) and diff_hash(plain) != diff_hash(keyed)
+    assert canonical(plain) == '[{"change":"remove","target":"x","detail":null}]'
+
+
+async def test_an_apply_job_is_labelled_with_the_action_it_applies(teabot_harness: Any) -> None:
+    harness = await harnessed(teabot_harness)
+    plan = await harness.invoke("parrot.forget")
+    assert isinstance(plan, Planned)
+    queued = await harness.invoke("parrot.forget", {"confirm": plan.confirm})
+    assert isinstance(queued, Queued)
+    status = (await harness.invoke("admin.job_status", {"job_id": queued.job_id})).model_dump()
+    assert (status["label"], status["started_by"]) == ("parrot.forget", harness.member.id)
