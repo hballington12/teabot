@@ -34,7 +34,10 @@
 
 | Plugin | What it does |
 |---|---|
-| [`teabot-announcements`](https://pypi.org/project/teabot-announcements/) | Posts an announcement to a channel, now or at a set time. |
+| [`announcements`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/announcements) | Posts an announcement to a channel, now or at a set time. |
+| [`giveaways`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/giveaways) | Runs giveaways: members enter, and winners are drawn when time is up. |
+
+These ship with teabot. Turn one on in a server with `/plugins enable plugin:<name>`.
 
 A plugin hub for community plugins is coming. To write your own, see [Writing a plugin](https://github.com/hballington12/teabot/blob/main/docs/plugin-authoring.md).
 

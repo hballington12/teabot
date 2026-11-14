@@ -1,10 +1,10 @@
 # Tutorial: a giveaways plugin
 
-This builds the first-party giveaways plugin step by step. Moderators start a giveaway in a channel, members enter, and a job draws the winners when time is up. The finished plugin is [`plugins/giveaways`](https://github.com/hballington12/teabot/tree/main/plugins/giveaways) in the teabot repository, and its tests run with the rest of teabot's, so every line here is checked. [plugin-authoring.md](plugin-authoring.md) is the reference for each piece. Decision numbers such as (D21) point at [design.md](design.md).
+This builds the giveaways plugin that ships with teabot, step by step. Moderators start a giveaway in a channel, members enter, and a job draws the winners when time is up. The finished plugin is [`src/teabot/plugins/giveaways`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/giveaways) in the teabot repository, with its tests in `tests/plugins/giveaways`, and its tests run with the rest of teabot's, so every line here is checked. [plugin-authoring.md](plugin-authoring.md) is the reference for each piece. Decision numbers such as (D21) point at [design.md](design.md).
 
 ## 1. Start the plugin
 
-In an instance set up by [self-hosting.md](self-hosting.md), whose `.env` holds the database password the tests use:
+Plugin ids are unique in an instance (D46), and teabot already has `giveaways`, so to follow along, give yours another id, such as `prizes`, wherever the tutorial says `giveaways`. In an instance set up by [self-hosting.md](self-hosting.md), whose `.env` holds the database password the tests use:
 
 ```
 docker compose up -d --wait postgres

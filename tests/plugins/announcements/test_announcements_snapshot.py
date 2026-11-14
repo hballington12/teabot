@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
+from teabot.plugins.announcements import plugin
 from teabot.testing import SnapshotCheck
-from teabot_announcements import plugin
 
 
 def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None:

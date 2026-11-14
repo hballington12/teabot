@@ -1,4 +1,4 @@
-# teabot-giveaways
+# giveaways
 
 - `/giveaways start`: a moderator starts a giveaway in a channel, with a prize, how many winners, and how long it runs. The bot announces it there.
 - `/giveaways enter`: a member enters a running giveaway.
@@ -8,3 +8,4 @@
 - Config: `default_minutes`, how long a giveaway runs when `start` is not told; `excluded_role`, a role whose members may not enter.
 - It is the worked example of `docs/tutorial.md`.
 - External connections: none (D12).
+- Tests: `tests/plugins/giveaways/`, through `teabot.testing`.

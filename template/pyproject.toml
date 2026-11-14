@@ -4,9 +4,9 @@ version = "0.1.0"
 description = "One teabot instance: the plugins it runs, and how it is deployed (D42, D43)."
 requires-python = ">=3.12"
 dependencies = [
+    # teabot ships with its first-party plugins. Turn one on in a server with `/plugins enable plugin:<id>`.
     "teabot>=1.0,<2",
-    # First-party plugins this instance runs. Add or remove them here, then `uv lock`.
-    "teabot-announcements>=1.0,<2",
+    # Third-party plugins this instance runs. Add or remove them here, then `uv lock`.
 ]
 
 [tool.uv]
@@ -16,5 +16,4 @@ package = false
 [tool.uv.workspace]
 members = ["plugins/*"]
 
-# uv.lock pins the exact versions. Upgrade with `uv lock --upgrade-package teabot --upgrade-package
-# teabot-announcements`, then rebuild or deploy.
+# uv.lock pins the exact versions. Upgrade with `uv lock --upgrade-package teabot`, then rebuild or deploy.

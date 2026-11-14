@@ -245,6 +245,7 @@ class Plugin(Generic[Cfg]):
         self._migrations = migrations
         self._module: str | None = None
         self._version: str | None = None
+        self.home = _caller_module()
         self.actions: dict[str, Action[Cfg, ..., Any]] = {}
         self.jobs: dict[str, Job[Cfg, ...]] = {}
 
@@ -353,6 +354,14 @@ class NamedJob[C: BaseModel]:
 
     def __call__[**P](self, func: Callable[Concatenate[Context[C], P], Awaitable[None]]) -> Job[C, P]:
         return self.plugin.register_job(func, self.name)
+
+
+def _caller_module() -> str:
+    """The module that made the plugin, past any `__init__` of a `Plugin` subclass."""
+    frame = sys._getframe(2)  # pyright: ignore[reportPrivateUsage]
+    while frame.f_back is not None and frame.f_code.co_name == "__init__":
+        frame = frame.f_back
+    return str(frame.f_globals.get("__name__", ""))
 
 
 def _version_of(module: str | None) -> str:

@@ -48,6 +48,11 @@ testing = [
 [project.scripts]
 teabot = "teabot.cli:app"
 
+# The first-party plugins ship inside teabot, and load through the same entry points as any other (D44).
+[project.entry-points."teabot.plugins"]
+announcements = "teabot.plugins.announcements:plugin"
+giveaways = "teabot.plugins.giveaways:plugin"
+
 [dependency-groups]
 dev = [
     "asyncpg-stubs>=0.30",
@@ -60,9 +65,7 @@ dev = [
     "pytest-asyncio>=1.5",
     "pytest-postgresql>=10.0",
     "ruff>=0.17",
-    "teabot-announcements",
     "teabot-devtools",
-    "teabot-giveaways",
 ]
 duplicate-check = ["teabot-devtools-twin"]
 
@@ -77,9 +80,7 @@ packages = ["src/teabot"]
 members = ["plugins/*"]
 
 [tool.uv.sources]
-teabot-announcements = { workspace = true }
 teabot-devtools = { workspace = true }
-teabot-giveaways = { workspace = true }
 teabot-devtools-twin = { workspace = true }
 
 [tool.ruff]
@@ -93,7 +94,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "RUF", "ASYNC", "PL"]
 ignore = ["PLR2004"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["teabot", "teabot_announcements", "teabot_devtools", "teabot_devtools_twin", "teabot_giveaways"]
+known-first-party = ["teabot", "teabot_devtools", "teabot_devtools_twin"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
@@ -101,6 +102,7 @@ max-line-length = 120
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0913", "PLR0917"]
 # A plugin action's inputs are its parameters, so an action with six inputs takes six arguments.
+"src/teabot/plugins/**" = ["PLR0913", "PLR0917"]
 "plugins/*/src/**" = ["PLR0913", "PLR0917"]
 
 [tool.ruff.lint.mccabe]
@@ -129,7 +131,7 @@ asyncio_default_test_loop_scope = "session"
 filterwarnings = ["ignore:'count' is passed as positional argument:DeprecationWarning:discord.utils"]
 
 [tool.importlinter]
-root_packages = ["teabot", "teabot_announcements", "teabot_devtools", "teabot_giveaways"]
+root_packages = ["teabot", "teabot_devtools"]
 
 [[tool.importlinter.contracts]]
 name = "The plugin SDK does not depend on the core's internals (D45)"
@@ -148,6 +150,7 @@ forbidden_modules = [
     "teabot.health",
     "teabot.lint",
     "teabot.logs",
+    "teabot.plugins",
     "teabot.runtime",
     "teabot.settings",
     "teabot.testing",
@@ -157,7 +160,7 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "First-party plugins import only the SDK (D45)"
 type = "forbidden"
-source_modules = ["teabot_announcements", "teabot_devtools", "teabot_giveaways"]
+source_modules = ["teabot.plugins", "teabot_devtools"]
 forbidden_modules = [
     "teabot.adapters",
     "teabot.app",
@@ -176,3 +179,21 @@ forbidden_modules = [
     "teabot.testing",
     "teabot.web",
 ]
+
+[[tool.importlinter.contracts]]
+name = "The core does not depend on its plugins, which it loads through entry points (D44)"
+type = "forbidden"
+source_modules = [
+    "teabot.adapters",
+    "teabot.app",
+    "teabot.assembly",
+    "teabot.auth",
+    "teabot.builtin",
+    "teabot.cli",
+    "teabot.core",
+    "teabot.db",
+    "teabot.runtime",
+    "teabot.testing",
+    "teabot.web",
+]
+forbidden_modules = ["teabot.plugins"]

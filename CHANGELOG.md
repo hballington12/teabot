@@ -28,8 +28,14 @@ Every release of `teabot`, `teabot-announcements` and the instance template, new
 
 ### Plugins
 
-- teabot-giveaways: start a giveaway in a channel, let members enter, and draw the winners when time is up.
-- teabot-announcements is written on the decorators. Announcements mention nobody, so an `@everyone` in the text stays plain text.
+- The first-party plugins ship inside teabot, as RuneLite ships its core plugins in the client. Each is still off in a server until `/plugins enable`, and loads through the same entry points as any other plugin.
+- giveaways: start a giveaway in a channel, let members enter, and draw the winners when time is up.
+- announcements is written on the decorators. Announcements mention nobody, so an `@everyone` in the text stays plain text.
+- `teabot new-plugin` refuses an id an installed plugin already has.
+
+### Upgrading
+
+- Remove `teabot-announcements` from your instance's dependencies, since teabot now carries it: `uv remove teabot-announcements`, then `uv lock --upgrade-package teabot`. With both installed, two plugins share the id `announcements`, and neither loads. Its config, tables and queued jobs carry over, since the id is unchanged.
 
 ### Operations
 

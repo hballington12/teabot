@@ -1,8 +1,8 @@
 """What a release checks and makes: the scripts beside this file run these, and tests/release tests them.
 
-A release is a tag `v<version>`. `teabot` and `teabot-announcements` carry that version, the changelog has a
-section for it, and the template's dependencies accept it. The plugin is pinned to the exact core it was
-released with (D45), and the template ships with a `uv.lock` made against the published packages.
+A release is a tag `v<version>`. `teabot`, with its first-party plugins inside it, carries that version, the
+changelog has a section for it, and the template's dependency accepts it. The template ships with a `uv.lock`
+made against the published package.
 """
 
 import re
@@ -15,8 +15,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CORE = "teabot"
-PLUGIN = "teabot-announcements"
-PLUGIN_PYPROJECT = "plugins/announcements/pyproject.toml"
 SKIPPED = shutil.ignore_patterns(".venv", "__pycache__", "uv.lock", "teabot.env", ".env")
 
 
@@ -54,29 +52,16 @@ def problems(tag: str, root: Path = ROOT) -> list[str]:
     """Everything that stops `tag` being released, or nothing."""
     version = version_of(tag)
     found: list[str] = []
-    for name, path in ((CORE, "pyproject.toml"), (PLUGIN, PLUGIN_PYPROJECT)):
-        if (actual := project_version(root / path)) != version:
-            found.append(f"{name} is version {actual}, and the tag says {version}")
+    if (actual := project_version(root / "pyproject.toml")) != version:
+        found.append(f"{CORE} is version {actual}, and the tag says {version}")
     if changelog_section(root / "CHANGELOG.md", version) is None:
         found.append(f"CHANGELOG.md has no section headed ## {version}")
     major = int(version.split(".")[0])
     wanted = f">={major}.0,<{major + 1}"
     ranges = template_ranges(root / "template/pyproject.toml")
-    found += [
-        f"the template asks for {n}{ranges.get(n)}, not {n}{wanted}"
-        for n in (CORE, PLUGIN)
-        if ranges.get(n) != wanted
-    ]
+    if ranges.get(CORE) != wanted:
+        found.append(f"the template asks for {CORE}{ranges.get(CORE)}, not {CORE}{wanted}")
     return found
-
-
-def pin_plugin(pyproject: Path, version: str) -> None:
-    """Make the plugin depend on exactly the core it is released with."""
-    text = pyproject.read_text()
-    pinned = text.replace(f'dependencies = ["{CORE}"]', f'dependencies = ["{CORE}=={version}"]')
-    if pinned == text:
-        raise ValueError(f'{pyproject} has no dependencies = ["{CORE}"] line to pin')
-    pyproject.write_text(pinned)
 
 
 def locked_versions(lock: Path) -> dict[str, str]:
@@ -96,9 +81,9 @@ def lock_template(staging: Path, version: str, attempts: int, wait: float) -> No
         error = done.stderr
         if done.returncode == 0:
             locked = locked_versions(staging / "uv.lock")
-            if locked.get(CORE) == version and locked.get(PLUGIN) == version:
+            if locked.get(CORE) == version:
                 return
-            error = f"it locked {CORE} {locked.get(CORE)} and {PLUGIN} {locked.get(PLUGIN)}"
+            error = f"it locked {CORE} {locked.get(CORE)}"
         print(f"attempt {attempt} of {attempts}: {error.strip() or 'no lock'}", flush=True)
         if attempt < attempts:
             time.sleep(wait)

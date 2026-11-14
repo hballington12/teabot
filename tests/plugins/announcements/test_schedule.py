@@ -5,8 +5,8 @@ from datetime import UTC, datetime, timedelta
 import discord
 import pytest
 
+from teabot.plugins.announcements import Scheduled, plugin, schedule
 from teabot.testing import FakeChannel, HarnessFactory, JobFailed, PluginHarness, Refused
-from teabot_announcements import Scheduled, plugin, schedule
 
 
 async def scheduled(harness: PluginHarness, channel: FakeChannel, **extra: str) -> Scheduled:

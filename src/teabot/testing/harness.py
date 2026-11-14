@@ -47,13 +47,12 @@ class CheckFailed(Exception):
 
 
 def lint_plugin(plugin: LoadablePlugin) -> None:
-    """Run `teabot check` on a `Plugin`'s own package. A plugin written inside a test module is not checked."""
-    module = getattr(plugin, "_module", None)
-    if not module:
-        return
-    top = module.split(".", 1)[0]
-    file = getattr(sys.modules.get(top), "__file__", None)
-    if top in ("tests", "test") or file is None or Path(file).name != "__init__.py":
+    """Run `teabot check` on the package that made a `Plugin`: the module itself when it is a package, or the
+    package holding it. A plugin written inside a test module is not checked."""
+    home = getattr(plugin, "home", None) or getattr(plugin, "_module", None) or ""
+    package = home if hasattr(sys.modules.get(home), "__path__") else home.rpartition(".")[0]
+    file = getattr(sys.modules.get(package), "__file__", None)
+    if not package or package.split(".", 1)[0] in ("tests", "test") or file is None:
         return
     problems = check_package(Path(file).parent)
     if problems:

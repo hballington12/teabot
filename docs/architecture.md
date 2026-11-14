@@ -4,8 +4,8 @@ How teabot is built: the concrete shape behind the decisions in [design.md](desi
 
 ## Repositories
 
-- **This repository is the framework (D42).** A uv workspace. The core is one package and every first-party plugin is its own package, from the first plugin on. That proves entry-point discovery (D4) before a second plugin exists. It publishes `teabot` and `teabot-<plugin>` to PyPI, and holds the instance template.
-- **Each instance is its own repository, made from the template.** The Tea clan's instance is the first. It lists its plugins in its own `pyproject.toml`, pins them in its own `uv.lock`, and keeps its deploy files and any local plugins of its own.
+- **This repository is the framework (D42).** A uv workspace. It publishes one package, `teabot`, to PyPI, and holds the instance template. The first-party plugins ship inside `teabot` as `teabot.plugins.<id>`, the way RuneLite ships its core plugins in the client. They register through teabot's own `teabot.plugins` entry points, so they load exactly as a third-party plugin does (D4).
+- **Each instance is its own repository, made from the template.** The Tea clan's instance is the first. It lists its third-party plugins in its own `pyproject.toml`, pins them in its own `uv.lock`, and keeps its deploy files and any local plugins of its own.
 
 ```text
 pyproject.toml                  workspace root, the `teabot` script, a `dev` dependency group (pytest, pytest-postgresql, ruff, pyright, import-linter, teabot-devtools)
@@ -47,16 +47,13 @@ src/teabot/
         migrations/             the core's numbered SQL files, for the `core` schema
     builtin/
         admin.py                the core admin plugin (always enabled)
+    plugins/                    the first-party plugins, each importing only `teabot.sdk`
+        announcements/          the first plugin (D50)
+        giveaways/              the tutorial's worked example, with its migrations/
 plugins/
-    announcements/              first plugin (D50), package `teabot-announcements`
-        pyproject.toml          declares the `teabot.plugins` entry point and pins `teabot` exactly
-        README.md               what it does, its config and its external connections (none)
-        src/teabot_announcements/
-        migrations/
-        tests/
     devtools/                   dev-only plugin that exercises own tables, failure and plans, package `teabot-devtools`
 template/                       the instance template (D43)
-    pyproject.toml              depends on `teabot` and the chosen `teabot-<plugin>` packages
+    pyproject.toml              depends on `teabot` and any third-party plugin packages
     plugins/                    where an operator's own plugins live as workspace members (D44)
     teabot.env.example          names of every setting, no values
     compose.yaml                the bot and Postgres, for the quick setup

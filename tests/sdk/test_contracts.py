@@ -17,8 +17,8 @@ def internal_modules() -> set[str]:
     return names - {"teabot.sdk", "teabot.__main__"}
 
 
-@pytest.mark.parametrize("source", ["teabot.sdk", "teabot_announcements"])
+@pytest.mark.parametrize("source", ["teabot.sdk", "teabot.plugins"])
 def test_a_contract_forbids_every_internal_module(source: str) -> None:
     contracts = tomllib.loads(PYPROJECT.read_text())["tool"]["importlinter"]["contracts"]
     (contract,) = [c for c in contracts if source in c["source_modules"]]
-    assert internal_modules() - set(contract["forbidden_modules"]) == set()
+    assert internal_modules() - set(contract["forbidden_modules"]) - {source} == set()

@@ -34,16 +34,16 @@ docker compose -f template/compose.yaml up -d --wait postgres
 
 ## Releasing
 
-For the maintainers. `teabot` and `teabot-announcements` are released together under one version.
+For the maintainers. A release publishes one package, `teabot`, with the first-party plugins inside it.
 
-1. In one commit on `main`, set that version in `pyproject.toml` and `plugins/announcements/pyproject.toml`, and rename the changelog's **Unreleased** heading to `## <version> - <date>`.
+1. In one commit on `main`, set that version in `pyproject.toml`, and rename the changelog's **Unreleased** heading to `## <version> - <date>`.
 2. Tag it and push the tag: `git tag v<version>` and `git push origin v<version>`.
-3. The release workflow checks the versions, the changelog and the template against the tag, publishes both packages to PyPI, and attaches the locked template to a GitHub release with the changelog section as its notes.
-4. Set the versions to the next `.dev0` and add a new **Unreleased** heading.
+3. The release workflow checks the version, the changelog and the template against the tag, publishes the package to PyPI, and attaches the locked template to a GitHub release with the changelog section as its notes.
+4. Set the version to the next `.dev0` and add a new **Unreleased** heading.
 
 A new major version also moves the template's ranges, such as `teabot>=2.0,<3`.
 
-A new first-party package needs a pending publisher on PyPI before its first release. PyPI accepts one only once the publishing settings are no longer pending for another new project, so add it after `teabot` exists.
+A new first-party plugin is a package under `src/teabot/plugins/`, with an entry point in `pyproject.toml` and its tests in `tests/plugins/<id>/`.
 
 ## Licence and conduct
 

@@ -3,8 +3,8 @@
 import discord
 import pytest
 
+from teabot.plugins.giveaways import Cfg, cancel, draw, enter, list_, plugin, start
 from teabot.testing import ActionFailed, FakeChannel, HarnessFactory, PluginHarness, Refused
-from teabot_giveaways import Cfg, cancel, draw, enter, list_, plugin, start
 
 
 async def started(harness: PluginHarness, *, winners: int = 1, minutes: int = 30) -> tuple[FakeChannel, int]:

@@ -85,6 +85,13 @@ def test_an_id_that_breaks_d46_or_is_reserved_is_refused(tmp_path: Path, plugin_
     assert not (tmp_path / "plugins").exists()
 
 
+def test_an_id_an_installed_plugin_has_is_refused(tmp_path: Path) -> None:
+    result = new_plugin(tmp_path, "giveaways")
+    assert result.exit_code == 1
+    assert "the installed package teabot already has a plugin with the id giveaways" in result.stderr
+    assert not (tmp_path / "plugins").exists()
+
+
 def test_an_existing_directory_is_left_alone(tmp_path: Path) -> None:
     (tmp_path / "plugins/scaffolded").mkdir(parents=True)
     result = new_plugin(tmp_path)

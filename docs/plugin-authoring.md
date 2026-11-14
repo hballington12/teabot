@@ -8,7 +8,7 @@ A plugin is a Python package that adds actions and jobs to teabot. Anyone runnin
 - Start the Compose Postgres the tests use: `docker compose up -d --wait postgres`.
 - Then `uv lock`, and run its tests with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`. The instance's `.env` holds the database password they use.
 - Restart teabot, and turn the plugin on in a server with `/plugins enable plugin:raffles`.
-- Worked examples: the first-party plugins [giveaways](https://github.com/hballington12/teabot/tree/main/plugins/giveaways/src/teabot_giveaways/__init__.py) (jobs, config, a plan) and [announcements](https://github.com/hballington12/teabot/tree/main/plugins/announcements/src/teabot_announcements/__init__.py) (posting now and later), in the teabot repository.
+- Worked examples: the first-party plugins, which ship inside teabot and import only `teabot.sdk` like yours, [giveaways](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/giveaways/__init__.py) (jobs, config, a plan) and [announcements](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/announcements/__init__.py) (posting now and later), in the teabot repository.
 
 ## The package
 

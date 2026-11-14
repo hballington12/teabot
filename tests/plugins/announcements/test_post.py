@@ -3,8 +3,8 @@
 import discord
 import pytest
 
+from teabot.plugins.announcements import Posted, plugin, post
 from teabot.testing import ActionFailed, FakeChannel, FakeVoiceChannel, HarnessFactory, Refused
-from teabot_announcements import Posted, plugin, post
 
 
 async def test_posts_the_announcement_as_an_embed(teabot_harness: HarnessFactory) -> None:

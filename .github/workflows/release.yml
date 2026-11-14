@@ -1,7 +1,7 @@
 name: Release
 
-# A tag v<major>.<minor>.<patch> releases teabot and teabot-announcements to PyPI through trusted publishing,
-# then attaches the instance template, locked against them, to a GitHub release (D42, D48).
+# A tag v<major>.<minor>.<patch> releases teabot, with its first-party plugins inside it, to PyPI through
+# trusted publishing, then attaches the instance template, locked against it, to a GitHub release (D42, D48).
 on:
   push:
     tags: ["v*"]
@@ -19,12 +19,8 @@ jobs:
           python-version: "3.12"
       - name: Check the versions, the changelog and the template against the tag
         run: uv run --no-project python scripts/release/check.py "$GITHUB_REF_NAME"
-      - name: Pin the plugin to the core it is released with
-        run: uv run --no-project python scripts/release/pin.py "$GITHUB_REF_NAME"
-      - name: Build both packages
-        run: |
-          uv build --package teabot -o dist
-          uv build --package teabot-announcements -o dist
+      - name: Build the package
+        run: uv build --package teabot -o dist
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: dist
@@ -33,7 +29,7 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
-    # PyPI's trusted publisher for each package names this workflow and this environment.
+    # PyPI's trusted publisher for teabot names this workflow and this environment.
     environment: pypi
     permissions:
       id-token: write
@@ -43,12 +39,9 @@ jobs:
           name: dist
           path: dist/
       - uses: astral-sh/setup-uv@v10.3.3
-      # One step per package, the core first: PyPI lets a pending publisher's settings serve one new project at
-      # a time. --check-url skips files already uploaded, so a re-run carries on where the last one stopped.
+      # --check-url skips files already uploaded, so a re-run carries on where the last one stopped.
       - name: Publish teabot
         run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/teabot-*
-      - name: Publish teabot-announcements
-        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/teabot_announcements-*
 
   github-release:
     needs: publish
@@ -77,7 +70,7 @@ jobs:
             --draft --title "teabot ${GITHUB_REF_NAME#v}" --notes-file notes.md
       # GitHub's runners can see PyPI's index late, over fifteen minutes after an upload, so this waits up to an
       # hour, trying once a minute.
-      - name: Build the template, locked against the packages just published
+      - name: Build the template, locked against the package just published
         run: uv run --no-project python scripts/release/template.py "$GITHUB_REF_NAME" teabot-template.tar.gz
       - name: Attach the template and publish the release
         env:

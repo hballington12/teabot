@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parents[1]
-COPIES = ["plugins/announcements/LICENSE", "template/LICENSE"]
+COPIES = ["template/LICENSE"]
 
 
 def test_the_licence_is_mit() -> None:

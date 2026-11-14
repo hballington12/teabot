@@ -1,10 +1,12 @@
 """`teabot new-plugin <id>`: scaffold a plugin package in the instance (D44, D45).
 
-It writes `plugins/<id>/` as a uv workspace member: the entry point, the manifest with one example action, a
-first migration, a README with its "External connections" section, and tests through `teabot.testing`. The
+It writes `plugins/<id>/` as a uv workspace member: the entry point, a one-file plugin with one example action,
+a first migration, a README with its "External connections" section, tests through `teabot.testing` and a
+snapshot test. An id an installed plugin already has is refused, since two would both fail to load (D46). The
 templates are in `scaffold/`.
 """
 
+from importlib.metadata import entry_points
 from pathlib import Path
 from string import Template
 from typing import Annotated
@@ -64,6 +66,14 @@ def new_plugin(
     except InvalidPluginId as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(1) from None
+    taken = {ep.name: ep.dist.name if ep.dist else ep.value for ep in entry_points(group="teabot.plugins")}
+    if plugin_id in taken:
+        typer.echo(
+            f"error: the installed package {taken[plugin_id]} already has a plugin with the id {plugin_id}; "
+            "choose another, since two plugins with one id both fail to load",
+            err=True,
+        )
+        raise typer.Exit(1)
     root = into / plugin_id
     if root.exists():
         typer.echo(f"error: {root} already exists", err=True)
