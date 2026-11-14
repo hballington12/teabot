@@ -18,6 +18,10 @@ Actions:
 - `ActionError`: raised to tell the member what went wrong.
 - `InputError`: what `ActionSpec` raises for an input field type D29 does not allow.
 
+The server (D45):
+- `Guild`: the server, to find a `TextChannel`, a `Role` or a `Member`. A channel's `send` returns a `Message`, and
+  mentions nobody unless asked.
+
 Field types (D23, D29):
 - `ChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
 - `LongText`: multi-line text, which Discord collects in a modal.
@@ -34,6 +38,7 @@ The database (D9, D30):
 from teabot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
 from teabot.sdk.db import Db, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
+from teabot.sdk.guild import Guild, Member, Message, Role, TextChannel
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
 from teabot.sdk.plans import Diff, DiffEntry
@@ -49,21 +54,26 @@ __all__ = [
     "Diff",
     "DiffEntry",
     "EmptyConfig",
+    "Guild",
     "InputError",
     "InvalidPluginId",
     "JobContext",
     "JobHandler",
     "LongText",
     "Manifest",
+    "Member",
     "MemberRef",
+    "Message",
     "Plugin",
     "Queries",
     "Registrar",
     "Risk",
+    "Role",
     "RoleRef",
     "Row",
     "Scheduler",
     "Surface",
+    "TextChannel",
     "Tx",
     "UntrustedText",
     "Via",

@@ -20,6 +20,7 @@ class FakeMessage:
     channel_id: int
     content: str | None
     embed: discord.Embed | None
+    allowed_mentions: discord.AllowedMentions | None = None
 
     @property
     def jump_url(self) -> str:
@@ -48,10 +49,16 @@ class FakeChannel(_GuildChannel):
     forbidden: bool = False
     type: str = "text"
 
-    async def send(self, content: str | None = None, *, embed: discord.Embed | None = None) -> FakeMessage:
+    async def send(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        allowed_mentions: discord.AllowedMentions | None = None,
+    ) -> FakeMessage:
         if self.forbidden:
             raise discord.Forbidden(cast(Any, _ForbiddenResponse()), "Missing Permissions")
-        message = FakeMessage(next_id(), self.id, content, embed)
+        message = FakeMessage(next_id(), self.id, content, embed, allowed_mentions)
         self.sent.append(message)
         return message
 
@@ -85,6 +92,7 @@ class FakeMember:
     guild_permissions: discord.Permissions
     name: str = "member"
     nick: str | None = None
+    roles: list[FakeRole] = field(default_factory=list[FakeRole])
 
     @property
     def display_name(self) -> str:
@@ -141,14 +149,18 @@ class FakeGuild:
         cached: bool = True,
         name: str = "member",
         nick: str | None = None,
+        roles: list[FakeRole] | None = None,
     ) -> FakeMember:
-        member = FakeMember(next_id(), permissions, name, nick)
+        member = FakeMember(next_id(), permissions, name, nick, list(roles or []))
         (self.members if cached else self.fetchable)[member.id] = member
         return member
 
     def add_channel[C: AnyFakeChannel](self, channel: C) -> C:
         self.channel_map[channel.id] = channel
         return channel
+
+    def get_role(self, role_id: int, /) -> FakeRole | None:
+        return next((role for role in self.roles if role.id == role_id), None)
 
     def add_role(self, name: str) -> FakeRole:
         role = FakeRole(name=name)
