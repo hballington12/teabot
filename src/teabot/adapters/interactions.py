@@ -14,14 +14,14 @@ from typing import Any, Protocol
 import discord
 from pydantic import BaseModel
 
-from teabot.adapters.schema import slash_fields
+from teabot.adapters.schema import fold_lists, slash_fields
 from teabot.core.plans import Planned, Queued
 from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.pool import Database
 from teabot.sdk import ActionSpec, Actor
 from teabot.sdk.actions import Via
 from teabot.sdk.components import PREFIX as BUTTON_PREFIX
-from teabot.sdk.components import parse_custom_id
+from teabot.sdk.components import SELECT_PREFIX, parse_custom_id, parse_select_id
 from teabot.sdk.fields import LONG_TEXT_MAX
 from teabot.sdk.inputs import input_fields
 
@@ -138,6 +138,20 @@ class InteractionRouter:
             interaction.data.get("custom_id", "")
         ).startswith(BUTTON_PREFIX):
             await self._press(interaction)
+        elif interaction.type is discord.InteractionType.component and str(
+            interaction.data.get("custom_id", "")
+        ).startswith(SELECT_PREFIX):
+            await self._choose(interaction)
+
+    async def _choose(self, interaction: Any) -> None:
+        """A plugin's select menu: the bound call, with what the member chose filling its `into` parameter."""
+        parsed = parse_select_id(str(interaction.data["custom_id"]))
+        if parsed is None or interaction.guild_id is None:
+            await interaction.response.send_message(BUTTON_GONE, ephemeral=True)
+            return
+        bound, into = parsed
+        raw = dict(bound.input) | {into: list(interaction.data.get("values", []))}
+        await self._run(interaction, bound.action, raw, via="component")
 
     async def _press(self, interaction: Any) -> None:
         """A plugin's button: the action and input its custom id holds, run as the member who pressed it,
@@ -167,6 +181,8 @@ class InteractionRouter:
         name = f"{interaction.data['name']}.{sub['name']}"
         raw = {o["name"]: o["value"] for o in sub.get("options", [])}
         spec = self.registry.actions.get(name)
+        if spec is not None:
+            raw = fold_lists(spec.input, raw)
         modal_fields = slash_fields(spec.input).modal if spec is not None else ()
         if spec is not None and modal_fields:
             draft_id = uuid.uuid4()

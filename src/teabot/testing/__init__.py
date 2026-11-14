@@ -2,7 +2,8 @@
 
 - Fakes for a server, its members, roles and channels, and the client: `FakeGuild`, `FakeMember`, `FakeRole`,
   `FakeChannel`, `FakeVoiceChannel`, `FakeClient`. They are shaped like discord.py's objects. A `FakeChannel`
-  keeps each `FakeMessage` it was sent, with its `FakeButton`s, which `harness.press` presses.
+  keeps each `FakeMessage` it was sent, with its `FakeButton`s, which `harness.press` presses, and its
+  `FakeSelect`, which `harness.choose` chooses from.
 - `PluginHarness`: a plugin loaded through the real loader and migrations, invoked through the real call path,
   as a member (`invoke`) or with a token (`invoke_with_token`).
 - What `invoke` raises and returns besides an action's output: `Refused` (with its `code`) before the action
@@ -24,6 +25,7 @@ from teabot.testing.fakes import (
     FakeMember,
     FakeMessage,
     FakeRole,
+    FakeSelect,
     FakeVoiceChannel,
 )
 from teabot.testing.harness import (
@@ -47,6 +49,7 @@ __all__ = [
     "FakeMember",
     "FakeMessage",
     "FakeRole",
+    "FakeSelect",
     "FakeVoiceChannel",
     "HarnessFactory",
     "JobFailed",

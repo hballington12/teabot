@@ -26,7 +26,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Concatenate, Generic, Literal, Protocol, get_args, overload
+from typing import Any, Concatenate, Generic, Literal, Protocol, cast, get_args, overload
 
 import discord
 from pydantic import BaseModel
@@ -171,7 +171,7 @@ class Action[C: BaseModel, **P, R]:
         if args:
             raise TypeError(f"{self.name}.bind takes its arguments by name")
         refs = {r.name for r in self.inputs.resolved}
-        raw = {k: str(getattr(v, "id", v)) if k in refs and v is not None else v for k, v in kwargs.items()}
+        raw = {k: _ids(v) if k in refs else v for k, v in kwargs.items()}
         payload = self.inputs.model.model_validate(raw).model_dump(mode="json", exclude_defaults=True)
         return BoundAction(self.name, payload)
 
@@ -184,6 +184,13 @@ class Action[C: BaseModel, **P, R]:
     async def _plan(self, ctx: ActionContext, data: BaseModel) -> Diff:
         assert self.planner is not None
         return await self.planner(**await _arguments(self.inputs, _context_of(ctx, self.name), data))
+
+
+def _ids(value: Any) -> Any:
+    """A Discord object as its ID, and a list of them as a list of IDs, as a slash command would send them."""
+    if isinstance(value, list | tuple):
+        return [str(getattr(item, "id", item)) for item in cast(list[Any], value)]
+    return str(getattr(value, "id", value)) if value is not None else None
 
 
 def _reason(action: str, actor: Actor) -> str:

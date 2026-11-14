@@ -1,8 +1,8 @@
 """The input field types an action may use (D29), classified once for every front door.
 
 Allowed: `str`, `LongText`, `int`, `bool`, `Literal` of all strings or all ints, and the `*Ref` types, each
-optional or not. Anything else is refused with the field's name, so an action cannot be built with a field
-a front door could not offer.
+optional or not, and a `list` of any of them but `LongText`, with `max_length` up to 10. Anything else is refused
+with the field's name, so an action cannot be built with a field a front door could not offer.
 """
 
 import types
@@ -16,6 +16,7 @@ from teabot.sdk.fields import Long, Ref
 
 type InputKind = Literal["string", "long", "integer", "boolean", "channel", "role", "member"]
 DESCRIPTION_MAX = 100
+LIST_MAX = 10
 
 
 class InputError(ValueError):
@@ -32,6 +33,14 @@ class InputField:
     max_length: int | None = None
     min_value: int | None = None
     max_value: int | None = None
+    count: int | None = None
+    min_count: int = 0
+
+    def option_names(self) -> list[str]:
+        """The slash options it becomes: its own name, or for a list `roles_1` to `roles_<count>`."""
+        if self.count is None:
+            return [self.name]
+        return [f"{self.name}_{n}" for n in range(1, self.count + 1)]
 
 
 def _unwrap_optional(annotation: Any) -> Any:
@@ -47,8 +56,16 @@ def _unwrap_optional(annotation: Any) -> Any:
 def _split_annotated(annotation: Any, metadata: list[Any]) -> tuple[Any, list[Any]]:
     if get_origin(annotation) is Annotated:
         base, *extra = get_args(annotation)
-        return base, [*metadata, *extra]
-    return annotation, metadata
+        return base, _flatten([*metadata, *extra])
+    return annotation, _flatten(metadata)
+
+
+def _flatten(metadata: list[Any]) -> list[Any]:
+    """A `Field(...)` inside an alias reaches here whole; its limits are in its own metadata."""
+    out: list[Any] = []
+    for m in metadata:
+        out.extend(m.metadata if isinstance(m, FieldInfo) else [m])
+    return out
 
 
 def _literal_kind(name: str, values: tuple[Any, ...]) -> tuple[InputKind, tuple[Any, ...]]:
@@ -95,14 +112,43 @@ def _bound(metadata: list[Any], inclusive: str, exclusive: str, step: int) -> in
     return None
 
 
+def _limit(metadata: list[Any], key: str) -> int | None:
+    return next((getattr(m, key) for m in metadata if getattr(m, key, None) is not None), None)
+
+
+def _list_count(name: str, metadata: list[Any]) -> tuple[int, int]:
+    count = _limit(metadata, "max_length")
+    if count is None or not 1 <= count <= LIST_MAX:
+        raise InputError(f"field {name}: a list needs Field(max_length=...) from 1 to {LIST_MAX}")
+    return count, _limit(metadata, "min_length") or 0
+
+
 def classify(name: str, info: FieldInfo) -> InputField:
     annotation = _unalias(_unwrap_optional(_unalias(info.annotation)))
     base, metadata = _split_annotated(annotation, list(info.metadata))
+    count: int | None = None
+    min_count = 0
+    if get_origin(_unalias(base)) is list:
+        count, min_count = _list_count(name, metadata)
+        base, metadata = _split_annotated(_unalias(get_args(_unalias(base))[0]), [])
     kind, choices = _kind(name, base, metadata)
-    max_length = next((m.max_length for m in metadata if getattr(m, "max_length", None) is not None), None)
+    if count is not None and kind == "long":
+        raise InputError(f"field {name}: a list cannot hold LongText")
+    max_length = _limit(metadata, "max_length")
     low = _bound(metadata, "ge", "gt", 1) if kind == "integer" else None
     high = _bound(metadata, "le", "lt", -1) if kind == "integer" else None
-    return InputField(name, kind, info.is_required(), _describe(name, info), choices, max_length, low, high)
+    return InputField(
+        name,
+        kind,
+        info.is_required(),
+        _describe(name, info),
+        choices,
+        max_length,
+        low,
+        high,
+        count,
+        min_count,
+    )
 
 
 def input_fields(model: type[BaseModel]) -> list[InputField]:

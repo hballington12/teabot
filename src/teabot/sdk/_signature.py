@@ -85,6 +85,7 @@ class Resolved:
     name: str
     kind: Any
     optional: bool
+    many: bool = False
 
 
 @dataclass(frozen=True)
@@ -99,11 +100,18 @@ class Inputs:
 
 def _field_type(name: str, annotation: Any, resolved: list[Resolved]) -> Any:
     inner, optional = _optional_inner(unalias(annotation))
-    base = get_args(inner)[0] if get_origin(inner) is Annotated else inner
+    base, *extras = get_args(inner) if get_origin(inner) is Annotated else (inner,)
     if base in REFS:
         resolved.append(Resolved(name, base, optional))
         ref = REFS[base]
         return ref | None if optional else ref
+    if get_origin(unalias(base)) is list and (element := get_args(unalias(base))[0]) in REFS:
+        # A list of Discord objects is stored as a list of their IDs, keeping the list's own limits.
+        resolved.append(Resolved(name, element, optional, many=True))
+        stored: Any = list[REFS[element]]
+        if extras:
+            stored = Annotated[stored, *extras]
+        return stored | None if optional else stored
     return annotation
 
 
@@ -160,17 +168,24 @@ async def resolve(guild: Guild, inputs: Inputs, data: BaseModel) -> dict[str, An
         value = values[r.name]
         if value is None:
             continue
-        found: Any
-        if r.kind is TextChannel:
-            found = guild.get_text_channel(value)
-        elif r.kind is Role:
-            found = guild.get_role(value)
+        if r.many:
+            values[r.name] = [await _find(guild, r.kind, item) for item in value]
         else:
-            found = await guild.get_member(value)
-        if found is None:
-            raise ActionError(NOT_FOUND[r.kind])
-        values[r.name] = found
+            values[r.name] = await _find(guild, r.kind, value)
     return values
+
+
+async def _find(guild: Guild, kind: Any, value: int) -> Any:
+    found: Any
+    if kind is TextChannel:
+        found = guild.get_text_channel(value)
+    elif kind is Role:
+        found = guild.get_role(value)
+    else:
+        found = await guild.get_member(value)
+    if found is None:
+        raise ActionError(NOT_FOUND[kind])
+    return found
 
 
 class Text(BaseModel):

@@ -317,6 +317,20 @@ async def test_a_plugins_button_runs_its_action_as_the_member_who_pressed_it(
     assert interaction.events == [("defer", True, True), ("followup", "pong True", True)]
 
 
+async def test_a_plugins_select_menu_fills_its_parameter_with_the_choices(
+    router: tuple[InteractionRouter, FakeRegistry],
+) -> None:
+    r, registry = router
+    registry.result = Pong(ok=True)
+    custom_id = BoundAction("announcements.ping", {"loud": True}).custom_id("tags")
+    interaction = FakeInteraction(
+        discord.InteractionType.component, {"custom_id": custom_id, "component_type": 3, "values": ["a", "b"]}
+    )
+    await r.handle(interaction)
+    (call,) = registry.calls
+    assert (call.raw_input, call.actor.via) == ({"loud": True, "tags": ["a", "b"]}, "component")
+
+
 async def test_a_plan_is_shown_with_a_confirm_button(router: tuple[InteractionRouter, FakeRegistry]) -> None:
     handler, registry = router
     registry.result = a_plan()

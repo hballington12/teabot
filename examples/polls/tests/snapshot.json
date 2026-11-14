@@ -41,30 +41,36 @@
           },
           {
             "description": "The first option.",
+            "max_length": 100,
             "name": "option_1",
             "required": true,
             "type": 3
           },
           {
             "description": "The second option.",
+            "max_length": 100,
             "name": "option_2",
             "required": true,
             "type": 3
           },
           {
             "description": "A third option.",
+            "max_length": 100,
             "name": "option_3",
             "required": false,
             "type": 3
           },
           {
             "description": "A fourth option.",
+            "max_length": 100,
             "name": "option_4",
             "required": false,
             "type": 3
           },
           {
             "description": "How long it runs; the server's default if left out.",
+            "max_value": 10080,
+            "min_value": 1,
             "name": "minutes",
             "required": false,
             "type": 4

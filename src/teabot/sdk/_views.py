@@ -16,7 +16,7 @@ from typing import Any, cast
 import discord
 
 from teabot.sdk.actions import ActionError
-from teabot.sdk.components import BUTTONS_MAX, Button
+from teabot.sdk.components import BUTTONS_BESIDE_SELECT, BUTTONS_MAX, Button, Select
 from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel
 from teabot.sdk.permissions import Permission
 
@@ -65,14 +65,41 @@ STYLES = {
 }
 
 
-def _components(buttons: Sequence[Button]) -> discord.ui.View | None:
-    """discord.py's form of the buttons, five to a row. A press reaches the interaction router by its custom id,
-    so the view is only ever a carrier and never waits for presses itself."""
-    if not buttons:
+def _menu(select: Select) -> discord.ui.Item[Any]:
+    custom_id = select.bound.custom_id(select.into)
+    limits: dict[str, Any] = {
+        "custom_id": custom_id,
+        "placeholder": select.placeholder,
+        "min_values": select.min,
+        "max_values": select.max,
+    }
+    if select.kind == "role":
+        return discord.ui.RoleSelect(**limits)
+    if select.kind == "channel":
+        return discord.ui.ChannelSelect(**limits)
+    if select.kind == "member":
+        return discord.ui.UserSelect(**limits)
+    options = [
+        discord.SelectOption(
+            label=o.label, value=o.value, emoji=o.emoji, description=o.description, default=o.default
+        )
+        for o in select.options
+    ]
+    return discord.ui.Select(options=options, **limits)
+
+
+def _components(buttons: Sequence[Button], select: Select | None = None) -> discord.ui.View | None:
+    """discord.py's form of the buttons, five to a row, and of a select menu, which takes a row of its own. A press
+    or a choice reaches the interaction router by its custom id, so the view is only ever a carrier and never
+    waits for them itself."""
+    if not buttons and select is None:
         return None
-    if len(buttons) > BUTTONS_MAX:
-        raise ValueError(f"A post holds at most {BUTTONS_MAX} buttons, not {len(buttons)}.")
+    room = BUTTONS_MAX if select is None else BUTTONS_BESIDE_SELECT
+    if len(buttons) > room:
+        raise ValueError(f"A post holds at most {room} buttons here, not {len(buttons)}.")
     view = discord.ui.View(timeout=None)
+    if select is not None:
+        view.add_item(_menu(select))
     for button in buttons:
         view.add_item(
             discord.ui.Button(
@@ -287,12 +314,13 @@ class MessageView:
         embed: discord.Embed | None = None,
         buttons: Sequence[Button] = (),
         files: Sequence[File] = (),
+        select: Select | None = None,
     ) -> None:
         try:
             await self.raw.edit(
                 content=content,
                 embed=embed,
-                view=_components(buttons),
+                view=_components(buttons, select),
                 attachments=_files(files),
                 allowed_mentions=allowed_mentions(()),
             )
@@ -341,9 +369,10 @@ class TextChannelView:
         ping: Iterable[int] = (),
         files: Sequence[File] = (),
         buttons: Sequence[Button] = (),
+        select: Select | None = None,
     ) -> Message:
         extra: dict[str, Any] = {}
-        view = _components(buttons)
+        view = _components(buttons, select)
         if view is not None:
             extra["view"] = view
         try:

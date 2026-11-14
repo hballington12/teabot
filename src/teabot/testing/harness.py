@@ -6,7 +6,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import discord
 from pydantic import BaseModel
@@ -26,9 +26,9 @@ from teabot.lint import check_package
 from teabot.sdk import DESTRUCTIVE, Action, Actor, LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
-from teabot.sdk.components import parse_custom_id
+from teabot.sdk.components import parse_custom_id, parse_select_id
 from teabot.sdk.db import Bound
-from teabot.testing.fakes import FakeButton, FakeClient, FakeGuild, FakeMember
+from teabot.testing.fakes import FakeButton, FakeClient, FakeGuild, FakeMember, FakeSelect
 
 ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
@@ -145,6 +145,11 @@ class PluginHarness:
         would on a click. Returns the reply they would see."""
         return await self.as_member(self.member).press(button)
 
+    async def choose(self, select: FakeSelect, values: Sequence[Any], /) -> str:
+        """Choose from a select menu on a fake message as the server's first member. Returns the reply they would
+        see."""
+        return await self.as_member(self.member).choose(select, values)
+
     def as_member(self, member: FakeMember) -> "MemberCalls":
         """Calls made as `member` rather than the first member."""
         return MemberCalls(self, member.id)
@@ -227,8 +232,22 @@ class MemberCalls:
         if bound is None:
             raise ValueError(f"{button.custom_id!r} is not one of teabot's buttons")
         call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), dict(bound.input))
-        out = await self.harness.registry.invoke(call)
-        spec = self.harness.registry.actions[bound.action]
+        return self._shown(bound.action, await self.harness.registry.invoke(call))
+
+    async def choose(self, select: FakeSelect, values: Sequence[Any], /) -> str:
+        """Choose from a select menu on a fake message as this member: option values for a menu of options, or
+        roles, channels or members for Discord's own pickers. Returns the reply they would see."""
+        parsed = parse_select_id(select.custom_id)
+        if parsed is None:
+            raise ValueError(f"{select.custom_id!r} is not one of teabot's select menus")
+        bound, into = parsed
+        chosen = [str(getattr(v, "id", v)) for v in values]
+        raw = dict(bound.input) | {into: chosen}
+        call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), raw)
+        return self._shown(bound.action, await self.harness.registry.invoke(call))
+
+    def _shown(self, action: str, out: BaseModel) -> str:
+        spec = self.harness.registry.actions[action]
         shown = spec.render(out) if spec.render is not None else out.model_dump_json()
         return shown if isinstance(shown, str) else str(shown.description or shown.title or "")
 
@@ -240,10 +259,14 @@ class MemberCalls:
 def _raw(action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> dict[str, Any]:
     """An action's inputs as a member would send them: Discord objects as their IDs."""
     resolved = {r.name for r in action.inputs.resolved}
-    return {
-        name: (value.id if name in resolved and value is not None else value)
-        for name, value in kwargs.items()
-    }
+    return {name: (as_ids(value) if name in resolved else value) for name, value in kwargs.items()}
+
+
+def as_ids(value: Any) -> Any:
+    """A Discord object as its ID, and a list of them as a list of IDs."""
+    if isinstance(value, list | tuple):
+        return [item.id for item in cast(list[Any], value)]
+    return value.id if value is not None else None
 
 
 async def build_harness(

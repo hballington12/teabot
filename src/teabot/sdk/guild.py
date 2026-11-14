@@ -18,7 +18,7 @@ from typing import Literal, Protocol
 
 import discord
 
-from teabot.sdk.components import Button
+from teabot.sdk.components import Button, Select
 from teabot.sdk.permissions import Permission
 
 type ChannelKind = Literal["text", "voice", "category", "forum", "stage", "thread", "announcement", "other"]
@@ -218,8 +218,10 @@ class Message(Protocol):
         embed: discord.Embed | None = None,
         buttons: Sequence[Button] = (),
         files: Sequence[File] = (),
+        select: Select | None = None,
     ) -> None:
-        """Replace the message's text, embed, buttons and files with these: what is given is what it shows."""
+        """Replace the message's text, embed, buttons, select menu and files with these: what is given is what it
+        shows."""
         ...
 
     async def delete(self) -> None:
@@ -282,10 +284,11 @@ class TextChannel(Protocol):
         ping: Iterable[int] = (),
         files: Sequence[File] = (),
         buttons: Sequence[Button] = (),
+        select: Select | None = None,
     ) -> Message:
         """Post a message. Nobody is mentioned, whatever the text says, except the members whose IDs are in
-        `ping`. Up to 25 `buttons` go under it, five to a row. Raises `ActionError` when the bot may not post
-        here."""
+        `ping`. Up to 25 `buttons` go under it, five to a row, or a `select` menu and up to 20 buttons. Raises
+        `ActionError` when the bot may not post here."""
         ...
 
     async def get_message(self, message_id: int, /) -> Message | None:

@@ -112,6 +112,9 @@ max-line-length = 120
 "examples/*/src/**" = ["PLR0913", "PLR0917"]
 # The fakes take discord.py's own keyword arguments, so each stands in for the real method.
 "src/teabot/testing/fakes.py" = ["PLR0913"]
+# A post's send and edit take Discord's own optional parts by keyword: text, embed, pings, files, buttons, a menu.
+"src/teabot/sdk/guild.py" = ["PLR0913"]
+"src/teabot/sdk/_views.py" = ["PLR0913"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

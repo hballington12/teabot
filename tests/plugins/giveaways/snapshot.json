@@ -62,6 +62,8 @@
           },
           {
             "description": "How long it runs; the server's default if left out.",
+            "max_value": 10080,
+            "min_value": 1,
             "name": "minutes",
             "required": false,
             "type": 4

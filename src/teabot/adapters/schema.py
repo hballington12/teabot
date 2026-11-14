@@ -29,12 +29,34 @@ class SlashFields:
     modal: tuple[str, ...]
 
 
-def _option(field: InputField) -> dict[str, Any]:
+def _options(field: InputField) -> list[dict[str, Any]]:
+    """A field's slash options: one, or for a list one per item, the first `min_count` of them required, and at
+    least the first when the list is."""
+    if field.count is None:
+        return [_option(field, field.name, field.required)]
+    needed = max(field.min_count, 1 if field.required else 0)
+    return [_option(field, name, n <= needed) for n, name in enumerate(field.option_names(), start=1)]
+
+
+def fold_lists(model: type[BaseModel], raw: dict[str, Any]) -> dict[str, Any]:
+    """A slash command's options as the action takes them: a list's numbered options gathered into one list, in
+    order, skipping the ones left empty."""
+    folded = dict(raw)
+    for field in input_fields(model):
+        if field.count is None:
+            continue
+        items = [folded.pop(name) for name in field.option_names() if name in folded]
+        if items:
+            folded[field.name] = items
+    return folded
+
+
+def _option(field: InputField, name: str, required: bool) -> dict[str, Any]:
     option: dict[str, Any] = {
         "type": OPTION_TYPES[field.kind],
-        "name": field.name,
+        "name": name,
         "description": field.description,
-        "required": field.required,
+        "required": required,
     }
     if field.choices is not None:
         option["choices"] = [{"name": str(value), "value": value} for value in field.choices]
@@ -49,7 +71,7 @@ def _option(field: InputField) -> dict[str, Any]:
 
 def slash_fields(model: type[BaseModel]) -> SlashFields:
     fields = input_fields(model)
-    options = [_option(f) for f in fields if f.kind != "long"]
+    options = [option for f in fields if f.kind != "long" for option in _options(f)]
     options.sort(key=lambda o: not o["required"])
     return SlashFields(options, tuple(f.name for f in fields if f.kind == "long"))
 

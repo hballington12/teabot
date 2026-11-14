@@ -58,6 +58,18 @@ class FakeButton:
     custom_id: str
 
 
+@dataclass
+class FakeSelect:
+    """A select menu on a fake message. `harness.choose` chooses from it. `options` are the values of a menu of
+    options, empty for Discord's own role, channel and member pickers."""
+
+    custom_id: str
+    kind: str
+    options: list[str]
+    min: int
+    max: int
+
+
 def _buttons(view: Any = None, buttons: Sequence[Any] = ()) -> list[FakeButton]:
     """discord.py's view, as the SDK's views send it, or the SDK's `Button`s, when a test uses a fake directly."""
     if view is not None:
@@ -66,8 +78,27 @@ def _buttons(view: Any = None, buttons: Sequence[Any] = ()) -> list[FakeButton]:
                 item.label, str(item.emoji) if item.emoji else None, item.style.name, str(item.custom_id)
             )
             for item in view.children
+            if isinstance(item, discord.ui.Button)
         ]
     return [FakeButton(b.label, b.emoji, b.style, b.bound.custom_id()) for b in buttons]
+
+
+SELECT_KINDS = {"RoleSelect": "role", "ChannelSelect": "channel", "UserSelect": "member", "Select": "options"}
+
+
+def _select(view: Any = None, select: Any = None) -> FakeSelect | None:
+    """The select menu of discord.py's view, or of the SDK's `Select`, when a test uses a fake directly."""
+    if view is not None:
+        for item in view.children:
+            kind = SELECT_KINDS.get(type(item).__name__)
+            if kind is not None:
+                values = [o.value for o in getattr(item, "options", [])]
+                return FakeSelect(str(item.custom_id), kind, values, item.min_values, item.max_values)
+        return None
+    if select is None:
+        return None
+    values = [o.value for o in select.options]
+    return FakeSelect(select.bound.custom_id(select.into), select.kind, values, select.min, select.max)
 
 
 @dataclass
@@ -87,6 +118,7 @@ class FakeMessage:
     attachments: list[FakeAttachment] = field(default_factory=list[FakeAttachment])
     buttons: list[FakeButton] = field(default_factory=list[FakeButton])
     author_id: int = 0
+    select: FakeSelect | None = None
     deleted: bool = False
     edits: int = 0
 
@@ -108,11 +140,13 @@ class FakeMessage:
         allowed_mentions: discord.AllowedMentions | None = None,
         buttons: Sequence[Any] = (),
         files: Sequence[Any] = (),
+        select: Any = None,
     ) -> None:
         if self.deleted:
             raise not_found("Unknown Message")
         self.content, self.embed = content, embed
         self.buttons = _buttons(view, buttons)
+        self.select = _select(view, select)
         self.attachments = _attachments(attachments or files)
         self.edits += 1
 
@@ -175,6 +209,7 @@ class FakeChannel(_GuildChannel):
         view: Any = None,
         ping: Iterable[int] = (),
         buttons: Sequence[Any] = (),
+        select: Any = None,
     ) -> FakeMessage:
         """Record the message. `allowed_mentions` and `view` are discord.py's forms, which the core uses; `ping`
         and `buttons` are the SDK's, so a fake channel can stand where an action takes a `TextChannel`."""
@@ -192,6 +227,7 @@ class FakeChannel(_GuildChannel):
             _attachments(files),
             _buttons(view, buttons),
             author,
+            select=_select(view, select),
         )
         self.sent.append(message)
         return message
