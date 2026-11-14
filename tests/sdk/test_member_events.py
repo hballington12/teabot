@@ -2,7 +2,7 @@
 
 import discord
 
-from teabot.sdk import Context, EmptyConfig, Member, Plugin
+from teabot.sdk import Context, EmptyConfig, Member, Plugin, User
 from teabot.testing import FakeChannel, HarnessFactory
 
 plugin = Plugin("welcome")
@@ -17,8 +17,8 @@ async def welcome(ctx: Ctx, member: Member) -> None:
 
 
 @plugin.on_member_leave
-async def farewell(ctx: Ctx, user_id: int) -> None:
-    heard.append(f"left {user_id}")
+async def farewell(ctx: Ctx, user: User) -> None:
+    heard.append(f"left {user.name} {user.id}")
 
 
 async def test_a_member_joining_runs_the_handler_with_the_member(teabot_harness: HarnessFactory) -> None:
@@ -33,9 +33,9 @@ async def test_a_member_joining_runs_the_handler_with_the_member(teabot_harness:
 async def test_a_member_leaving_runs_the_handler_with_their_id(teabot_harness: HarnessFactory) -> None:
     heard.clear()
     harness = await teabot_harness(plugin)
-    sam = harness.guild.add_member(discord.Permissions.none())
+    sam = harness.guild.add_member(discord.Permissions.none(), name="sam")
     await harness.leave(sam)
-    assert heard == [f"left {sam.id}"]
+    assert heard == [f"left sam {sam.id}"]
 
 
 async def test_a_plugin_turned_off_hears_nothing(teabot_harness: HarnessFactory) -> None:

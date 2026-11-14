@@ -59,9 +59,8 @@ teabot updates the post in place. Removing a role takes its button away; members
 | `/roles remove` | Manage Roles |
 | `/roles list` | Manage Roles |
 | `/roles delete` | Manage Roles |
-| `/roles toggle` | nothing |
 
-`/roles toggle` is what each button runs, and it works as a command too, for a role still offered on that post. Since it needs nothing, every member sees `/roles`.
+Pressing a button needs nothing: it runs `/roles toggle`, which only the buttons reach, so it is no command and no AI assistant tool. Every command needs Manage Roles, so members without it never see `/roles`.
 
 ## Settings
 
@@ -69,6 +68,6 @@ None.
 
 ## For AI assistants
 
-The tools are `roles_post`, `roles_add`, `roles_remove`, `roles_list`, `roles_delete` and `roles_toggle`.
+The tools are `roles_post`, `roles_add`, `roles_remove`, `roles_list` and `roles_delete`.
 
 **Next:** [Troubleshooting](../troubleshooting.md).

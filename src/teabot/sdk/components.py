@@ -121,7 +121,7 @@ class Select:
     - `bound` is the call, from `action.bind(...)`.
     - `kind` is `"options"` (the default), `"role"`, `"channel"` or `"member"`.
     - `options` are the choices of an `"options"` menu, up to 25.
-    - `min` and `max` are how many may be chosen, from 0 to 25.
+    - `min` and `max` are how many may be chosen, from 0 to 25. `max` is 1 unless given, for a menu of one choice.
     - `placeholder` is shown before anything is chosen.
     """
 

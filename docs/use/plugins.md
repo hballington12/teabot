@@ -58,7 +58,7 @@ Change one:
 ```
 
 - Type numbers, and `true` or `false`, as they are. To clear a setting, type `null`.
-- A channel, role or member is given by its ID. To copy an ID, turn on **Developer Mode** in Discord's **Advanced** settings, then right-click the channel, role or member and choose **Copy ID**.
+- For a channel, role or member, type `#` or `@` and pick it from Discord's list. Its ID works too: to copy one, turn on **Developer Mode** in Discord's **Advanced** settings, then right-click the channel, role or member and choose **Copy ID**.
 - teabot checks the value, and says what is wrong if it does not fit.
 
 Each plugin's page lists its settings: [Announcements](plugins/announcements.md), [Giveaways](plugins/giveaways.md) and [Roles](plugins/roles.md).

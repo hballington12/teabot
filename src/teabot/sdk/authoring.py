@@ -44,10 +44,10 @@ from teabot.sdk._signature import (
     where,
 )
 from teabot.sdk._views import guild_view
-from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Choice, Risk
+from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Choice, Risk, Surface
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
-from teabot.sdk.guild import Guild, Member
+from teabot.sdk.guild import Guild, Member, User
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
@@ -134,6 +134,7 @@ class Action[C: BaseModel, **P, R]:
     - `risk`, `needs` and `reply` are as the decorator was given them.
     - `inputs` and `output` are read from the function's signature and docstring.
     - `planner` is the plan `.plan` attached, if any.
+    - `surfaces` are the front doors it is offered through.
     - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
     """
 
@@ -145,6 +146,7 @@ class Action[C: BaseModel, **P, R]:
     inputs: Inputs
     output: Output
     planner: Callable[..., Awaitable[Diff]] | None = None
+    surfaces: Surface = Surface.ALL
     suggesters: dict[str, Callable[..., Awaitable[list[Choice[Any]]]]] = field(
         default_factory=dict[str, Callable[..., Awaitable[list[Choice[Any]]]]]
     )
@@ -191,8 +193,15 @@ class Action[C: BaseModel, **P, R]:
             plan=self._plan if planner is not None else None,
             render=self.output.render,
             reply=self.reply,
+            surfaces=self._surfaces(),
             suggest={option: self._suggester(option) for option in self.suggesters},
         )
+
+    def _surfaces(self) -> Surface:
+        """A destructive action's Confirm button is a press, so a command with a plan is pressable too."""
+        if self.risk is DESTRUCTIVE and Surface.SLASH in self.surfaces:
+            return self.surfaces | Surface.COMPONENT
+        return self.surfaces
 
     def _suggester(self, option: str) -> Callable[[ActionContext, str], Awaitable[list[Choice[Any]]]]:
         func = self.suggesters[option]
@@ -307,11 +316,14 @@ class Plugin(Generic[Cfg]):
         needs: Permission | tuple[Permission, ...] = (),
         name: str | None = None,
         reply: Literal["private", "public"] = "private",
+        surfaces: Surface = Surface.ALL,
     ) -> Callable[[Callable[Concatenate[Context[Cfg], P], Awaitable[R]]], Action[Cfg, P, R]]:
-        """Make a function an action: a slash command, an MCP tool and a service route at once (D1).
+        """Make a function an action: a slash command, an MCP tool, a service route, and what a button or select
+        menu runs, at once (D1).
 
         Its name is the function's, without a trailing underscore, unless `name` says otherwise. Its docstring's
-        first line is the summary, and its `Args:` section describes each input.
+        first line is the summary, and its `Args:` section describes each input. `surfaces` narrows where it is
+        offered: `Surface.COMPONENT` for an action only its buttons and menus reach.
         """
 
         def register(func: Callable[Concatenate[Context[Cfg], P], Awaitable[R]]) -> Action[Cfg, P, R]:
@@ -319,7 +331,14 @@ class Plugin(Generic[Cfg]):
             self._check_context(func, action_name)
             inputs = read_inputs(func, action_name, injected={Context: "context"})
             built = Action(
-                func, action_name, risk, _permissions(needs), reply, inputs, read_output(func, action_name)
+                func,
+                action_name,
+                risk,
+                _permissions(needs),
+                reply,
+                inputs,
+                read_output(func, action_name),
+                surfaces=surfaces,
             )
             self.actions[action_name] = built
             self._module = self._module or func.__module__
@@ -405,10 +424,10 @@ class Plugin(Generic[Cfg]):
         return self._listen("member_join", func)
 
     def on_member_leave(
-        self, func: Callable[[Context[Cfg], int], Awaitable[None]]
-    ) -> Callable[[Context[Cfg], int], Awaitable[None]]:
+        self, func: Callable[[Context[Cfg], User], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], User], Awaitable[None]]:
         """Run `func` when a member leaves, or is kicked or banned from, a server where the plugin is enabled, with
-        their user ID, since they are no longer a member. It runs as a job."""
+        the `User` they were: their ID and username, since they are no longer a member. It runs as a job."""
         return self._listen("member_leave", func)
 
     def _listen[F: Callable[..., Awaitable[None]]](self, event: EventName, func: F) -> F:
@@ -432,7 +451,7 @@ class Plugin(Generic[Cfg]):
             )
             user_id = int(job.payload["user_id"])
             if event == "member_leave":
-                await func(context, user_id)
+                await func(context, User(user_id, str(job.payload.get("name") or user_id)))
                 return
             member = await context.guild.get_member(user_id)
             if member is not None:

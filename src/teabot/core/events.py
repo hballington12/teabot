@@ -30,8 +30,9 @@ class Events:
         self.queue = queue
         self.listeners = listeners
 
-    async def fire(self, guild_id: int, event: EventName, user_id: int) -> int:
-        """Queue `event` for every listening plugin enabled in the server; returns how many."""
+    async def fire(self, guild_id: int, event: EventName, user_id: int, name: str = "") -> int:
+        """Queue `event` for every listening plugin enabled in the server; returns how many. `name` is the
+        member's username, which a leave's handler can no longer look up."""
         wanted = [plugin_id for plugin_id, events in self.listeners.items() if event in events]
         if not wanted:
             return 0
@@ -41,7 +42,7 @@ class Events:
                 row["plugin_id"],
                 event_job(event),
                 guild_id,
-                payload={"user_id": user_id},
+                payload={"user_id": user_id, "name": name},
                 max_attempts=EVENT_ATTEMPTS,
             )
             await self.queue.schedule(job)

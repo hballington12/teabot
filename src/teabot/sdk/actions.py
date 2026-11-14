@@ -32,12 +32,14 @@ class Risk(IntEnum):
 
 
 class Surface(Flag):
-    """The front doors an action appears on (D1)."""
+    """The front doors an action appears on (D1): a slash command, an MCP tool, the service API, and a button or
+    select menu on a post. `Surface.COMPONENT` alone makes an action that only its buttons and menus reach."""
 
     SLASH = auto()
     MCP = auto()
     SERVICE = auto()
-    ALL = SLASH | MCP | SERVICE
+    COMPONENT = auto()
+    ALL = SLASH | MCP | SERVICE | COMPONENT
 
 
 type Via = Literal["slash", "component", "mcp", "service", "job", "event"]

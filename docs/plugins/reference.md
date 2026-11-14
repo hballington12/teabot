@@ -2,7 +2,7 @@
 
 Every part of a plugin, in one page. The table of contents on the right is its index. [Your first plugin](index.md) and the [tutorial](tutorial.md) show the same parts in use.
 
-This covers `teabot.sdk` 1.x, which follows semantic versioning: a change that breaks plugins needs a new major version.
+This covers `teabot.sdk` 1.x, which follows semantic versioning: a change that breaks plugins needs a new major version. Parts added after 1.0 say which release added them; a plugin that uses one depends on that release or later, as `teabot new-plugin` writes.
 
 ## How a plugin is reached
 
@@ -85,10 +85,14 @@ Every parameter after the context is an input. Each may be optional (`X | None =
 
 - Limits go in `Annotated[int, Field(ge=1, le=20)]` or `Annotated[str, Field(max_length=100)]`. Discord enforces them before the member sends.
 - A `TextChannel` that is missing or takes no messages, or a `Role` or `Member` not in the server, is refused with a message the member sees, and the function does not run.
-- A list needs its `max_length`, and its `min_length` says how many of its options are required: `Annotated[list[Role], Field(min_length=1, max_length=5)]`.
+- A list needs its `max_length`, and its `min_length` says how many of its options are required: `Annotated[list[Role], Field(min_length=1, max_length=5)]`. Lists were added in 1.3.
+- Take a Discord ID as `Role`, `TextChannel`, `Member` or a `*Ref`, never as an `int`: Discord's number options stop at 2^53, and IDs are larger.
+- An ID can be typed as the ID or as a mention, such as `<#123>`, which is what Discord inserts when someone types `#` or `@` in a text option or a setting.
 - Any other type fails the load.
 
 ### Suggestions
+
+Added in 1.3.
 
 ```python
 @enter.autocomplete("giveaway")
@@ -97,7 +101,8 @@ async def running(ctx: Ctx, typed: str) -> list[Choice[int]]:
     return [Choice(f"{r.id}: {r.prize}", r.id) for r in rows if typed in r.prize]
 ```
 
-- `@action.autocomplete("option")` suggests values for a `str` or `int` option as the member types: up to 25 `Choice(name, value)`s, from what has been typed so far.
+- `@action.autocomplete("option")` suggests values for a `str` or `int` option, or a list of them, as the member types: up to 25 `Choice(name, value)`s, from what has been typed so far. A list's numbered options share it.
+- Suggest an ID as a `str` value, such as `Choice(member.display_name, str(member.id))`, for the reason above. For channels, roles and members, Discord's own pickers already suggest, so an option of those types needs no suggester.
 - It runs as the member, without the audit log, and must answer within Discord's three seconds. When the action would be refused, or the function fails or is slow, the member sees no suggestions.
 - One function can suggest for several actions: stack the decorators.
 
@@ -147,6 +152,8 @@ await channel.send(embed=discord.Embed(title="Results"))
 
 ## Working with the server
 
+Added in 1.3, except finding channels, roles and members, and sending.
+
 Every operation acts with the bot's own power, so **the plugin decides who may use it**: through the action's `needs=`, and its own checks where it lets members do something they could not do in Discord themselves, as the [roles plugin](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/roles/__init__.py) does. Before calling Discord, each operation refuses what Discord would, with an `ActionError` the member can read, such as "Raids is at or above my highest role".
 
 | On | Read | Do |
@@ -162,6 +169,8 @@ Every operation acts with the bot's own power, so **the plugin decides who may u
 
 ## Buttons and select menus
 
+Added in 1.3.
+
 ```python
 await channel.send(
     "**Pick your pings**",
@@ -175,8 +184,13 @@ await channel.send(
 - A post holds up to 25 buttons, five to a row. `style` is `"primary"`, `"secondary"` (the default), `"success"` or `"danger"`.
 - `Select(action.bind(...), into="roles", ...)` is a select menu: of `Option`s, filling a `list[str]` parameter, or with `kind="role"`, `"channel"` or `"member"`, Discord's own pickers, filling a list of those. The parameter it fills needs a default, such as `= None`, since `bind` leaves it out. A post holds one menu and up to 20 buttons.
 - A press's reply is private unless the action says `reply="public"`.
+- An action only its buttons and menus should reach takes `@plugin.action(surfaces=Surface.COMPONENT)`: it is then no slash command and no MCP tool. The roles plugin's `toggle` is one.
+- Discord's own role, channel and member pickers cannot be limited to some roles. To offer a chosen few, use a menu of `Option`s whose values are the IDs, as strings.
+- A menu's options are fixed when it is posted, and a post can outlive the roles or settings it was made from, so the action checks the choices again when it runs.
 
 ## Member events
+
+Added in 1.3.
 
 ```python
 @plugin.on_member_join
@@ -185,12 +199,13 @@ async def welcome(ctx: Ctx, member: Member) -> None:
 
 
 @plugin.on_member_leave
-async def farewell(ctx: Ctx, user_id: int) -> None: ...
+async def farewell(ctx: Ctx, user: User) -> None:
+    await channel.send(f"{user.name} has left.")
 ```
 
 - They run in the servers where the plugin is enabled, as the bot: `ctx.actor` is `SYSTEM`, with `via` `"event"`.
 - Each runs as one of the plugin's jobs, `on_member_join` or `on_member_leave`, so a failure is retried, up to three attempts, and shows in `/admin job_status`. A member who has left again by the time a join runs is skipped.
-- A leave gets the user's ID, since they are no longer a member.
+- A leave gets a `User`, with the `id` and the `name` they had, since they are no longer a member to look up.
 
 ## The database
 
@@ -225,6 +240,7 @@ async def farewell(ctx: Ctx, user_id: int) -> None: ...
 
 - A Pydantic model, passed as `Plugin(..., config=Model)`. Server admins set it with `/plugins config plugin:raffles setting:<name> value:<value>`. Without a setting, the command shows the current values. A value is read as JSON when it is JSON (numbers, `true`, `false`), and as the text typed otherwise, then validated through the model.
 - Give every field a default, so a server that has set nothing still works.
+- For a channel, role or member setting, use `ChannelRef`, `RoleRef` or `MemberRef`. An admin types `#`, `@` or the ID, and Discord's suggestions insert the mention, which the field accepts.
 - The plugin never writes to its config. Anything the plugin writes goes in its tables.
 - Change it only in ways older stored config still validates: new fields with defaults, `AliasChoices` for renames, `extra="ignore"` for removals, `model_validator(mode="before")` for anything else.
 - Keep stored samples from earlier versions in `tests/fixtures/` and test that they still validate.
@@ -272,7 +288,7 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 | `harness.press(message.buttons[0])` | presses a button on a fake message, through the real call path, returning the reply the member sees; `as_member(m).press(...)` presses as someone else |
 | `harness.choose(message.select, values)` | chooses from a select menu: option values, or roles, channels or members |
 | `harness.join(member)`, `harness.leave(member)` | fire a member joining or leaving, and run the jobs they queue |
-| `harness.autocomplete(action, "option", typed)` | the suggestions a member sees after typing `typed` |
+| `harness.autocomplete(action, "option", typed)` | the suggestions a member sees after typing `typed`; `as_member(m).autocomplete(...)` as someone else, who sees none if they may not run the action |
 | `harness.run_job(job.bind(...))` | runs the job now, as if scheduled again; use it after the job's first run, then check that nothing changed again |
 | `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |
 | `harness.configure(Cfg(...))` | stores the server's config, as an admin would |
@@ -283,7 +299,8 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 - `harness.guild.add_member(permissions, roles=[...], cached=False)` adds a member, found only over REST when `cached=False`. The fake member records what the bot did to it: its `roles`, `nick`, `timed_out_until`, `kicked`, the `dms` it was sent, and every `reasons` given.
 - `harness.guild.add_role(name, position=, permissions=, managed=)` adds a role, above the test's other roles and below the bot's, at position 100, unless `position` says otherwise.
 - A fake message keeps its `buttons`, `select`, `attachments`, how many `edits` it had, and whether it was `deleted`. `harness.guild.banned` holds the bans.
-- The harness's first member owns the server and has Administrator, so it may do anything; give a test member only the roles and permissions the test is about.
+- The harness's first member owns the server and has Administrator, so it may do anything; give a test member only the roles and permissions the test is about. `add_member(..., bot=True)` adds a bot.
+- To read the docstrings of `teabot.testing`, run Python in the plugin's own environment, which has pytest: `uv run --package teabot-<id> python -c "import teabot.testing as t; help(t.PluginHarness)"`.
 - A column whose `DEFAULT now()` is filled in while the migration runs does not follow the test clock. Rows inserted later do.
 - A refusal raises `Refused` with one of these codes, and an `ActionError` raises `ActionFailed`, whose `public_message` is what the member saw:
 

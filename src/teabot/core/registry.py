@@ -45,7 +45,7 @@ type RefusalCode = Literal[
 # The front door a call came through, and the surface an action must offer for it (D1).
 SURFACE_OF = {
     "slash": Surface.SLASH,
-    "component": Surface.SLASH,
+    "component": Surface.COMPONENT,
     "mcp": Surface.MCP,
     "service": Surface.SERVICE,
 }

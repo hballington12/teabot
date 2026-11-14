@@ -121,7 +121,7 @@ class TeabotClient(discord.AutoShardedClient):
     async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent) -> None:
         """Raw, so a member who left while not cached is still heard."""
         if self.events is not None:
-            await self.events.fire(payload.guild_id, "member_leave", payload.user.id)
+            await self.events.fire(payload.guild_id, "member_leave", payload.user.id, payload.user.name)
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         if self.lifecycle is not None:

@@ -50,12 +50,21 @@ def spec(**overrides: Any) -> ActionSpec[Post, Done]:
     return ActionSpec(**(fields | overrides))
 
 
-@pytest.mark.parametrize("given", [123456789012345678, "123456789012345678"])
-def test_refs_take_snowflakes_as_ints_or_numeric_strings(given: int | str) -> None:
+@pytest.mark.parametrize(
+    "given",
+    [
+        123456789012345678,
+        "123456789012345678",
+        "<#123456789012345678>",
+        "<@&123456789012345678>",
+        "<@!123456789012345678>",
+    ],
+)
+def test_refs_take_snowflakes_as_ints_numeric_strings_or_mentions(given: int | str) -> None:
     assert Post(channel=given, body="x").channel == 123456789012345678  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("given", [0, -5, "12abc", "", 3.5])
+@pytest.mark.parametrize("given", [0, -5, "12abc", "", 3.5, "<#12abc>", "#general"])
 def test_refs_refuse_anything_else(given: object) -> None:
     with pytest.raises(ValidationError):
         Post(channel=given, body="x")  # type: ignore[arg-type]
@@ -79,7 +88,7 @@ def test_risks_are_ordered() -> None:
 
 
 def test_actions_default_to_every_surface() -> None:
-    assert spec().surfaces == Surface.ALL == Surface.SLASH | Surface.MCP | Surface.SERVICE
+    assert spec().surfaces == Surface.ALL == Surface.SLASH | Surface.MCP | Surface.SERVICE | Surface.COMPONENT
 
 
 def test_a_destructive_action_needs_a_plan() -> None:

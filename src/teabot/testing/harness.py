@@ -164,7 +164,7 @@ class PluginHarness:
         assert self.events is not None
         self.guild.members.pop(member.id, None)
         self.guild.fetchable.pop(member.id, None)
-        await self.events.fire(self.guild.id, "member_leave", member.id)
+        await self.events.fire(self.guild.id, "member_leave", member.id, member.name)
         await self.run_jobs()
 
     async def autocomplete(
@@ -269,6 +269,15 @@ class MemberCalls:
         raw = dict(bound.input) | {into: chosen}
         call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), raw)
         return self._shown(bound.action, await self.harness.registry.invoke(call))
+
+    async def autocomplete(
+        self, action: Action[Any, ..., Any], option: str, typed: str = ""
+    ) -> list[Choice[Any]]:
+        """The suggestions this member sees for `option` after typing `typed`: none when they may not run the
+        action."""
+        return await self.harness.registry.suggest(
+            action.name, self.harness.guild.id, self.user, option, typed
+        )
 
     def _shown(self, action: str, out: BaseModel) -> str:
         spec = self.harness.registry.actions[action]

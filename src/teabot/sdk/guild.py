@@ -181,6 +181,23 @@ class File:
 
 
 @dataclass(frozen=True)
+class User:
+    """Someone who is no longer a member, such as one who has just left.
+
+    - `id` is their Discord ID, and `name` their Discord username as it was then.
+    - `mention` is them as a mention, which Discord shows by name while they can see the server's members.
+    """
+
+    id: int
+    name: str
+
+    @property
+    def mention(self) -> str:
+        """The user as a mention, such as `<@123>`."""
+        return f"<@{self.id}>"
+
+
+@dataclass(frozen=True)
 class Ban:
     """A ban in the server.
 

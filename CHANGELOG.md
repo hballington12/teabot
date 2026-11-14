@@ -18,6 +18,9 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 - Plugins can manage a server as its admins do. A `Member` can be given and lose roles, renamed, timed out, kicked and sent a direct message, and shows its roles, top role, join date, avatar and timeout. A `Role` shows its position, permissions, colour and whether Discord manages it. The `Guild` shows its icon, owner, member count, roles and every `Channel`, finds members by name, and bans, unbans and lists bans. Each acts as the bot, and refuses with a plain reason what Discord would refuse, such as a role above the bot's own.
 - `Guild.me` is the bot itself, as a member, to compare roles with.
+- `@plugin.action(surfaces=Surface.COMPONENT)` makes an action only its buttons and menus reach: no slash command and no MCP tool.
+- A channel, role or member input or setting accepts a mention, such as `<#123>`, as well as the ID.
+- `teabot new-plugin` writes a range starting at the running release, such as `teabot>=1.3,<2`, since a new plugin may use anything it added.
 - Every change a plugin makes carries a reason to Discord's audit log, "via teabot: <action>, for member <id>", unless the plugin gives its own.
 - `send` attaches files with `File`.
 - Posts carry buttons: `Button(action.bind(...), label=, emoji=, style=)` runs that action as the member who presses it, through the same checks and audit log as a slash command. The call is held in the button itself, so it keeps working after a restart. The bot can fetch its own posts with `channel.get_message`, and edit or delete them.
@@ -25,7 +28,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 - Inputs can be lists, such as `Annotated[list[Role], Field(max_length=5)]`. Discord shows one as numbered options, `roles_1` to `roles_5`, and MCP clients and the service API send an array.
 - Posts carry select menus: `Select(action.bind(...), into="roles", ...)`, of `Option`s or of Discord's own role, channel or member pickers, fills that list input with what the member chooses. `harness.choose(select, values)` chooses in tests.
 - Options suggest values as the member types: `@action.autocomplete("option")` attaches a function that receives what has been typed and returns `Choice`s. It runs as the member without the audit log; anything that would refuse the action, or a suggester that fails or takes past Discord's three seconds, suggests nothing. `harness.autocomplete(action, option, typed)` checks it.
-- Plugins hear members joining and leaving: `@plugin.on_member_join` receives the `Member`, and `@plugin.on_member_leave` their user ID. Only plugins enabled in that server hear it, and each event runs as a job of the plugin's, so a failure is retried and shows in `/admin job_status`. `harness.join(member)` and `harness.leave(member)` fire them in tests.
+- Plugins hear members joining and leaving: `@plugin.on_member_join` receives the `Member`, and `@plugin.on_member_leave` the `User` they were, with their ID and name. Only plugins enabled in that server hear it, and each event runs as a job of the plugin's, so a failure is retried and shows in `/admin job_status`. `harness.join(member)` and `harness.leave(member)` fire them in tests.
 - An optional number keeps its limits on Discord: `Annotated[int, Field(ge=1, le=60)] | None` showed no limits before, so Discord let a member type any number for teabot to refuse.
 - The test fakes do all of it, record what was done, and refuse as Discord would.
 - The harness's first member owns its fake server, as a server's first admin usually does, so it may manage any role.

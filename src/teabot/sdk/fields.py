@@ -1,7 +1,8 @@
 """Field types for action inputs and outputs (D23, D29).
 
-- `ChannelRef`, `RoleRef` and `MemberRef` hold a Discord ID. They accept a positive integer or a string of
-  digits, and are strings in JSON and its schema, because snowflakes exceed JavaScript's safe integers.
+- `ChannelRef`, `RoleRef` and `MemberRef` hold a Discord ID. They accept a positive integer, a string of digits,
+  or a mention as Discord writes it (`<#123>`, `<@&123>`, `<@123>`), so an admin can paste either, and are strings
+  in JSON and its schema, because snowflakes exceed JavaScript's safe integers.
 - `LongText` is multi-line text up to Discord's modal limit, which slash options cannot hold.
 - `UntrustedText` marks member-written text in outputs, which MCP wraps in an untrusted marker.
 """
@@ -16,15 +17,18 @@ from pydantic_core import core_schema
 
 SNOWFLAKE_PATTERN = "^[1-9][0-9]{0,19}$"
 _SNOWFLAKE_RE = re.compile(SNOWFLAKE_PATTERN)
+_MENTION_RE = re.compile(r"^<(?:#|@&|@!?)([1-9][0-9]{0,19})>$")
 _MAX_SNOWFLAKE = 2**64 - 1
 LONG_TEXT_MAX = 4000
 
 
 def parse_snowflake(value: object) -> int:
-    """A Discord ID from an int or a string of digits. Anything else is refused."""
+    """A Discord ID from an int, a string of digits, or a mention such as `<#123>`. Anything else is refused."""
+    if isinstance(value, str) and (mention := _MENTION_RE.fullmatch(value.strip())):
+        value = mention.group(1)
     if isinstance(value, int) and not isinstance(value, bool):
         number = value
-    elif isinstance(value, str) and _SNOWFLAKE_RE.fullmatch(value):
+    elif isinstance(value, str) and _SNOWFLAKE_RE.fullmatch(value.strip()):
         number = int(value)
     else:
         raise ValueError("a Discord ID is a positive integer or a string of digits")

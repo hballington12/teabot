@@ -49,7 +49,8 @@ class Queries(Protocol):
     @overload
     async def fetchval[T](self, result: type[T], query: str, /, *args: Any) -> T: ...
     async def fetchval(self, *args: Any) -> Any:
-        """The first column of the first row."""
+        """The first column of the first row, or None when there is none; ask for `int | None` when there may
+        be none, since `int` refuses None."""
         ...
 
 

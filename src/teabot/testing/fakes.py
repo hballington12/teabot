@@ -108,7 +108,8 @@ class _Author:
 
 @dataclass
 class FakeMessage:
-    """A message a fake channel was sent: what it shows now, and whether it has been `deleted`."""
+    """A message a fake channel was sent, as it shows now: its `content`, `embed`, `attachments`, `buttons` and
+    `select`; how many `edits` it has had; and whether it has been `deleted`."""
 
     id: int
     channel_id: int
@@ -470,8 +471,9 @@ class FakeGuild:
         name: str = "member",
         nick: str | None = None,
         roles: list[FakeRole] | None = None,
+        bot: bool = False,
     ) -> FakeMember:
-        member = FakeMember(next_id(), permissions, name, nick, list(roles or []))
+        member = FakeMember(next_id(), permissions, name, nick, list(roles or []), bot)
         member.guild = self
         (self.members if cached else self.fetchable)[member.id] = member
         return member

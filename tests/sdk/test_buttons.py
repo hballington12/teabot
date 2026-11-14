@@ -5,7 +5,8 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teabot.sdk import Button, Context, EmptyConfig, Plugin, Role, TextChannel
+from teabot.adapters.schema import command_group
+from teabot.sdk import Button, Context, EmptyConfig, Plugin, Role, Surface, TextChannel
 from teabot.sdk.components import BoundAction, parse_custom_id
 from teabot.testing import ActionFailed, FakeButton, FakeChannel, HarnessFactory, Refused
 
@@ -126,3 +127,22 @@ def test_a_button_holds_its_call_in_its_custom_id() -> None:
 def test_a_call_too_long_for_discord_is_refused_when_posted() -> None:
     with pytest.raises(ValueError, match="past Discord's 100"):
         BoundAction("pick.toggle", {"note": "x" * 100}).custom_id()
+
+
+button_only = Plugin("only")
+
+
+@button_only.action(surfaces=Surface.COMPONENT)
+async def tap(ctx: Ctx) -> str:
+    """Tapped."""
+    return "tapped"
+
+
+async def test_a_button_only_action_is_no_command_and_no_tool(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(button_only)
+    assert await harness.press(FakeButton("Tap", None, "primary", tap.bind().custom_id())) == "tapped"
+    with pytest.raises(Refused) as caught:
+        await harness.invoke("only.tap", {})
+    assert caught.value.code == "wrong_surface"
+    spec = button_only.actions["only.tap"].spec()
+    assert command_group("only", [spec])["options"] == [] and Surface.MCP not in spec.surfaces

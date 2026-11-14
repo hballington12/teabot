@@ -30,6 +30,7 @@ from teabot.sdk import (
     Permission,
     Plugin,
     Role,
+    Surface,
     TextChannel,
     UntrustedText,
 )
@@ -233,9 +234,9 @@ async def list_(ctx: Ctx) -> list[Listed]:
     return await ctx.db.fetch(Listed, ALL_POSTS, ctx.guild.id)
 
 
-@plugin.action()
+@plugin.action(surfaces=Surface.COMPONENT)
 async def toggle(ctx: Ctx, post: int, role: Role) -> str:
-    """Take a role from a role picker, or give it back. A role picker's buttons run this.
+    """Take a role from a role picker, or give it back. Only a role picker's buttons run this.
 
     Args:
         post: The role picker's number

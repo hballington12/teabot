@@ -40,9 +40,12 @@ def class_name(plugin_id: str) -> str:
 
 
 def teabot_range(version: str) -> str:
-    """The teabot releases a new plugin works with: this major version, from its first release (D45)."""
-    major = int(version.split(".", maxsplit=1)[0])
-    return f"teabot>={major}.0,<{major + 1}"
+    """The teabot releases a new plugin works with: from the running release, since the plugin may use anything
+    it added, up to the next major version (D45). A development build starts the range at its major version, as
+    `>=1.3` would leave out `1.3.0.dev0` itself."""
+    major, minor = (int(part) for part in version.split(".")[:2])
+    released = all(part.isdigit() for part in version.split("."))
+    return f"teabot>={major}.{minor if released else 0},<{major + 1}"
 
 
 def write_package(root: Path, plugin_id: str) -> None:

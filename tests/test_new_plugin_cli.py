@@ -104,7 +104,12 @@ def test_an_existing_directory_is_left_alone(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     ("version", "expected"),
-    [("1.0.2", "teabot>=1.0,<2"), ("1.1.0.dev0", "teabot>=1.0,<2"), ("2.3.0", "teabot>=2.0,<3")],
+    [
+        ("1.0.2", "teabot>=1.0,<2"),
+        ("1.3.0", "teabot>=1.3,<2"),
+        ("1.3.0.dev0", "teabot>=1.0,<2"),
+        ("2.3.0", "teabot>=2.3,<3"),
+    ],
 )
-def test_a_new_plugin_accepts_its_whole_major_version(version: str, expected: str) -> None:
+def test_a_new_plugin_works_from_the_running_release_to_the_next_major(version: str, expected: str) -> None:
     assert teabot_range(version) == expected
