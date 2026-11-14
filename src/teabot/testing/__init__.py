@@ -6,7 +6,8 @@
   as a member (`invoke`) or with a token (`invoke_with_token`).
 - What `invoke` raises and returns besides an action's output: `Refused` (with its `code`) before the action
   runs, `ActionFailed` (with its `public_message`) when it raised, and a destructive action's `Planned` and
-  `Queued`.
+  `Queued`. `JobFailed` is what `harness.run_jobs()` raises when a job fails, with the job's own exception as
+  its cause.
 - Postgres fixtures: add `-p teabot.testing.fixtures` to pytest's `addopts`, and install the `teabot[testing]`
   extra.
 """
@@ -23,7 +24,7 @@ from teabot.testing.fakes import (
     FakeRole,
     FakeVoiceChannel,
 )
-from teabot.testing.harness import PluginHarness, build_harness
+from teabot.testing.harness import JobFailed, PluginHarness, build_harness
 
 __all__ = [
     "ActionFailed",
@@ -35,6 +36,7 @@ __all__ = [
     "FakeMessage",
     "FakeRole",
     "FakeVoiceChannel",
+    "JobFailed",
     "Planned",
     "PluginHarness",
     "Queued",

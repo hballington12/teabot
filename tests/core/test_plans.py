@@ -165,7 +165,7 @@ async def test_a_failed_apply_is_recorded_and_never_retried(harness: PluginHarne
     out = await planned(harness, "boom")
     queued = await harness.invoke("sweep.wipe", {"prefix": "boom", "confirm": out.confirm})
     assert isinstance(queued, Queued)
-    await harness.run_jobs()
+    await harness.run_jobs(raise_failures=False)
     job = await harness.admin.fetchrow(
         "SELECT state, attempts, max_attempts, last_error FROM core.jobs WHERE id = $1", queued.job_id
     )

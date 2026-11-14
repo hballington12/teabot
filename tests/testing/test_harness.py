@@ -8,8 +8,8 @@ import pytest
 from pydantic import BaseModel
 
 from teabot.core.registry import Refused
-from teabot.sdk import ActionContext, ActionSpec, ChannelRef, Manifest, Registrar, Risk
-from teabot.testing import FakeChannel, FakeGuild, PluginHarness
+from teabot.sdk import ActionContext, ActionSpec, ChannelRef, JobContext, Manifest, Registrar, Risk
+from teabot.testing import FakeChannel, FakeGuild, JobFailed, PluginHarness
 
 MANAGE = discord.Permissions(manage_messages=True)
 
@@ -101,3 +101,26 @@ def test_members_are_cached_unless_asked_otherwise() -> None:
     cached = guild.add_member(discord.Permissions.none())
     rest_only = guild.add_member(discord.Permissions.none(), cached=False)
     assert guild.get_member(cached.id) is cached and guild.get_member(rest_only.id) is None
+
+
+async def test_a_failing_job_raises_with_its_own_traceback(teabot_harness: Any, tmp_path: Path) -> None:
+    class Broken:
+        manifest = Manifest("broken", "1.0")
+
+        def setup(self, registrar: Registrar) -> None:
+            async def explode(_ctx: JobContext) -> None:
+                raise KeyError("missing giveaway")
+
+            registrar.job("explode", explode)
+
+    harness: PluginHarness = await teabot_harness(Broken())
+    await harness.admin.execute(
+        "INSERT INTO core.jobs (guild_id, plugin_id, handler) VALUES ($1, 'broken', 'explode')",
+        harness.guild.id,
+    )
+    with pytest.raises(
+        JobFailed, match=r"job broken.explode failed: KeyError\('missing giveaway'\)"
+    ) as caught:
+        await harness.run_jobs()
+    assert isinstance(caught.value.__cause__, KeyError)
+    assert await harness.run_jobs(raise_failures=False) == 0

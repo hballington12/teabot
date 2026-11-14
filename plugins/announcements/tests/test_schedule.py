@@ -6,7 +6,7 @@ from typing import Any
 import discord
 import pytest
 
-from teabot.testing import ActionFailed, FakeChannel, FakeVoiceChannel, PluginHarness, Refused
+from teabot.testing import ActionFailed, FakeChannel, FakeVoiceChannel, JobFailed, PluginHarness, Refused
 from teabot_announcements import Scheduled, plugin, render_scheduled
 
 
@@ -69,9 +69,8 @@ async def test_a_channel_gone_by_then_fails_the_job_with_the_reason(teabot_harne
     assert isinstance(out, Scheduled)
     del harness.guild.channel_map[channel.id]
     await due_now(harness, out.job_id)
-    await harness.run_jobs()
-    error = await harness.admin.fetchval("SELECT last_error FROM core.jobs WHERE id = $1", out.job_id)
-    assert "is no longer a text channel" in error
+    with pytest.raises(JobFailed, match="is no longer a text channel"):
+        await harness.run_jobs()
 
 
 async def test_a_channel_the_bot_may_no_longer_post_in_fails_the_job(teabot_harness: Any) -> None:
@@ -80,9 +79,8 @@ async def test_a_channel_the_bot_may_no_longer_post_in_fails_the_job(teabot_harn
     assert isinstance(out, Scheduled)
     channel.forbidden = True
     await due_now(harness, out.job_id)
-    await harness.run_jobs()
-    error = await harness.admin.fetchval("SELECT last_error FROM core.jobs WHERE id = $1", out.job_id)
-    assert "not allowed to post" in error
+    with pytest.raises(JobFailed, match="not allowed to post"):
+        await harness.run_jobs()
 
 
 @pytest.mark.parametrize("minutes", [0, 10081])

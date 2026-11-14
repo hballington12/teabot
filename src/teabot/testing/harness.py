@@ -1,7 +1,7 @@
 """A plugin under test (D45): loaded, migrated and invoked through the real loader and call path."""
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Any
 
 import discord
@@ -27,6 +27,11 @@ ON CONFLICT (guild_id, plugin_id) DO UPDATE SET enabled = true
 """
 
 
+class JobFailed(Exception):
+    """A job failed while `run_jobs` ran it. The job's own exception is chained as the cause, so its traceback
+    shows in the test's output."""
+
+
 @dataclass
 class PluginHarness:
     """One plugin, enabled in one fake server whose first member has Administrator."""
@@ -40,6 +45,7 @@ class PluginHarness:
     pools: Pools
     tokens: Tokens
     workers: Workers
+    failures: list[JobFailed] = field(default_factory=list[JobFailed])
 
     async def invoke(
         self, action: str, raw_input: Mapping[str, Any] | None = None, *, user: int | None = None
@@ -48,12 +54,20 @@ class PluginHarness:
         actor = Actor(user if user is not None else self.member.id, "slash")
         return await self.registry.invoke(Call(action, self.guild.id, actor, raw_input or {}))
 
-    async def run_jobs(self) -> int:
+    async def run_jobs(self, *, raise_failures: bool = True) -> int:
         """Run every due job of the core and this plugin through the real worker path, such as a confirmed
-        plan's apply. Returns how many ran."""
+        plan's apply, and return how many ran, the core's own jobs included.
+
+        A job that fails is retried later, as in production, so it does not run again here. With
+        `raise_failures`, the first failure is raised as `JobFailed`, with the job's exception as its cause.
+        A test that expects a failure passes `raise_failures=False` and checks the job afterwards.
+        """
+        self.failures.clear()
         ran = 0
         while await self.workers.run_once():
             ran += 1
+        if raise_failures and self.failures:
+            raise self.failures[0]
         return ran
 
     async def invoke_with_token(
@@ -83,6 +97,26 @@ async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: P
     await admin.execute(ENABLE, guild.id, plugin_id)
     core = assemble(report, pools, Queue(pools.core_db()), client)
     workers = Workers(core.queue, lambda: ["core", plugin_id])
-    return PluginHarness(
+    harness = PluginHarness(
         core.registry, core.statuses, client, guild, member, admin, pools, core.tokens, workers
     )
+    for key, handler in list(core.queue.handlers.items()):
+        core.queue.handlers[key] = _recording(f"{key[0]}.{key[1]}", handler, harness.failures)
+    return harness
+
+
+def _recording[C](
+    name: str, handler: Callable[[C], Awaitable[None]], failures: list[JobFailed]
+) -> Callable[[C], Awaitable[None]]:
+    """The handler, keeping each failure so `run_jobs` can raise it with its traceback."""
+
+    async def run(ctx: C) -> None:
+        try:
+            await handler(ctx)
+        except Exception as exc:
+            failure = JobFailed(f"job {name} failed: {exc!r}")
+            failure.__cause__ = exc
+            failures.append(failure)
+            raise
+
+    return run

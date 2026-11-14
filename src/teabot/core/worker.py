@@ -91,7 +91,14 @@ class Workers:
         try:
             await handler(JobContext(job, self.queue.db))
         except Exception as exc:
-            log.warning("job failed", extra={"job_id": job.id, "handler": job.handler, "error": repr(exc)})
+            log.warning(
+                "job %s.%s failed: %r",
+                job.plugin_id,
+                job.handler,
+                exc,
+                exc_info=exc,
+                extra={"job_id": job.id, "handler": job.handler, "error": repr(exc)},
+            )
             await self.queue.fail(job, repr(exc))
         else:
             await self.queue.finish(job)
