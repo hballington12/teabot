@@ -73,7 +73,8 @@ class ActionContext(Protocol):
 
     @property
     def db(self) -> Db:
-        """The plugin's own tables, as this server's rows only (D9)."""
+        """The plugin's own tables (D9). Every query must filter by `guild_id` itself: nothing filters rows for
+        the plugin, so a query without the filter sees every server's rows."""
         ...
 
     @property

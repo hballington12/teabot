@@ -12,6 +12,7 @@ import pytest
 from typer.testing import CliRunner
 
 from teabot.cli import app
+from teabot.cli.new_plugin import teabot_range
 from teabot.testing import PluginHarness
 
 FILES = [
@@ -48,6 +49,8 @@ def test_it_writes_the_package(tmp_path: Path) -> None:
     assert sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()) == FILES
     assert 'scaffolded = "teabot_scaffolded:plugin"' in (root / "pyproject.toml").read_text()
     assert "External connections: none" in (root / "README.md").read_text()
+    assert 'dependencies = ["teabot>=1.0,<2"]' in (root / "pyproject.toml").read_text()
+    assert "/plugins enable plugin:scaffolded" in result.output
     assert f"uv run --env-file .env --package teabot-scaffolded pytest {root}" in result.output
 
 
@@ -87,3 +90,11 @@ def test_an_existing_directory_is_left_alone(tmp_path: Path) -> None:
     assert result.exit_code == 1
     assert "already exists" in result.stderr
     assert list((tmp_path / "plugins/scaffolded").iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [("1.0.2", "teabot>=1.0,<2"), ("1.1.0.dev0", "teabot>=1.0,<2"), ("2.3.0", "teabot>=2.0,<3")],
+)
+def test_a_new_plugin_accepts_its_whole_major_version(version: str, expected: str) -> None:
+    assert teabot_range(version) == expected

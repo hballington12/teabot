@@ -11,6 +11,7 @@ from typing import Annotated
 
 import typer
 
+import teabot
 from teabot.sdk.ids import InvalidPluginId, check_plugin_id_free
 
 SCAFFOLD = Path(__file__).parent / "scaffold"
@@ -33,8 +34,18 @@ def class_name(plugin_id: str) -> str:
     return "".join(part.capitalize() for part in plugin_id.split("_"))
 
 
+def teabot_range(version: str) -> str:
+    """The teabot releases a new plugin works with: this major version, from its first release (D45)."""
+    major = int(version.split(".", maxsplit=1)[0])
+    return f"teabot>={major}.0,<{major + 1}"
+
+
 def write_package(root: Path, plugin_id: str) -> None:
-    values = {"id": plugin_id, "class_name": class_name(plugin_id)}
+    values = {
+        "id": plugin_id,
+        "class_name": class_name(plugin_id),
+        "teabot": teabot_range(teabot.__version__),
+    }
     for path, template in files_for(plugin_id).items():
         target = root / path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -61,4 +72,4 @@ def new_plugin(
     typer.echo(
         f"next: uv lock, then uv run --env-file .env --package teabot-{plugin_id} pytest {into / plugin_id}"
     )
-    typer.echo(f"then restart teabot, and enable it in a server with /plugins enable {plugin_id}")
+    typer.echo(f"then restart teabot, and enable it in a server with /plugins enable plugin:{plugin_id}")

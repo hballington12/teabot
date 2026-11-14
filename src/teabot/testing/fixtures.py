@@ -29,15 +29,41 @@ from teabot.testing.harness import PluginHarness, build_harness
 APP_PASSWORD = "app-test"
 PLUGINS_PASSWORD = "plugins-test"
 
-teabot_pg_server = factories.postgresql_noproc(  # pyright: ignore[reportUnknownMemberType]
-    host=os.environ.get("TEABOT_TEST_PG_HOST", "127.0.0.1"),
-    port=int(os.environ.get("TEABOT_TEST_PG_PORT") or os.environ.get("TEABOT_DB_PORT") or "55432"),
-    user=os.environ.get("TEABOT_TEST_PG_USER", "teabot_owner"),
-    password=os.environ.get("TEABOT_TEST_PG_PASSWORD")
-    or os.environ.get("TEABOT_DB_OWNER_PASSWORD")
-    or "teabot",
-    dbname=run_db_name(os.getpid()),
+PG_HOST = os.environ.get("TEABOT_TEST_PG_HOST", "127.0.0.1")
+PG_PORT = int(os.environ.get("TEABOT_TEST_PG_PORT") or os.environ.get("TEABOT_DB_PORT") or "55432")
+PG_USER = os.environ.get("TEABOT_TEST_PG_USER", "teabot_owner")
+PG_PASSWORD = (
+    os.environ.get("TEABOT_TEST_PG_PASSWORD") or os.environ.get("TEABOT_DB_OWNER_PASSWORD") or "teabot"
 )
+NO_POSTGRES = """teabot's test fixtures could not reach Postgres at {host}:{port} as {user}: {error}
+Start the Postgres of your instance's Compose file:
+    docker compose up -d --wait postgres
+or point the tests at another server with TEABOT_TEST_PG_HOST, TEABOT_TEST_PG_PORT, TEABOT_TEST_PG_USER and
+TEABOT_TEST_PG_PASSWORD."""
+
+_teabot_pg_noproc = factories.postgresql_noproc(  # pyright: ignore[reportUnknownMemberType]
+    host=PG_HOST, port=PG_PORT, user=PG_USER, password=PG_PASSWORD, dbname=run_db_name(os.getpid())
+)
+
+
+@pytest.fixture(scope="session")
+def teabot_pg_server(request: pytest.FixtureRequest) -> Any:
+    """The Postgres server the tests use. One quick connection first, so a missing server stops the run at once
+    with what to do, instead of pytest-postgresql retrying for a minute."""
+    try:
+        psycopg.connect(
+            host=PG_HOST,
+            port=PG_PORT,
+            user=PG_USER,
+            password=PG_PASSWORD,
+            dbname="postgres",
+            connect_timeout=5,
+        ).close()
+    except psycopg.OperationalError as exc:
+        pytest.exit(NO_POSTGRES.format(host=PG_HOST, port=PG_PORT, user=PG_USER, error=exc), 1)
+    return request.getfixturevalue("_teabot_pg_noproc")
+
+
 teabot_pg = factories.postgresql("teabot_pg_server")
 
 

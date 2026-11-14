@@ -55,7 +55,7 @@ class JobContext(Protocol):
 
     @property
     def db(self) -> Db:
-        """The plugin's own tables, as the job's server's rows only (D9)."""
+        """The plugin's own tables (D9). As in actions, every query must filter by `guild_id` itself."""
         ...
 
     @property
