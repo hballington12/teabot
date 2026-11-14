@@ -16,18 +16,28 @@ class Row(Protocol):
 
 
 class Queries(Protocol):
+    """Running SQL. Arguments are passed as `$1`, `$2` and so on, never formatted into the query."""
+
     async def execute(self, query: str, *args: Any) -> str:
         """Run one statement and return its status, such as `INSERT 0 1`."""
         ...
 
-    async def fetch(self, query: str, *args: Any) -> Sequence[Row]: ...
+    async def fetch(self, query: str, *args: Any) -> Sequence[Row]:
+        """Every row the query returns."""
+        ...
 
-    async def fetchrow(self, query: str, *args: Any) -> Row | None: ...
+    async def fetchrow(self, query: str, *args: Any) -> Row | None:
+        """The first row, or None when there is none."""
+        ...
 
-    async def fetchval(self, query: str, *args: Any) -> Any: ...
+    async def fetchval(self, query: str, *args: Any) -> Any:
+        """The first column of the first row, or None when there is none."""
+        ...
 
 
 class Scheduler(Protocol):
+    """Queues jobs for later, through the core's queue (D31)."""
+
     async def schedule(
         self,
         handler: str,
@@ -35,7 +45,7 @@ class Scheduler(Protocol):
         run_at: datetime | None = None,
         payload: Mapping[str, Any] | None = None,
     ) -> int:
-        """Queue one of this plugin's jobs for this server (D31). Returns the job id."""
+        """Queue the plugin's job `handler` for this server, now or at `run_at`, and return its id."""
         ...
 
 
@@ -44,4 +54,8 @@ class Tx(Queries, Scheduler, Protocol):
 
 
 class Db(Queries, Protocol):
-    def transaction(self) -> AbstractAsyncContextManager[Tx]: ...
+    """The plugin's own tables. Each call outside a transaction is one statement on its own (D30)."""
+
+    def transaction(self) -> AbstractAsyncContextManager[Tx]:
+        """Open a transaction: `async with ctx.db.transaction() as tx:`. It commits when the block ends."""
+        ...

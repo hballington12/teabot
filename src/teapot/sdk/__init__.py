@@ -1,14 +1,41 @@
 """The public plugin API (D45). Plugins import from here and nothing else in teapot.
 
-It follows semantic versioning from 1.0. Additions are minor releases (D6); everything else in `teapot` is
-internal and may change in any release.
+It follows semantic versioning from 1.0, as the `teapot` package's version. Additions are minor releases (D6).
+A breaking change needs a major release, and the old form keeps working with a deprecation warning for at
+least one minor release first. Only the names below are public: the submodules of `teapot.sdk` and everything
+else in `teapot` are internal and may change in any release.
+
+A plugin:
+- `Plugin`: the object a package's `teapot.plugins` entry point names, with a `Manifest` and a `setup`.
+- `Manifest`: the plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
+- `Registrar`: what `setup` registers actions and jobs with.
+- `InvalidPluginId`: what `Manifest` raises for an id that breaks D46.
+
+Actions:
+- `ActionSpec`: one action, with its input and output models, `Risk`, permissions and `Surface`.
+- `ActionContext`: what one call receives: the server, the `Actor`, the plugin's `Db`, its config and queue.
+- `Actor`: the member who made the call, and `Via`, the front door it came through.
+- `ActionError`: raised to tell the member what went wrong.
+- `InputError`: what `ActionSpec` raises for an input field type D29 does not allow.
+
+Field types (D23, D29):
+- `ChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
+- `LongText`: multi-line text, which Discord collects in a modal.
+- `UntrustedText`: member-written text in an output, which MCP marks as untrusted.
+
+Plans (D21):
+- `Diff` and `DiffEntry`: what a destructive action's `plan` returns.
+
+The database (D9, D30):
+- `Db`: the plugin's own tables. `Queries` runs SQL and returns `Row`s; `Tx` is a transaction.
+- `Scheduler`: queues jobs (D31). `JobContext` is what a job receives, and `JobHandler` runs it.
 """
 
-from teapot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk, Surface
+from teapot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
 from teapot.sdk.db import Db, Queries, Row, Scheduler, Tx
 from teapot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teapot.sdk.ids import InvalidPluginId
-from teapot.sdk.inputs import InputError, InputField
+from teapot.sdk.inputs import InputError
 from teapot.sdk.plans import Diff, DiffEntry
 from teapot.sdk.plugin import EmptyConfig, JobContext, JobHandler, Manifest, Plugin, Registrar
 
@@ -23,7 +50,6 @@ __all__ = [
     "DiffEntry",
     "EmptyConfig",
     "InputError",
-    "InputField",
     "InvalidPluginId",
     "JobContext",
     "JobHandler",
@@ -40,4 +66,5 @@ __all__ = [
     "Surface",
     "Tx",
     "UntrustedText",
+    "Via",
 ]

@@ -20,12 +20,13 @@ class DiffEntry(BaseModel):
 
 
 class Diff(BaseModel):
-    """Every change the action would make. `counts` is how many entries there are of each kind of change."""
+    """Every change the action would make, as `entries`."""
 
     entries: list[DiffEntry] = Field(default_factory=list[DiffEntry])
 
     @property
     def counts(self) -> dict[str, int]:
+        """How many entries there are of each kind of change, by kind."""
         found: dict[str, int] = {}
         for entry in self.entries:
             found[entry.change] = found.get(entry.change, 0) + 1
