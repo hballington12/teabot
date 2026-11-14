@@ -6,8 +6,7 @@ from typing import Any
 import discord
 import pytest
 
-from teapot.core.registry import ActionFailed, Refused
-from teapot.testing import FakeChannel, FakeVoiceChannel, PluginHarness
+from teapot.testing import ActionFailed, FakeChannel, FakeVoiceChannel, PluginHarness, Refused
 from teapot_announcements import Scheduled, plugin, render_scheduled
 
 

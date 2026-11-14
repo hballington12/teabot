@@ -2,6 +2,12 @@
 
 A plugin is a Python package that adds actions to teapot. Anyone running an instance can write one and install it without asking anyone (D44). This guide covers SDK 0.x; it becomes 1.0 at milestone 7, after which breaking changes need a major version (D45). Decision numbers point at the [README](../README.md).
 
+## Starting a plugin
+
+- In your instance, `uv run teapot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, a manifest with one example action, a first migration, a README and tests.
+- Then `uv lock`, and run its tests with `uv run --package teapot-raffles pytest plugins/raffles`.
+- Restart teapot, and `/plugins enable raffles` in a server.
+
 ## The package
 
 - A plugin imports only `teapot.sdk` (D45). Everything else in `teapot` is internal and may change in any release. First-party plugins have an import-linter contract checking this.
@@ -126,6 +132,7 @@ DRAW = ActionSpec(
         out = await harness.invoke("raffles.draw", {"channel": str(channel.id), "prize": "A pet"})
     ```
 
+- Tests import only `teapot.sdk` and `teapot.testing`, which also has what `invoke` raises and returns: `Refused` (check its `code`) before the action runs, `ActionFailed` (check its `public_message`) when the action raised, and a destructive action's `Planned` and `Queued`.
 - `harness.guild.add_member(permissions, cached=False)` adds a member found only over REST. `FakeChannel(forbidden=True)` refuses to send; `FakeVoiceChannel` takes no messages.
 
 ## Review checklist

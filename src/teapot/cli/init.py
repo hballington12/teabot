@@ -1,9 +1,12 @@
-"""`teapot init`: generate the database passwords and bootstrap the roles (D43, WP1.3).
+"""`teapot init`: set up a new instance (D43).
 
-The rest of instance setup (printing the Discord application settings) arrives in WP7.2.
+It generates the database passwords into the env file, creates the database roles, and prints the Discord
+application settings to use, with the invite link for the application the token belongs to.
 """
 
 import asyncio
+import base64
+import binascii
 import secrets
 from pathlib import Path
 from typing import Annotated
@@ -17,6 +20,31 @@ from teapot.envfile import read_values, set_values
 from teapot.settings import DEFAULT_ENV_FILE, Settings, load_settings
 
 PASSWORD_SETTINGS = ("TEAPOT_DB_APP_PASSWORD", "TEAPOT_DB_PLUGINS_PASSWORD")
+# Administrator: the bot holds near-Administrator power, and the role hierarchy keeps it below the senior
+# roles (D26).
+INVITE = "https://discord.com/oauth2/authorize?client_id={}&scope=bot+applications.commands&permissions=8"
+
+
+def application_id(token: str) -> int | None:
+    """The bot's ID, which a token's first part encodes in base64, or None when it is not a token."""
+    first = token.split(".", maxsplit=1)[0]
+    try:
+        decoded = base64.urlsafe_b64decode(first + "=" * (-len(first) % 4)).decode()
+    except (binascii.Error, UnicodeDecodeError):
+        return None
+    return int(decoded) if decoded.isdigit() else None
+
+
+def discord_settings(token: str) -> list[str]:
+    """What to set on the Discord application, and how to invite it."""
+    found = application_id(token)
+    return [
+        "Discord application settings:",
+        "- Bot tab: turn on the Server Members Intent. Leave Message Content off unless a plugin needs it.",
+        f"- Invite: {INVITE.format('<application id>' if found is None else found)}",
+        "- In each server, drag the bot's role below the owner's and senior staff roles (D26).",
+        "- Invite one teapot instance to a server, never two: both would answer its commands.",
+    ]
 
 
 def _fill_missing_passwords(env_file: Path) -> list[str]:
@@ -67,3 +95,5 @@ def init(
             "warning: set_config is still executable by PUBLIC; rerun with --admin-user as a superuser"
         )
     typer.echo("database ready")
+    for line in discord_settings(settings.discord_token.get_secret_value()):
+        typer.echo(line)

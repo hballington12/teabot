@@ -7,6 +7,7 @@ import typer
 import teapot
 from teapot.cli import plugins
 from teapot.cli.init import init
+from teapot.cli.new_plugin import new_plugin
 from teapot.cli.run import run
 
 app = typer.Typer(name="teapot", help="Run and operate a teapot instance.", no_args_is_help=True)
@@ -29,4 +30,5 @@ def main(
 
 app.command()(init)
 app.command()(run)
+app.command("new-plugin")(new_plugin)
 app.add_typer(plugins.app)

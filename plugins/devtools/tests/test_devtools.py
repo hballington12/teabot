@@ -5,9 +5,7 @@ from typing import Any
 import discord
 import pytest
 
-from teapot.core.plans import Planned, Queued
-from teapot.core.registry import Refused
-from teapot.testing import PluginHarness
+from teapot.testing import Planned, PluginHarness, Queued, Refused
 from teapot_devtools import FAIL_SETUP, Noted, Peeked, plugin
 
 

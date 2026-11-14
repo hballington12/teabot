@@ -1,15 +1,18 @@
 """`teapot init` against a real database (WP1.3)."""
 
 import asyncio
+import base64
 from pathlib import Path
 from typing import Any
 
+import pytest
 from typer.testing import CliRunner
 
 from teapot.cli import app
+from teapot.cli.init import application_id
 from teapot.db.naming import Naming
 from teapot.db.types import Conn
-from teapot.envfile import read_values
+from teapot.envfile import read_values, set_values
 
 
 async def test_init_generates_passwords_and_roles(env_file: Path, admin: Conn, naming: Naming) -> None:
@@ -63,3 +66,31 @@ async def test_init_warns_when_set_config_cannot_be_revoked(
         assert "warning: set_config is still executable by PUBLIC" in result.output
     finally:
         await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner_kwargs["user"]}"')
+
+
+TOKEN = base64.urlsafe_b64encode(b"123456789012345678").decode().rstrip("=") + ".GhIjKl.secret-part"
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"), [(TOKEN, 123456789012345678), ("", None), ("not-a-token", None), ("!!!.a.b", None)]
+)
+def test_the_application_id_is_the_tokens_first_part(token: str, expected: int | None) -> None:
+    assert application_id(token) == expected
+
+
+async def test_init_prints_the_discord_settings_with_the_invite(env_file: Path) -> None:
+    set_values(env_file, {"TEAPOT_DISCORD_TOKEN": TOKEN})
+    result = await asyncio.to_thread(CliRunner().invoke, app, ["init", "--env-file", str(env_file)])
+    assert result.exit_code == 0, result.output
+    assert "Server Members Intent" in result.output
+    assert (
+        "https://discord.com/oauth2/authorize?client_id=123456789012345678"
+        "&scope=bot+applications.commands&permissions=8"
+    ) in result.output
+    assert "below the owner's and senior staff roles" in result.output
+    assert TOKEN not in result.output
+
+
+async def test_without_a_token_the_invite_names_what_to_fill_in(env_file: Path) -> None:
+    result = await asyncio.to_thread(CliRunner().invoke, app, ["init", "--env-file", str(env_file)])
+    assert "client_id=<application id>" in result.output

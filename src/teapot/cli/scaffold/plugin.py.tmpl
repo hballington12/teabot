@@ -1,0 +1,54 @@
+"""teapot-$id. Imports only `teapot.sdk` (D45).
+
+- `$id.hello` records a member's greeting in the plugin's own table and says how many they have made.
+"""
+
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+from teapot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
+
+
+class Hello(BaseModel):
+    greeting: str = Field(default="hello", max_length=100, description="What to say")
+
+
+class Greeted(BaseModel):
+    times: int
+
+
+async def hello(ctx: ActionContext, data: Hello) -> Greeted:
+    async with ctx.db.transaction() as tx:
+        await tx.execute(
+            "INSERT INTO greetings (guild_id, member_id, greeting) VALUES ($$1, $$2, $$3)",
+            ctx.guild.id,
+            ctx.actor.user_id,
+            data.greeting,
+        )
+        times: int = await tx.fetchval(
+            "SELECT count(*) FROM greetings WHERE guild_id = $$1 AND member_id = $$2",
+            ctx.guild.id,
+            ctx.actor.user_id,
+        )
+    return Greeted(times=times)
+
+
+HELLO = ActionSpec(
+    "$id.hello",
+    "Say hello",
+    Hello,
+    Greeted,
+    Risk.WRITE,
+    hello,
+    render=lambda out: f"Hello! That makes {out.times}.",
+)
+
+
+class $class_name:
+    manifest = Manifest("$id", "0.1.0", migrations=Path(__file__).parent / "migrations")
+
+    def setup(self, registrar: Registrar) -> None:
+        registrar.action(HELLO)
+
+
+plugin = $class_name()

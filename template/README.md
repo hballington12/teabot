@@ -14,7 +14,7 @@ teapot itself stays in its own repository, and your instance depends on it.
     - Turn on the **Server Members Intent**; joins, leaves and member lookups need it.
     - Leave **Message Content** off unless a plugin needs message text.
     - Turn **Public Bot** off if only you should invite it.
-3. Invite the bot with the `bot` and `applications.commands` scopes. teapot's commands then appear: `/plugins`, `/audit`, `/tokens`, `/admin`, and each enabled plugin's group.
+3. Invite the bot with the `bot` and `applications.commands` scopes; `teapot init` prints the link. teapot's commands then appear: `/plugins`, `/audit`, `/tokens`, `/admin`, and each enabled plugin's group.
 4. A bot must be verified by Discord before it can join more than 100 servers (D39).
 
 ## The instance
@@ -31,7 +31,7 @@ For a working bot in minutes, on one machine.
 2. `ssh-add`, so the image build can read teapot from GitHub.
 3. `docker compose build`.
 4. `docker compose up -d --wait postgres`.
-5. `docker compose run --rm bot teapot init`. It creates the database roles and writes their passwords into `teapot.env`.
+5. `docker compose run --rm bot teapot init`. It creates the database roles, writes their passwords into `teapot.env`, and prints the invite link.
 6. `docker compose up -d`, then check `curl -s http://127.0.0.1:8780/healthz`.
 
 How it runs:

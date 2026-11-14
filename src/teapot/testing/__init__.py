@@ -4,10 +4,15 @@
   `FakeChannel`, `FakeVoiceChannel`, `FakeClient`. They are shaped like discord.py's objects.
 - `PluginHarness`: a plugin loaded through the real loader and migrations, invoked through the real call path,
   as a member (`invoke`) or with a token (`invoke_with_token`).
+- What `invoke` raises and returns besides an action's output: `Refused` (with its `code`) before the action
+  runs, `ActionFailed` (with its `public_message`) when it raised, and a destructive action's `Planned` and
+  `Queued`.
 - Postgres fixtures: add `-p teapot.testing.fixtures` to pytest's `addopts`, and install the `teapot[testing]`
   extra.
 """
 
+from teapot.core.plans import Planned, Queued
+from teapot.core.registry import ActionFailed, Refused
 from teapot.testing.fakes import (
     FakeCategory,
     FakeChannel,
@@ -21,6 +26,7 @@ from teapot.testing.fakes import (
 from teapot.testing.harness import PluginHarness, build_harness
 
 __all__ = [
+    "ActionFailed",
     "FakeCategory",
     "FakeChannel",
     "FakeClient",
@@ -29,6 +35,9 @@ __all__ = [
     "FakeMessage",
     "FakeRole",
     "FakeVoiceChannel",
+    "Planned",
     "PluginHarness",
+    "Queued",
+    "Refused",
     "build_harness",
 ]
