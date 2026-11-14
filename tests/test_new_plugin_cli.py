@@ -47,7 +47,7 @@ def test_it_writes_the_package(tmp_path: Path) -> None:
     result = new_plugin(tmp_path)
     assert result.exit_code == 0, result.output
     root = tmp_path / "plugins/scaffolded"
-    assert sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()) == FILES
+    assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) == FILES
     assert 'scaffolded = "teabot_scaffolded:plugin"' in (root / "pyproject.toml").read_text()
     assert "External connections: none" in (root / "README.md").read_text()
     assert 'dependencies = ["teabot>=1.0,<2"]' in (root / "pyproject.toml").read_text()

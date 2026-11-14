@@ -221,13 +221,26 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     )
 
 
+def stop_on_signals(loop: asyncio.AbstractEventLoop, stop: asyncio.Event) -> None:
+    """Set `stop` on SIGINT and SIGTERM, so a shutdown closes the gateway and the pools cleanly."""
+
+    def handle(_sig: int, _frame: object) -> None:
+        loop.call_soon_threadsafe(stop.set)
+
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, stop.set)
+        except NotImplementedError:
+            # Windows' event loops have no signal handlers, so this falls back to the process-wide handler,
+            # which runs outside the loop and hands the stop back to it.
+            signal.signal(sig, handle)
+
+
 async def main(settings: Settings) -> int:
     """Open the real parts, run until stopped, and return the exit code."""
     token = token_or_exit(settings.discord_token.get_secret_value())
     rt = await _open_runtime(settings, token)
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, rt.stop.set)
+    stop_on_signals(asyncio.get_running_loop(), rt.stop)
     try:
         return await serve_until_stopped(rt)
     finally:

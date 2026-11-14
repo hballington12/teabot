@@ -1,7 +1,10 @@
 """The env-file helper used by `teabot init`."""
 
 import stat
+import sys
 from pathlib import Path
+
+import pytest
 
 from teabot.envfile import read_values, set_values
 
@@ -14,6 +17,7 @@ def test_set_values_replaces_appends_and_keeps_the_rest(tmp_path: Path) -> None:
     assert read_values(env) == {"TEABOT_A": "one", "TEABOT_C": "3", "TEABOT_B": "two"}
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows files have no Unix permission bits to check")
 def test_set_values_makes_the_file_private(tmp_path: Path) -> None:
     env = tmp_path / "teabot.env"
     set_values(env, {"TEABOT_SECRET": "x"})
