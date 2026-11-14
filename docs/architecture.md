@@ -146,19 +146,14 @@ class GiveawayConfig(BaseModel):
 ### Database access at runtime (D30)
 
 ```python
-async def run(ctx: ActionContext, data: EnterInput) -> EnterOutput:
-    member = await ctx.guild.fetch_member(data.member.id)       # Discord call, outside any transaction
+@plugin.action()
+async def enter(ctx: Ctx, giveaway: int) -> str:
+    member = await ctx.guild.get_member(ctx.actor.user_id)     # Discord call, outside any transaction
     async with ctx.db.transaction() as tx:                      # pooled connection as teabot_plugin_giveaways, BEGIN
-        await tx.execute(
-            "INSERT INTO entries (guild_id, giveaway_id, user_id) VALUES ($1, $2, $3)",
-            ctx.guild.id, data.giveaway_id, member.id,
-        )
-        count = await tx.fetchval(                               # same connection, sees the insert
-            "SELECT count(*) FROM entries WHERE guild_id = $1 AND giveaway_id = $2",
-            ctx.guild.id, data.giveaway_id,
-        )
-        await tx.schedule("announce_winner", run_at=data.ends_at, payload={"giveaway_id": data.giveaway_id})
-    return EnterOutput(entries=count)
+        await tx.execute(ENTER, ctx.guild.id, giveaway, ctx.actor.user_id)
+        count = await tx.fetchval(int, COUNT, ctx.guild.id, giveaway)   # same connection, sees the insert
+        await tx.schedule(remind.bind(giveaway=giveaway), at=ctx.now + timedelta(hours=1))
+    return f"You're in, with {count} others."
 ```
 
 - Each process holds two asyncpg pools: the core pool logged in as `teabot_app`, and the plugin pool logged in as `teabot_plugins`. teabot connects to Postgres directly, and the pools are the only poolers.
@@ -167,11 +162,24 @@ async def run(ctx: ActionContext, data: EnterInput) -> EnterOutput:
 - With `set_config` revoked and a session user that has no rights, an injection bug can neither change the role nor reach `core` (D9). Plugin code that changes the role on purpose is a review matter (D5).
 - `ctx.db.transaction()` yields `tx`, and everything inside the block goes through it. The block sets a context variable that only marks it as open. Calling `ctx.db` while it is set raises an error naming `tx`, because that call would take another connection and miss the block's writes.
 - Inside a block, a plugin only runs SQL. Awaiting Discord or HTTP there would hold a pooled connection and its row locks across a slow call. Dev mode logs any block held longer than 100 ms, and the authoring guide states the rule.
-- `tx.schedule(...)` calls the plugin's own `schedule_job` function, so a job is queued in the same transaction as the writes that need it. Outside a block, `ctx.queue.schedule(...)` does the same in its own transaction.
+- `tx.schedule(bound, at=...)` calls the plugin's own `schedule_job` function, so a job is queued in the same transaction as the writes that need it. A bound job's key is its handler and canonical JSON arguments. The partial unique index `jobs_pending_key` allows one pending job per key, so scheduling a key again moves the pending job, and `tx.unschedule(bound)` deletes it.
+- Typed queries, `fetch(Model, sql, ...)`, validate each row through the model, or through a `TypeAdapter` for a plain type such as `int`.
 
 ## The plugin SDK (D45)
 
-Everything below is importable from `teabot.sdk`, and nothing else in `teabot` is part of the plugin API. An `import-linter` contract in CI fails any first-party plugin that imports from elsewhere in `teabot`. Later additions arrive as fields with defaults and optional protocols (D6).
+Everything here is importable from `teabot.sdk`, and nothing else in `teabot` is part of the plugin API. An `import-linter` contract in CI fails any first-party plugin that imports from elsewhere in `teabot`, and `teabot check` does the same for any plugin. Later additions arrive as fields with defaults and optional protocols (D6).
+
+The SDK has two layers. Plugins write the upper one, and the core sees only the lower one.
+
+- **Decorators.** `Plugin(id, config=)` is generic over its config model. `@plugin.action(risk=, needs=, name=, reply=)` turns an async function into an `Action`, and `@plugin.job` into a `Job`.
+    - The input model is built from the parameters after the context, with `create_model`. The docstring's summary and `Args:` section give the command's and every option's description, and a missing one fails at decoration time with the file and line (S7).
+    - `TextChannel`, `Role` and `Member` parameters are stored as `ChannelRef`, `RoleRef` and `MemberRef` IDs, and resolved through the guild before the function runs.
+    - A `str` or `list[Model]` return type is wrapped in a generated output model, and a model's own `render()` becomes the spec's `render`.
+    - `needs` is a `Literal` of discord.py's permission names, so pyright checks it. `Action.bind` and `Job.bind` carry the function's `ParamSpec`, so `harness.call`, `.bind` and `tx.schedule` are checked against the function's signature.
+    - `Context[C]` is a protocol over the lower layer's contexts: `guild`, `actor`, `config: C`, `db`, `now`, `diff` and `report`. `ctx.guild` is a view that satisfies the SDK's own `Guild` protocol, with `TextChannel`, `Role`, `Member` and `Message` protocols beside it, which the adapter's discord.py objects and the test fakes both implement. Sends mention nobody unless `ping=` names members.
+    - `ctx.now` reads one clock, which the test harness moves. In the test database the plugin's schema holds a `now()` that reads the same clock, ahead of `pg_catalog` on the `search_path`.
+    - When the plugin is set up, each `Action` becomes an `ActionSpec` and each `Job` a handler. The loader first imports every module of the plugin's package, so decorated functions in any module register.
+- **Specs.** The shapes below, which any object with a `manifest` and a `setup` can register directly (`LoadablePlugin`).
 
 ```python
 class Risk(IntEnum):
@@ -187,8 +195,8 @@ class Surface(Flag):
 
 @dataclass(frozen=True)
 class Actor:
-    user_id: int                                     # always a member (D16)
-    via: Literal["slash", "component", "mcp", "service"]
+    user_id: int                                     # a member (D16), or SYSTEM for a job nobody started
+    via: Literal["slash", "component", "mcp", "service", "job", "event"]
     token_id: str | None = None                      # set for MCP and service calls
 
 @dataclass(frozen=True)
@@ -225,13 +233,13 @@ class Manifest:
     config: type[BaseModel] = EmptyConfig
     migrations: Path | None = None       # own tables (D9)
 
-class Plugin(Protocol):
+class LoadablePlugin(Protocol):
     manifest: Manifest
     def setup(self, registrar: Registrar) -> None: ...
 ```
 
 - **Versioning.** `teabot.sdk` follows semantic versioning from 1.0. A removal or an incompatible change needs a major version, after at least one minor release in which the old form works and warns. Additions under D6 are minor releases.
-- **Testing helpers.** `teabot.testing` provides fake guilds, members and channels, a `plugin_db` fixture that creates a throwaway Postgres schema and role and runs the plugin's migrations, and `invoke(plugin, action, input, actor=...)`, which runs the real call path against the fakes.
+- **Testing helpers.** `teabot.testing` provides fake guilds, members, roles and channels, and a `teabot_harness` fixture that creates a throwaway database, runs the plugin's migrations, loads it through the real loader and lints its package. `harness.call(action, ...)` runs the real call path against the fakes, `plan` and `confirm` drive plan then apply, `advance` moves the clock, and `teabot_snapshot` keeps the plugin's commands, tools and job payloads in a committed file.
 - **One call path.** Every adapter builds an `ActionContext` and calls `registry.invoke(name, guild_id, actor, raw_input)`. Slash calls take the guild from the interaction, and token calls take it from the token (D20). Its steps:
     1. Resolve the guild. Refuse when the bot is not in it.
     2. Refuse when the front door is not one of the action's surfaces (D1). A slash-only action, such as everything under `/plugins` and `/tokens`, is therefore out of any token's reach.
@@ -257,13 +265,14 @@ class Plugin(Protocol):
     1. Refuses any manifest whose id breaks the pattern or is reserved (`core`, `admin`, `teabot`, `plugin`, and the admin command groups `plugins`, `audit` and `tokens`), with the reason `failed`.
     2. Finds ids declared by more than one package, and loads none of those packages, with the reason `duplicate_id` and both package names in the error.
     3. Skips plugins named in `TEABOT_DISABLED_PLUGINS`.
-    4. Runs migrations and calls `setup`. Any exception leaves that plugin not loaded with the reason `failed`, and loading carries on.
+    4. Runs migrations, then checks the plugin's schema against the database: foreign keys and unique indexes that include `guild_id`, no views or materialized views, and no `SECURITY DEFINER` functions. A broken rule fails the plugin with the constraint to write instead.
+    5. Imports the package's modules and calls `setup`. Any exception leaves that plugin not loaded with the reason `failed`, and loading carries on.
 
 ## Writing a local plugin (D44)
 
-The path a self-hoster follows, documented in `docs/plugin-authoring.md`:
+The path a self-hoster follows, taught in `docs/tutorial.md` and documented in `docs/plugin-authoring.md`:
 
-1. In the instance repo, run `uv run teabot new-plugin raffles`. It creates `plugins/raffles/` as a workspace member with its entry point, manifest, first migration, README and tests, and adds it to the instance's dependencies.
+1. In the instance repo, run `uv run teabot new-plugin raffles`. It creates `plugins/raffles/` as a workspace member with its entry point, a one-file plugin, first migration, README, tests and snapshot test, and adds it to the instance's dependencies.
 2. Write actions against `teabot.sdk`, and test them with `teabot.testing`.
 3. Restart the instance. The loader finds the new entry point, creates `plugin_raffles` and its role, runs the migration and loads the plugin.
 4. `/plugins enable plugin:raffles` in a server.
@@ -308,7 +317,7 @@ All in the schema `core`. Plugin roles and `teabot_plugins` have no rights on it
 - A process that runs only some shards adds `((guild_id >> 22) % $shard_count) = ANY($shards)` to the claim. The shard is computed there and never stored, so resharding leaves nothing stale. A process that runs every shard leaves the filter out.
 - Inserting a job due now sends `NOTIFY teabot_jobs`. The lock connection listens (D40) and wakes the workers. Workers otherwise sleep until the next `run_at`, and poll every five seconds as a fallback for notifications lost during a reconnect.
 - Setting an `apply` job running fails on the unique index when another apply is running for that guild. The worker then puts the job back with a short delay. The claim stays generic, and nothing is held across the apply's run.
-- Every job is a handler and a payload. Plugins schedule with `ctx.queue.schedule(handler, run_at, payload)`. The core's handlers run under the plugin id `core`: `apply` (D21), `post_audit` (D24), `sync_commands` (D32), `purge_guild` (D49) and `maintenance`.
+- Every job is a handler, a payload and an optional key, and carries the member who started it. Plugins schedule with `tx.schedule(job.bind(...), at=...)`. The core's handlers run under the plugin id `core`: `apply` (D21), `post_audit` (D24), `sync_commands` (D32), `purge_guild` (D49) and `maintenance`.
 - A failed job retries with exponential back-off up to a limit, then stays failed with its error for the operator to see.
 - A job whose worker died is reclaimed once its lease runs out, so handlers must be safe to run twice. The authoring guide says so, and `post_audit` carries the audit row id so a repeated post is detectable.
 - Jobs for a plugin that is disabled or not loaded, or for a guild the bot has left, stay paused. Purges delete them.
@@ -371,19 +380,19 @@ Always enabled. Its management actions are slash only and need Manage Server by 
 
 ## Testing
 
-- Tests run against a real Postgres started by `pytest-postgresql`, one database per session, with the core schema migrated once and plugin schemas reset per test.
+- Tests run against a real Postgres. Each harness creates its own database from a migrated template, so tests never share rows.
 - Core logic (registry, permissions, plans, queue, transactions, tokens) runs against the fakes in `teabot.testing` and against fake plugins passed straight to the loader. No Discord connection or packaging is needed. Using the same fakes the SDK ships keeps them honest.
 - The migration runner has tests for ordering, rollback of a failed file, a dollar-quoted trigger, a table without `guild_id` being refused, two runners starting at once under the advisory lock, and refusal of a downgrade.
 - Role isolation has tests, taken from spike S1, that a plugin role cannot read or reference `core` or another plugin's schema, that an injected stacked `; RESET ROLE` and an injected `set_config('role', ...)` are both refused, that `SET ROLE teabot_app` is refused even from a plpgsql function, and that the plugin's own `schedule_job` queues a job under its plugin id.
 - The database helpers have tests that a plugin connection is back to `teabot_plugins` with no role set after release, that no helper runs two statements, and that calling `ctx.db` inside an open block raises.
-- The loader has tests for a bad id, a reserved id and two packages with the same id.
+- The loader has tests for a bad id, a reserved id, two packages with the same id, an entry point whose name is not the plugin's id, and each load-time schema check.
 - The queue has tests for two workers never claiming the same job, shard filtering after a change of shard count, one running apply per guild, and reclaiming a job whose lease ran out.
 - The lifecycles have tests for each row of the lifecycle table, purge refusing while a process holds the plugin's shared lock, an orphaned plugin picked up again on reinstall, and a guild re-added within the grace period or purged after it.
 - The locks have tests that a second process with an overlapping shard refuses to start, and that it starts at once after the first process's lock connection is killed.
 - The maintenance job has tests that it creates future `core.audit_reads` partitions and drops expired ones.
 - Plan tests check that the diff hash is stable for equal state and changes when a target changes, and that a confirm value is refused for another actor, other input or an expired plan.
 - The schema builder has snapshot tests from each supported field type to MCP JSON schema and to Discord command JSON, and the renderer has snapshot tests for default embeds.
-- Each plugin keeps its own tests in `plugins/<id>/tests/`, including the stored config samples of D10.
+- Each plugin keeps its own tests in `plugins/<id>/tests/`, including the stored config samples of D10 and its `snapshot.json`.
 - End-to-end checks run by hand against a test server before a release.
 
 ## Deferred work
@@ -398,11 +407,11 @@ Each item is an addition to the design, with what triggers it.
 | Guild export and import | a server moving between instances, such as from a self-hosted instance to the hosted service | `teabot guilds export <id>` and `import`, carrying core rows and each plugin's rows by `guild_id` |
 | Out-of-process plugins | hosted-service users who want custom code | plugins that run on the user's own server and receive actions over signed HTTP, so the hosted process never runs their code |
 | Per-server permission overrides (D19) | event captains, or another role, need an action their Discord permissions do not give | a `core.permission_overrides` table, `/permissions show`, `set` and `reset`, one branch in step 5 of the call path |
-| Discord event hooks (D6) | SDK 1.1, the first minor release after 1.0 | `registrar.on(event, handler)` for joins, leaves, messages and reactions, run only for the servers that enable the plugin, each call isolated so one failing hook cannot stop another |
+| Discord event hooks (D6) | SDK 1.3 | `registrar.on(event, handler)` for joins, leaves, messages and reactions, run only for the servers that enable the plugin, each call isolated so one failing hook cannot stop another |
 | Plugin dependencies (D6) | a plugin that builds on another | a `requires` manifest field, load and migration order through `graphlib`, failure passed on to dependents, `USAGE` grants on the required plugin's schema, and purge refusing while a dependent is installed |
-| Buttons and select menus (D6, D32) | the first plugin that posts a component, such as role picks or giveaway entry | a component custom id `teabot:<plugin>:<action>:<payload>` routed to that action, so a press goes through the one call path with its permission check and audit (D1) |
-| Autocomplete (D6) | an input field whose choices are too many for a `Literal` | an optional autocomplete function per field, routed by the interaction router |
-| Member data deletion (D11) | the first plugin that keeps per-member data, and before the hosted service opens | `teabot users delete` and a `delete_user_data` plugin hook |
+| Buttons and select menus (D6, D32) | SDK 1.2, with giveaway entry as the first use | a component custom id `teabot:<plugin>:<action>:<payload>` routed to that action, so a press goes through the one call path with its permission check and audit (D1) |
+| Autocomplete (D6) | SDK 1.2, for input fields whose choices are too many for a `Literal` | an optional autocomplete function per field, routed by the interaction router |
+| Member data deletion (D11) | SDK 1.2, since giveaways keeps per-member data, and before the hosted service opens | `teabot users delete` and a `delete_user_data` plugin hook |
 | A per-member store (D8) | several plugins writing the same small per-member tables | a Red-style scoped store with Pydantic models per scope |
 | OAuth 2.1 (D16) | staff need claude.ai or the desktop app, whose custom connectors use OAuth, and before the hosted service opens | a second issuer of `core.tokens` rows, with Discord login and a consent screen that picks one server and a maximum risk |
 | Egress in the manifest, with consent and enforcement (D12) | the hosted service | an `egress` manifest field, RuneLite-style consent at enable time, and an HTTP client that refuses undeclared hosts |

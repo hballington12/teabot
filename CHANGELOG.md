@@ -4,6 +4,36 @@ Every release of `teabot`, `teabot-announcements` and the instance template, new
 
 ## Unreleased
 
+### Writing plugins
+
+- `Plugin(id, config=)` with `@plugin.action` and `@plugin.job` decorators. An action's inputs are its function's parameters, described by its docstring's `Args:` section, and its reply is its return value: a model, a list of models or a string. `docs/tutorial.md` builds a plugin with them step by step.
+- `Context[Config]` gives actions and jobs `guild`, `actor`, `config` as the plugin's own model, `db`, `now`, `diff` and `report`.
+- `TextChannel`, `Role` and `Member` parameters arrive as the Discord objects, checked to exist. The SDK's own `Guild`, `TextChannel`, `Member`, `Role` and `Message` protocols are implemented by discord.py's objects and by the test fakes alike.
+- `needs=` takes Discord permission names, which pyright checks. `reply="public"` shows a reply to the channel.
+- Typed queries: `fetch(Model, sql, ...)`, `fetchrow(Model, ...)` and `fetchval(int, ...)` validate each row.
+- Typed, keyed jobs: `tx.schedule(job.bind(...), at=...)` checks the arguments against the job's function, scheduling the same bound job again moves it, and `tx.unschedule` removes it. Jobs carry the member who started them, and get the server's config.
+- A destructive action's apply reads the confirmed plan as `ctx.diff`, whose entries carry a `key`.
+- Messages mention nobody unless `ping=` names members.
+- When a plugin loads, teabot imports every module of its package, and checks its schema: foreign keys and unique indexes include `guild_id`, and there are no views or `SECURITY DEFINER` functions.
+- `teabot check` runs the review checklist's mechanical items: imports only from `teabot.sdk`, the clock read only through `ctx.now` and `now()`, no `SET` in SQL, and a README with "External connections".
+- `teabot new-plugin` writes a one-file plugin on the decorators, with typed tests and a snapshot test.
+- The `Plugin` protocol for objects with a `manifest` and `setup` is now `LoadablePlugin`. Such plugins load as before.
+
+### Testing plugins
+
+- `harness.call(action, ...)`, typed by the action, with `as_member(member)`, `plan`, `confirm`, `configure` and `advance`, which moves `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due.
+- The harness lints the plugin's package when it loads it.
+- `teabot_snapshot` keeps a plugin's commands, MCP tools and job payloads in a committed file, and `pytest --teabot-accept` accepts a change.
+- `HarnessFactory` types the `teabot_harness` fixture. Fake roles, and members with roles.
+
+### Plugins
+
+- teabot-giveaways: start a giveaway in a channel, let members enter, and draw the winners when time is up.
+- teabot-announcements is written on the decorators. Announcements mention nobody, so an `@everyone` in the text stays plain text.
+
+### Operations
+
+- `/admin job_status` shows a job's label and who started it.
 - The release workflow publishes the GitHub release as a draft until its template is attached, and waits up to an hour for PyPI's index.
 
 ## 1.0.2 - 2026-11-14

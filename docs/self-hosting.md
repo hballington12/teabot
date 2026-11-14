@@ -76,9 +76,9 @@ uv lock
 uv run --env-file .env --package teabot-raffles pytest plugins/raffles
 ```
 
-- `new-plugin` writes `plugins/raffles/`: the package, a manifest with one example action, its first migration, a README and tests.
+- `new-plugin` writes `plugins/raffles/`: the package with one example action, its first migration, a README, tests and a snapshot test.
 - The tests run against the Compose Postgres, in databases they create and drop themselves. Run them on your own machine and never on one whose Postgres holds live data.
-- The example is `/raffles hello`. Replace it with your own actions in `plugins/raffles/src/teabot_raffles/__init__.py`. [Writing a teabot plugin](plugin-authoring.md) covers actions, inputs, jobs, config and plans.
+- The example is `/raffles hello`. Replace it with your own actions in `plugins/raffles/src/teabot_raffles/__init__.py`. The [tutorial](tutorial.md) builds a complete plugin step by step, and [Writing a teabot plugin](plugin-authoring.md) is the reference for actions, inputs, jobs, config, plans and tests.
 
 Then build it into the bot and turn it on:
 
