@@ -1927,7 +1927,7 @@ duplicate-check = [
 
 [package.metadata]
 requires-dist = [
-    { name = "asyncpg", specifier = ">=0.30" },
+    { name = "asyncpg", specifier = ">=0.30,<0.33" },
     { name = "discord-py", specifier = ">=2.6" },
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'testing'", specifier = ">=3.3" },

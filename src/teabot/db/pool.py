@@ -252,11 +252,36 @@ async def create_pools(
 ) -> Pools:
     """Open both pools. Each gets `size` connections at most."""
     core = await open_pool(Login(info, naming.app_role, credentials.app_password), size)
-    plugins = await open_pool(Login(info, naming.plugins_role, credentials.plugins_password), size)
+    plugins = await open_pool(
+        Login(info, naming.plugins_role, credentials.plugins_password),
+        size,
+        connection_class=NoJitConnection,
+        server_settings={"jit": "off"},
+    )
     return Pools(core, plugins, naming, timing or Timing())
 
 
-async def open_pool(login: Login, size: int) -> Pool:
+class NoJitConnection(asyncpg.Connection):
+    """A plugin connection, which tells asyncpg that the server has no JIT.
+
+    Before looking up a type such as an array, asyncpg calls `set_config('jit', 'off', false)` whenever the server
+    supports JIT, even with JIT already off. Plugin roles may not call `set_config` (D9), so that lookup failed.
+    The pool turns JIT off when it connects, so reporting no JIT is true, and asyncpg skips the call.
+    `_server_caps` is private to asyncpg, which is why teabot pins asyncpg below the next minor release.
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._server_caps = self._server_caps._replace(jit=False)  # pyright: ignore[reportUnknownMemberType]
+
+
+async def open_pool(
+    login: Login,
+    size: int,
+    *,
+    connection_class: type[asyncpg.Connection] = asyncpg.Connection,
+    server_settings: dict[str, str] | None = None,
+) -> Pool:
     """A pool that opens one connection up front and grows to `size`."""
     return await asyncpg.create_pool(
         host=login.info.host,
@@ -266,4 +291,6 @@ async def open_pool(login: Login, size: int) -> Pool:
         password=login.password,
         min_size=1,
         max_size=size,
+        connection_class=connection_class,
+        server_settings=server_settings,
     )

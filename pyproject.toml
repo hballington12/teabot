@@ -19,7 +19,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
-    "asyncpg>=0.30",
+    "asyncpg>=0.30,<0.33",
     "discord-py>=2.6",
     "mcp>=2.3,<3",
     "pydantic>=2.11",
