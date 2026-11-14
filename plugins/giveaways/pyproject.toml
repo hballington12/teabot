@@ -1,0 +1,20 @@
+[project]
+name = "teabot-giveaways"
+version = "1.1.0.dev0"
+description = "Run giveaways: members enter, and winners are drawn when time is up. A first-party teabot plugin."
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["teabot"]
+
+[project.entry-points."teabot.plugins"]
+giveaways = "teabot_giveaways:plugin"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/teabot_giveaways"]
+
+[tool.uv.sources]
+teabot = { workspace = true }

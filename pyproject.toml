@@ -62,6 +62,7 @@ dev = [
     "ruff>=0.17",
     "teabot-announcements",
     "teabot-devtools",
+    "teabot-giveaways",
 ]
 duplicate-check = ["teabot-devtools-twin"]
 
@@ -78,6 +79,7 @@ members = ["plugins/*"]
 [tool.uv.sources]
 teabot-announcements = { workspace = true }
 teabot-devtools = { workspace = true }
+teabot-giveaways = { workspace = true }
 teabot-devtools-twin = { workspace = true }
 
 [tool.ruff]
@@ -91,7 +93,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "RUF", "ASYNC", "PL"]
 ignore = ["PLR2004"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["teabot", "teabot_announcements", "teabot_devtools", "teabot_devtools_twin"]
+known-first-party = ["teabot", "teabot_announcements", "teabot_devtools", "teabot_devtools_twin", "teabot_giveaways"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
@@ -127,7 +129,7 @@ asyncio_default_test_loop_scope = "session"
 filterwarnings = ["ignore:'count' is passed as positional argument:DeprecationWarning:discord.utils"]
 
 [tool.importlinter]
-root_packages = ["teabot", "teabot_announcements", "teabot_devtools"]
+root_packages = ["teabot", "teabot_announcements", "teabot_devtools", "teabot_giveaways"]
 
 [[tool.importlinter.contracts]]
 name = "The plugin SDK does not depend on the core's internals (D45)"
@@ -155,7 +157,7 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "First-party plugins import only the SDK (D45)"
 type = "forbidden"
-source_modules = ["teabot_announcements", "teabot_devtools"]
+source_modules = ["teabot_announcements", "teabot_devtools", "teabot_giveaways"]
 forbidden_modules = [
     "teabot.adapters",
     "teabot.app",

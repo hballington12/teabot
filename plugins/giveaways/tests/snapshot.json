@@ -1,0 +1,174 @@
+{
+  "commands": {
+    "description": "giveaways commands",
+    "name": "giveaways",
+    "options": [
+      {
+        "description": "Cancel a running giveaway and its draw.",
+        "name": "cancel",
+        "options": [
+          {
+            "description": "The giveaway's number, from /giveaways list.",
+            "name": "giveaway",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Enter a running giveaway.",
+        "name": "enter",
+        "options": [
+          {
+            "description": "The giveaway's number, from /giveaways list.",
+            "name": "giveaway",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "The running giveaways.",
+        "name": "list",
+        "options": [],
+        "type": 1
+      },
+      {
+        "description": "Start a giveaway.",
+        "name": "start",
+        "options": [
+          {
+            "description": "Where to announce it.",
+            "name": "channel",
+            "required": true,
+            "type": 7
+          },
+          {
+            "description": "What the winners get.",
+            "max_length": 200,
+            "name": "prize",
+            "required": true,
+            "type": 3
+          },
+          {
+            "description": "How many winners to draw.",
+            "max_value": 20,
+            "min_value": 1,
+            "name": "winners",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "How long it runs; the server's default if left out.",
+            "name": "minutes",
+            "required": false,
+            "type": 4
+          }
+        ],
+        "type": 1
+      }
+    ],
+    "type": 1
+  },
+  "jobs": {
+    "draw": {
+      "properties": {
+        "giveaway": {
+          "title": "Giveaway",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "giveaway"
+      ],
+      "title": "GiveawaysDrawInput",
+      "type": "object"
+    }
+  },
+  "tools": {
+    "giveaways_cancel": {
+      "properties": {
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "giveaway": {
+          "description": "The giveaway's number, from /giveaways list.",
+          "title": "Giveaway",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "giveaway"
+      ],
+      "title": "GiveawaysCancelInput",
+      "type": "object"
+    },
+    "giveaways_enter": {
+      "properties": {
+        "giveaway": {
+          "description": "The giveaway's number, from /giveaways list.",
+          "title": "Giveaway",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "giveaway"
+      ],
+      "title": "GiveawaysEnterInput",
+      "type": "object"
+    },
+    "giveaways_list": {
+      "properties": {},
+      "title": "GiveawaysListInput",
+      "type": "object"
+    },
+    "giveaways_start": {
+      "properties": {
+        "channel": {
+          "description": "Where to announce it.",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Channel",
+          "type": "string"
+        },
+        "minutes": {
+          "anyOf": [
+            {
+              "maximum": 10080,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long it runs; the server's default if left out.",
+          "title": "Minutes"
+        },
+        "prize": {
+          "description": "What the winners get.",
+          "maxLength": 200,
+          "title": "Prize",
+          "type": "string"
+        },
+        "winners": {
+          "default": 1,
+          "description": "How many winners to draw.",
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Winners",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "channel",
+        "prize"
+      ],
+      "title": "GiveawaysStartInput",
+      "type": "object"
+    }
+  }
+}
