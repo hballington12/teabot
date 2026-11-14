@@ -43,7 +43,12 @@ jobs:
           name: dist
           path: dist/
       - uses: astral-sh/setup-uv@v10.3.3
-      - run: uv publish --trusted-publishing always dist/*
+      # One step per package, the core first: PyPI lets a pending publisher's settings serve one new project at
+      # a time. --check-url skips files already uploaded, so a re-run carries on where the last one stopped.
+      - name: Publish teabot
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/teabot-*
+      - name: Publish teabot-announcements
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/teabot_announcements-*
 
   github-release:
     needs: publish
