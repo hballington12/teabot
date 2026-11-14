@@ -36,3 +36,13 @@ jobs:
       - run: uv run pyright
       - run: uv run lint-imports
       - run: uv run pytest
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.12"
+      # --strict fails on a broken link, anchor or included file, so none can reach main unnoticed.
+      - run: uv run --locked --group docs zensical build --strict

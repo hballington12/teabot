@@ -13,3 +13,12 @@ echo
 set_env TEABOT_DISCORD_TOKEN "$token"
 systemctl restart teabot
 echo "teabot restarted; check it with: curl -s http://127.0.0.1:8780/healthz"
+
+# A token's first part is the bot's application id in base64, which the invite link needs.
+first=${token%%.*}
+padding=$(printf '%*s' $(( (4 - ${#first} % 4) % 4 )) '' | tr ' ' '=')
+app_id=$(printf '%s%s' "$first" "$padding" | tr '_-' '/+' | base64 -d 2>/dev/null || true)
+if [[ "$app_id" =~ ^[0-9]+$ ]]; then
+    echo "Invite it to your server with this link:"
+    echo "    https://discord.com/oauth2/authorize?client_id=$app_id&scope=bot+applications.commands&permissions=8"
+fi

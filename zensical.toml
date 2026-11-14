@@ -1,0 +1,108 @@
+# The documentation site, built from docs/ with Zensical: `uv run --group docs zensical serve` previews it, and
+# `uv run --group docs zensical build --strict` builds it, failing on a broken link, anchor or included file.
+[project]
+site_name = "teabot"
+site_description = "An open-source, plugin-based Discord bot."
+site_url = "https://hballington12.github.io/teabot/"
+repo_url = "https://github.com/hballington12/teabot"
+repo_name = "hballington12/teabot"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+extra_css = ["stylesheets/extra.css"]
+copyright = 'MIT licensed. <a href="https://github.com/hballington12/teabot/blob/main/CONTRIBUTING.md">Contributing to teabot</a>'
+
+nav = [
+  { "Home" = "index.md" },
+  { "Using teabot" = [
+    { "Add teabot to your server" = "use/index.md" },
+    { "Turn on plugins" = "use/plugins.md" },
+    { "Who can use what" = "use/permissions.md" },
+    { "Confirming changes" = "use/confirming.md" },
+    { "The audit log" = "use/audit.md" },
+    { "Connect an AI assistant" = "use/ai.md" },
+    { "Built-in commands" = "use/commands.md" },
+    { "Plugins" = [
+      { "Announcements" = "use/plugins/announcements.md" },
+      { "Giveaways" = "use/plugins/giveaways.md" },
+    ] },
+    { "Troubleshooting" = "use/troubleshooting.md" },
+  ] },
+  { "Self-hosting" = [
+    { "Quick start" = "host/index.md" },
+    { "Settings" = "host/settings.md" },
+    { "Adding plugins" = "host/adding-plugins.md" },
+    { "Run it in production" = "host/production.md" },
+    { "Bare-metal host" = "host/bare-metal.md" },
+    { "Release notes" = "host/changelog.md" },
+    { "Troubleshooting" = "host/troubleshooting.md" },
+  ] },
+  { "Writing plugins" = [
+    { "Your first plugin" = "plugins/index.md" },
+    { "Tutorial: a polls plugin" = "plugins/tutorial.md" },
+    { "Reference" = "plugins/reference.md" },
+    { "Publishing a plugin" = "plugins/publishing.md" },
+  ] },
+]
+
+[project.theme]
+logo = "assets/teabot.png"
+favicon = "assets/teabot.png"
+language = "en"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.tabs",
+  "navigation.top",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/hballington12/teabot"
+
+# Declaring any extension replaces Zensical's defaults, so every one the pages use is listed.
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+# Included code and files come from the repository root, and a missing one fails the build.
+pymdownx.snippets.base_path = ["."]
+pymdownx.snippets.check_paths = true
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tabbed.combine_header_slug = true

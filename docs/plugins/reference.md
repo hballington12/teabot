@@ -1,18 +1,30 @@
-# Writing a teabot plugin
+# Reference
 
-A plugin is a Python package that adds actions and jobs to teabot. Anyone running an instance can write one and install it without asking anyone (D44). This is the reference for `teabot.sdk` 1.x, which follows semantic versioning: breaking changes need a major version (D45). [tutorial.md](tutorial.md) builds a complete plugin step by step. Decision numbers such as (D21) point at [design.md](design.md).
+Every part of a plugin, in one page. The table of contents on the right is its index. [Your first plugin](index.md) and the [tutorial](tutorial.md) show the same parts in use.
 
-## Starting a plugin
+This covers `teabot.sdk` 1.x, which follows semantic versioning: a change that breaks plugins needs a new major version.
 
-- In an instance set up by [self-hosting.md](self-hosting.md), `uv run teabot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, one example action, a first migration, a README, tests and a snapshot test.
-- Start the Compose Postgres the tests use: `docker compose up -d --wait postgres`.
-- Then `uv lock`, and run its tests with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`. The instance's `.env` holds the database password they use.
-- Restart teabot, and turn the plugin on in a server with `/plugins enable plugin:raffles`.
-- Worked examples: the first-party plugins, which ship inside teabot and import only `teabot.sdk` like yours, [giveaways](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/giveaways/__init__.py) (jobs, config, a plan) and [announcements](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/announcements/__init__.py) (posting now and later), in the teabot repository.
+## How a plugin is reached
+
+```mermaid
+flowchart LR
+    slash["Slash command<br>/polls vote"] --> path
+    mcp["AI assistant tool<br>polls_vote"] --> path
+    api["Service API<br>polls.vote"] --> path
+    path["One call path<br>input checks, permissions,<br>plans, audit log"] --> fn["Your function<br>async def vote(ctx, ...)"]
+    fn --> db[("Your tables,<br>this server's rows")]
+    fn --> discord["Discord<br>ctx.guild"]
+```
+
+- One decorated function is a slash command, a tool for AI assistants, and an action in teabot's service API.
+- Every call takes the same path. teabot checks the input against your function's parameters, checks the member's Discord permissions, shows a plan first for a destructive action, and records the call in the audit log. Only then does your function run.
+- Your function works in one server at a time: `ctx.guild`, and the rows of that server in your own tables.
+
+Worked examples are the plugins that ship with teabot, which import only `teabot.sdk` like yours: [giveaways](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/giveaways/__init__.py) (jobs, settings, a plan) and [announcements](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/announcements/__init__.py) (posting now and later).
 
 ## The package
 
-- A plugin imports only `teabot.sdk`, and its tests only `teabot.sdk` and `teabot.testing` (D45). Everything else in `teabot` is internal and may change in any release. `teabot check` and the test harness both refuse other imports.
+- A plugin imports only `teabot.sdk`, and its tests only `teabot.sdk` and `teabot.testing`. Everything else in `teabot` is internal and may change in any release. `teabot check` and the test harness both refuse other imports.
 - `pyproject.toml` declares an entry point in the `teabot.plugins` group, pointing at the plugin object. Its name must be the plugin's id:
 
     ```toml
@@ -20,8 +32,8 @@ A plugin is a Python package that adds actions and jobs to teabot. Anyone runnin
     raffles = "teabot_raffles:plugin"
     ```
 
-- A plugin outside this repository depends on a compatible range of teabot, such as `teabot>=1.1,<2` (D14).
-- Ship a `py.typed` marker, and a `README.md` with an "External connections" section listing every host the plugin contacts, or "none" (D12).
+- A plugin outside this repository depends on a compatible range of teabot, such as `teabot>=1.1,<2`.
+- Ship a `py.typed` marker, and a `README.md` with an "External connections" section listing every host the plugin contacts, or "none".
 
 ## The plugin object
 
@@ -33,9 +45,9 @@ type Ctx = Context[RafflesConfig]
 ```
 
 - `Plugin(id, *, config=EmptyConfig, migrations=None)`. The version comes from the installed package, and migrations from `migrations/` beside the module that made the plugin, unless `migrations` names another directory.
-- The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teabot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load (D46).
+- The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teabot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load.
 - When the plugin loads, teabot imports every module of its package, so decorated functions in any module register themselves. It skips `tests`, modules whose names start with `_`, and `__main__`.
-- Anything that fails while the plugin loads fails that plugin alone, which keeps none of its registrations. Everything else still loads (D14).
+- Anything that fails while the plugin loads fails that plugin alone, which keeps none of its registrations. Everything else still loads.
 - To run code at load, subclass `Plugin` and override `setup(registrar)`, calling `super().setup(registrar)`.
 
 ## Actions
@@ -52,9 +64,9 @@ async def draw(ctx: Ctx, channel: TextChannel, prize: Annotated[str, Field(max_l
 ```
 
 - `@plugin.action(*, risk=WRITE, needs=(), name=None, reply="private")`.
-- The function's name is the action's name, so this is the slash command `/raffles draw`, the MCP tool `raffles_draw` and the service action `raffles.draw` (D1). `name=` overrides it, and a trailing underscore is dropped, so `list_` is `list`.
-- `risk` is `READ` (no side effects), `WRITE` (easy to undo) or `DESTRUCTIVE` (bulk or hard to undo). A destructive action needs a plan and always runs in two steps (D21).
-- `needs` is a Discord permission, or a tuple of them, by discord.py's name, such as `"manage_messages"`. The core checks it live on every call (D18, D19), and pyright checks the names.
+- The function's name is the action's name, so this is the slash command `/raffles draw`, the MCP tool `raffles_draw` and the service action `raffles.draw`. `name=` overrides it, and a trailing underscore is dropped, so `list_` is `list`.
+- `risk` is `READ` (no side effects), `WRITE` (easy to undo) or `DESTRUCTIVE` (bulk or hard to undo). A destructive action needs a plan and always runs in two steps.
+- `needs` is a Discord permission, or a tuple of them, by discord.py's name, such as `"manage_messages"`. The core checks it live on every call, and pyright checks the names.
 - `reply="public"` shows the reply to the channel. Replies are private by default.
 - The docstring's first line is the summary. Its `Args:` section describes every input, each in at most 100 characters. A missing entry fails the load and names the line.
 
@@ -72,13 +84,13 @@ Every parameter after the context is an input. Each may be optional (`X | None =
 
 - Limits go in `Annotated[int, Field(ge=1, le=20)]` or `Annotated[str, Field(max_length=100)]`. Discord enforces them before the member sends.
 - A `TextChannel` that is missing or takes no messages, or a `Role` or `Member` not in the server, is refused with a message the member sees, and the function does not run.
-- Any other type fails the load (D29).
+- Any other type fails the load.
 
 ### Outputs
 
 - An action returns a Pydantic model, a list of models, or a `str`.
 - In Discord a model is shown through its `render()` method if it has one, and otherwise as an embed of its fields. A list is shown one line per item, and a string as written.
-- Mark text that members wrote as `UntrustedText`, which MCP clients receive wrapped as data (D23).
+- Mark text that members wrote as `UntrustedText`, which MCP clients receive wrapped as data.
 - To tell the member what went wrong, raise `ActionError("That raffle has ended.")`. The message is shown as written and recorded in the audit log. Any other exception shows a generic reply and keeps its details in the audit log.
 
 ### Plans
@@ -91,13 +103,13 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 ```
 
 - A destructive action's plan takes the same inputs and returns a `Diff` of what it would change. Without a plan the load fails.
-- The member sees the plan and confirms it within 15 minutes. If what it shows has changed by then, they get a fresh plan, marked stale, instead (D21).
+- The member sees the plan and confirms it within 15 minutes. If what it shows has changed by then, they get a fresh plan, marked stale, instead.
 - The action then runs as a job and reads the confirmed plan as `ctx.diff`. An entry's `key` carries what the apply needs, such as a row id, so it changes exactly what the member saw.
 - A destructive action returns a model, a list or a string like any other, but the member does not see it: they see the plan, then that the change is applying. Report what it did with `await ctx.report({...})`, which `/admin job_status` shows.
 
 ## The context
 
-`ctx` is for one server (D2):
+`ctx` is for one server:
 
 - `ctx.guild`: the server, as a `Guild`. `get_text_channel(id)`, `get_role(id)` and `await get_member(id)` find things in it, or return `None`.
 - `ctx.actor`: who asked. `user_id` is the member, `via` how the call came in (`"slash"`, `"component"` for a button or a confirmation, `"mcp"`, `"service"`, or `"job"`), and `token_id` the token for MCP and service calls. In a job, it is the member who scheduled it, or `SYSTEM`.
@@ -119,8 +131,8 @@ await channel.send(embed=discord.Embed(title="Results"))
 
 ## The database
 
-- The plugin owns the schema `plugin_<id>` and a role that can use nothing else (D9). Name tables without a prefix. Reading the core or another plugin's tables fails.
-- Every table has a `bigint guild_id` column, and the migration runner refuses tables without one. That is how the core deletes a server's data when the bot leaves it (D49).
+- The plugin owns the schema `plugin_<id>` and a role that can use nothing else. Name tables without a prefix. Reading the core or another plugin's tables fails.
+- Every table has a `bigint guild_id` column, and the migration runner refuses tables without one. That is how the core deletes a server's data when the bot leaves it.
 - Every query must filter by `guild_id` itself (`WHERE guild_id = $1` with `ctx.guild.id`). A query without the filter sees every server's rows.
 - A foreign key includes `guild_id`, so a row cannot point at another server's row. A unique index includes `guild_id` unless one of its columns is unique on its own. teabot checks these when the plugin loads, along with no views and no `SECURITY DEFINER` functions, and a broken rule stops the load with what to write instead.
 - Queries take the result type first: `fetch(Model, sql, ...)` returns a list of models, `fetchrow(Model, sql, ...)` a model or `None`, and `fetchval(int, sql, ...)` one value. Each row is validated. `execute(sql, ...)` returns Postgres's status, such as `"INSERT 0 1"`.
@@ -138,20 +150,20 @@ await channel.send(embed=discord.Embed(title="Results"))
     - Never await Discord or HTTP inside a block. It holds a connection and its locks across a slow call.
 - Use `now()` in SQL for the time, never `CURRENT_TIMESTAMP`, since tests move `now()`.
 - Never build dynamic SQL from member input in a plpgsql function (`EXECUTE`). It is the one way an injection bug could reach another plugin's data.
-- Never block the event loop. Use async libraries for any I/O (D33).
+- Never block the event loop. Use async libraries for any I/O.
 
 ## Migrations
 
-- `migrations/0001_<name>.sql`, `0002_<name>.sql` and so on, numbered from 1 with no gaps. Each runs once, in its own transaction, as the plugin's role (D9).
+- `migrations/0001_<name>.sql`, `0002_<name>.sql` and so on, numbered from 1 with no gaps. Each runs once, in its own transaction, as the plugin's role.
 - Migrations only go forward. Never edit one that has been released, since the runner refuses a changed file.
-- Keep the previous release working: add columns and tables in one release, and drop them in a later one (D15).
+- Keep the previous release working: add columns and tables in one release, and drop them in a later one.
 
 ## Config
 
 - A Pydantic model, passed as `Plugin(..., config=Model)`. Server admins set it with `/plugins config plugin:raffles setting:<name> value:<value>`. Without a setting, the command shows the current values. A value is read as JSON when it is JSON (numbers, `true`, `false`), and as the text typed otherwise, then validated through the model.
 - Give every field a default, so a server that has set nothing still works.
 - The plugin never writes to its config. Anything the plugin writes goes in its tables.
-- Change it only in ways older stored config still validates: new fields with defaults, `AliasChoices` for renames, `extra="ignore"` for removals, `model_validator(mode="before")` for anything else (D10).
+- Change it only in ways older stored config still validates: new fields with defaults, `AliasChoices` for renames, `extra="ignore"` for removals, `model_validator(mode="before")` for anything else.
 - Keep stored samples from earlier versions in `tests/fixtures/` and test that they still validate.
 
 ## Jobs
@@ -163,7 +175,7 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 ```
 
 - A job's parameters after the context are its payload. It is stored as JSON, so give them types that survive the trip, such as `int`, `str`, `bool`, `Literal`s, and lists, optionals and models of them.
-- `announce_winner.bind(raffle=3)` fixes the arguments, checked by pyright. `tx.schedule(bound, at=when)` queues it for this server, or as soon as possible without `at` (D31).
+- `announce_winner.bind(raffle=3)` fixes the arguments, checked by pyright. `tx.schedule(bound, at=when)` queues it for this server, or as soon as possible without `at`.
 - A job's key is its name and arguments. Scheduling the same bound job again moves it instead of adding another, and `tx.unschedule(bound)` removes it. `key=` sets a key of your own instead.
 - The job's name is the function's name, and queued jobs are stored by it. To rename the function, keep the stored name with `@plugin.job(name="old_name")`.
 - In a job, `ctx.actor` is the member who scheduled it and `ctx.config` is the server's config when it runs. If the bot has left the server, the job is dropped.
@@ -172,7 +184,8 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 
 ## Testing
 
-- Install `teabot[testing]` and run Postgres 16: `docker compose up -d --wait postgres` starts the instance template's. Add `-p teabot.testing.fixtures` to pytest's `addopts`. If Postgres is not reachable, the run stops at once and says what to start.
+- The scaffold's `pyproject.toml` sets the tests up: it depends on `teabot[testing]` and adds `-p teabot.testing.fixtures` to pytest's options. Run them with `uv run --package teabot-<id> pytest plugins/<id>`.
+- They need the instance's Postgres, which `setup.sh` starts, and read its password from the instance's `.env`. If Postgres is not reachable, the run stops at once and says what to start.
 - `teabot_harness` loads the plugin through the real loader and migrations into a fake server:
 
     ```python
@@ -222,7 +235,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 ```
 
 - The snapshot records what the plugin shows the world: its slash commands, its MCP tools and its jobs' payloads. The first run writes it.
-- A change fails the test with the difference. When the change is meant, add `--teabot-accept` to the test command, such as `uv run --env-file .env --package teabot-raffles pytest plugins/raffles --teabot-accept`, and commit the new snapshot. A renamed input or job argument is then a decision, since it breaks queued jobs and the commands members know.
+- A change fails the test with the difference. When the change is meant, add `--teabot-accept` to the test command, such as `uv run --package teabot-raffles pytest plugins/raffles --teabot-accept`, and commit the new snapshot. A renamed input or job argument is then a decision, since it breaks queued jobs and the commands members know.
 - Name the file `test_<id>_snapshot.py`, so that plugins in one instance never share a test module name.
 
 ## Review checklist

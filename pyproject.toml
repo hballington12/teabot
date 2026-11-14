@@ -33,7 +33,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/hballington12/teabot"
-Documentation = "https://github.com/hballington12/teabot/tree/main/docs"
+Documentation = "https://hballington12.github.io/teabot/"
 Changelog = "https://github.com/hballington12/teabot/blob/main/CHANGELOG.md"
 Issues = "https://github.com/hballington12/teabot/issues"
 
@@ -66,7 +66,9 @@ dev = [
     "pytest-postgresql>=10.0",
     "ruff>=0.17",
     "teabot-devtools",
+    "teabot-polls",
 ]
+docs = ["zensical==0.1.1"]
 duplicate-check = ["teabot-devtools-twin"]
 
 [build-system]
@@ -77,10 +79,11 @@ build-backend = "hatchling.build"
 packages = ["src/teabot"]
 
 [tool.uv.workspace]
-members = ["plugins/*"]
+members = ["plugins/*", "examples/*"]
 
 [tool.uv.sources]
 teabot-devtools = { workspace = true }
+teabot-polls = { workspace = true }
 teabot-devtools-twin = { workspace = true }
 
 [tool.ruff]
@@ -88,13 +91,15 @@ line-length = 110
 target-version = "py312"
 src = ["src", "tests", "scripts/release"]
 include = ["*.py", "*.pyi"]
+# The scaffold rendered for the docs is checked as an instance's code, where teabot is a third-party package.
+extend-exclude = ["tests/docs/scaffold"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "RUF", "ASYNC", "PL"]
 ignore = ["PLR2004"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["teabot", "teabot_devtools", "teabot_devtools_twin"]
+known-first-party = ["teabot", "teabot_devtools", "teabot_devtools_twin", "teabot_polls"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
@@ -104,6 +109,7 @@ max-line-length = 120
 # A plugin action's inputs are its parameters, so an action with six inputs takes six arguments.
 "src/teabot/plugins/**" = ["PLR0913", "PLR0917"]
 "plugins/*/src/**" = ["PLR0913", "PLR0917"]
+"examples/*/src/**" = ["PLR0913", "PLR0917"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -113,14 +119,16 @@ max-statements = 60
 max-nested-blocks = 3
 
 [tool.pyright]
-include = ["src", "tests", "plugins", "scripts"]
+include = ["src", "tests", "plugins", "examples", "scripts"]
+# The scaffold rendered for the docs, checked by tests/docs, imports a package that is not installed.
+exclude = ["tests/docs/scaffold"]
 # The release scripts import release_lib from their own directory.
 extraPaths = ["scripts/release"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "plugins"]
+testpaths = ["tests", "plugins", "examples"]
 pythonpath = ["scripts/release"]
 addopts = "-p teabot.testing.fixtures"
 asyncio_mode = "auto"
@@ -131,7 +139,7 @@ asyncio_default_test_loop_scope = "session"
 filterwarnings = ["ignore:'count' is passed as positional argument:DeprecationWarning:discord.utils"]
 
 [tool.importlinter]
-root_packages = ["teabot", "teabot_devtools"]
+root_packages = ["teabot", "teabot_devtools", "teabot_polls"]
 
 [[tool.importlinter.contracts]]
 name = "The plugin SDK does not depend on the core's internals (D45)"
@@ -160,7 +168,7 @@ forbidden_modules = [
 [[tool.importlinter.contracts]]
 name = "First-party plugins import only the SDK (D45)"
 type = "forbidden"
-source_modules = ["teabot.plugins", "teabot_devtools"]
+source_modules = ["teabot.plugins", "teabot_devtools", "teabot_polls"]
 forbidden_modules = [
     "teabot.adapters",
     "teabot.app",

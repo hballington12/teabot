@@ -6,7 +6,7 @@ teabot is an open-source framework for a general Discord bot built from plugins,
 
 The Tea clan runs the first instance, on its droplet, and is the source of the first requirements. Staff use it through Discord slash commands, and LLM clients such as Claude Code use it through an authenticated MCP server.
 
-To run your own teabot, follow [self-hosting.md](self-hosting.md); to write plugins for it, [plugin-authoring.md](plugin-authoring.md).
+To run your own teabot, or to write plugins for it, see the [documentation site](https://hballington12.github.io/teabot/).
 
 ## Goals
 

@@ -6,6 +6,10 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Documentation
+
+- The documentation is a site, at https://hballington12.github.io/teabot/, in three parts: using teabot in a server, self-hosting, and writing plugins. Its tutorial builds a polls plugin, whose code is tested with teabot's own.
+
 ### Using teabot
 
 - A plugin's command is shown only to members who hold the permissions all of its actions share, so most members no longer see commands they cannot use. teabot still checks each action's permissions on every call.

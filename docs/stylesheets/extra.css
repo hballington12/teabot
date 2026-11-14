@@ -1,0 +1,21 @@
+/* teabot's amber, from the icon, as the primary and accent colour in both schemes. */
+:root,
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #d4a72c;
+  --md-primary-fg-color--light: #e2c063;
+  --md-primary-fg-color--dark: #a8821c;
+  --md-primary-bg-color: #1d1a14;
+  --md-primary-bg-color--light: #1d1a14b3;
+  --md-accent-fg-color: #b8901f;
+  --md-accent-fg-color--transparent: #d4a72c1a;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-accent-fg-color: #e2c063;
+  --md-typeset-a-color: #e2c063;
+}
+
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #8a6a12;
+}

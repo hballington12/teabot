@@ -28,7 +28,7 @@
 ## Quick start
 
 1. **Add our bot.** A hosted Teabot is on its way, free for early adopters. Watch this repository to hear when it opens.
-2. **Host it yourself.** Follow the [self-hosting guide](https://github.com/hballington12/teabot/blob/main/docs/self-hosting.md): with Docker, you have your own Teabot running in about half an hour.
+2. **Host it yourself.** Follow the [quick start](https://hballington12.github.io/teabot/host/): with Docker, you have your own Teabot running in about 15 minutes.
 
 ## Plugins
 
@@ -39,15 +39,17 @@
 
 These ship with teabot. Turn one on in a server with `/plugins enable plugin:<name>`.
 
-A plugin hub for community plugins is coming. To write your own, see [Writing a plugin](https://github.com/hballington12/teabot/blob/main/docs/plugin-authoring.md).
+A plugin hub for community plugins is coming. To write your own, see [Your first plugin](https://hballington12.github.io/teabot/plugins/).
 
 ## Documentation
 
-For everything else, see the [docs](https://github.com/hballington12/teabot/tree/main/docs):
-- [Self-hosting](https://github.com/hballington12/teabot/blob/main/docs/self-hosting.md): from nothing to a running bot with a plugin of your own.
-- [Writing a plugin](https://github.com/hballington12/teabot/blob/main/docs/plugin-authoring.md): the SDK, testing, and the review checklist.
-- [Design](https://github.com/hballington12/teabot/blob/main/docs/design.md) and [architecture](https://github.com/hballington12/teabot/blob/main/docs/architecture.md): the decisions behind Teabot, and how it fits together.
-- [Changelog](https://github.com/hballington12/teabot/blob/main/CHANGELOG.md).
+Everything is on the [documentation site](https://hballington12.github.io/teabot/):
+- [Using Teabot](https://hballington12.github.io/teabot/use/): adding it to your server, plugins, permissions and AI assistants.
+- [Self-hosting](https://hballington12.github.io/teabot/host/): running your own, from nothing to a live bot.
+- [Writing plugins](https://hballington12.github.io/teabot/plugins/): your first plugin, a tutorial, and the reference.
+- [Release notes](https://hballington12.github.io/teabot/host/changelog/).
+
+For contributors, the [design decisions and architecture](https://github.com/hballington12/teabot/tree/main/design) explain how Teabot is built.
 
 ## Contributing
 

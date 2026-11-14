@@ -67,12 +67,15 @@ template/                       the instance template (D43)
         deploy.sh               pull, `uv sync --frozen --no-dev --all-packages`, restart, health check on localhost
     README.md                   creating the Discord application, intents, one teabot per server, both setups
 tests/                          core tests
-docs/
+docs/                           the documentation site's pages, built with Zensical (`zensical.toml`)
+    use/                        using teabot in a server
+    host/                       running an instance
+    plugins/                    writing plugins
+examples/polls/                 the tutorial's plugin, tested like any other
+design/
     design.md                   the numbered design decisions
     architecture.md             this file
     spikes.md                   the experiments that settled open technical questions
-    plugin-authoring.md         writing and testing a plugin
-    self-hosting.md             running an instance, from nothing to a plugin of your own
     glossary.md                 the terms the design and the code use
 ```
 
@@ -267,7 +270,7 @@ class LoadablePlugin(Protocol):
 
 ## Writing a local plugin (D44)
 
-The path a self-hoster follows, taught in `docs/tutorial.md` and documented in `docs/plugin-authoring.md`:
+The path a self-hoster follows, taught in the documentation site's Writing plugins section:
 
 1. In the instance repo, run `uv run teabot new-plugin raffles`. It creates `plugins/raffles/` as a workspace member with its entry point, a one-file plugin, first migration, README, tests and snapshot test, and adds it to the instance's dependencies.
 2. Write actions against `teabot.sdk`, and test them with `teabot.testing`.

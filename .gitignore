@@ -34,3 +34,5 @@ htmlcov/
 # quality-gate tool output (crapper, dryer, mutator)
 .metrics/
 target/
+# the documentation site's build
+site/

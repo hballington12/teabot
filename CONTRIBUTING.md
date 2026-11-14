@@ -2,9 +2,9 @@
 
 ## Before you start
 
-- The design is in [docs/design.md](docs/design.md), as numbered decisions such as (D21). A change that goes against a decision starts as an issue proposing to change it.
+- The design is in [design/design.md](https://github.com/hballington12/teabot/blob/main/design/design.md), as numbered decisions such as D21, and [design/architecture.md](https://github.com/hballington12/teabot/blob/main/design/architecture.md) shows how teabot is built. A change that goes against a decision starts as an issue proposing to change it.
 - Report a bug as an issue with the steps that show it. Report a security problem as [SECURITY.md](SECURITY.md) describes.
-- A plugin for your own instance needs nobody's approval (D44); [docs/plugin-authoring.md](docs/plugin-authoring.md) covers writing one. First-party plugins in this repository follow its review checklist.
+- A plugin for your own instance needs nobody's approval; [Writing plugins](https://hballington12.github.io/teabot/plugins/) covers writing one. First-party plugins in this repository follow the [review checklist](https://hballington12.github.io/teabot/plugins/reference/#review-checklist).
 
 ## Setting up
 
@@ -39,7 +39,10 @@ For the maintainers. A release publishes one package, `teabot`, with the first-p
 1. In one commit on `main`, set that version in `pyproject.toml`, and rename the changelog's **Unreleased** heading to `## <version> - <date>`.
 2. Tag it and push the tag: `git tag v<version>` and `git push origin v<version>`.
 3. The release workflow checks the version, the changelog and the template against the tag, publishes the package to PyPI, and attaches the locked template to a GitHub release with the changelog section as its notes.
-4. Set the version to the next `.dev0` and add a new **Unreleased** heading.
+4. Publishing the release also publishes the documentation site from the tag, through `docs.yml`.
+5. Set the version to the next `.dev0`, and add a new **Unreleased** heading below the `releases` marker.
+
+The site describes the latest release, so a docs fix ships in a patch release. `uv run --group docs zensical serve` previews it, and CI builds it with `--strict`, which fails on a broken link, anchor or included file.
 
 A new major version also moves the template's ranges, such as `teabot>=2.0,<3`.
 
