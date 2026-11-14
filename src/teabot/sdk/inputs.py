@@ -30,6 +30,8 @@ class InputField:
     description: str
     choices: tuple[str, ...] | tuple[int, ...] | None = None
     max_length: int | None = None
+    min_value: int | None = None
+    max_value: int | None = None
 
 
 def _unwrap_optional(annotation: Any) -> Any:
@@ -83,12 +85,24 @@ def _unalias(annotation: Any) -> Any:
     return annotation
 
 
+def _bound(metadata: list[Any], inclusive: str, exclusive: str, step: int) -> int | None:
+    """An integer field's limit from `ge`/`le`, or from `gt`/`lt` moved one step inside."""
+    for m in metadata:
+        if isinstance(value := getattr(m, inclusive, None), int):
+            return value
+        if isinstance(value := getattr(m, exclusive, None), int):
+            return value + step
+    return None
+
+
 def classify(name: str, info: FieldInfo) -> InputField:
     annotation = _unalias(_unwrap_optional(_unalias(info.annotation)))
     base, metadata = _split_annotated(annotation, list(info.metadata))
     kind, choices = _kind(name, base, metadata)
     max_length = next((m.max_length for m in metadata if getattr(m, "max_length", None) is not None), None)
-    return InputField(name, kind, info.is_required(), _describe(name, info), choices, max_length)
+    low = _bound(metadata, "ge", "gt", 1) if kind == "integer" else None
+    high = _bound(metadata, "le", "lt", -1) if kind == "integer" else None
+    return InputField(name, kind, info.is_required(), _describe(name, info), choices, max_length, low, high)
 
 
 def input_fields(model: type[BaseModel]) -> list[InputField]:

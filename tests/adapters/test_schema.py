@@ -148,3 +148,16 @@ def test_a_type_alias_is_seen_through() -> None:
     fields = {f.name: f for f in input_fields(Aliased)}
     assert (fields["size"].choices, fields["size"].required) == (("s", "m"), True)
     assert (fields["maybe"].choices, fields["maybe"].required) == (("s", "m"), False)
+
+
+class Limited(BaseModel):
+    winners: int = Field(ge=1, le=20, description="How many")
+    minutes: int = Field(gt=0, lt=10081, description="How long")
+    any_count: int = Field(description="No limits")
+
+
+def test_number_limits_reach_discords_options() -> None:
+    options = {o["name"]: o for o in slash_fields(Limited).options}
+    assert (options["winners"]["min_value"], options["winners"]["max_value"]) == (1, 20)
+    assert (options["minutes"]["min_value"], options["minutes"]["max_value"]) == (1, 10080)
+    assert "min_value" not in options["any_count"] and "max_value" not in options["any_count"]

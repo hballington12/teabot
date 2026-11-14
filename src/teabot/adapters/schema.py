@@ -39,6 +39,10 @@ def _option(field: InputField) -> dict[str, Any]:
         option["choices"] = [{"name": str(value), "value": value} for value in field.choices]
     if field.max_length is not None:
         option["max_length"] = field.max_length
+    if field.min_value is not None:
+        option["min_value"] = field.min_value
+    if field.max_value is not None:
+        option["max_value"] = field.max_value
     return option
 
 
