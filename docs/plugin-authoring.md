@@ -74,7 +74,7 @@ DRAW = ActionSpec(
     - The ref types hold a Discord ID. Give fields a `description`; Discord shows it.
 - Output is a model. In Discord it is shown through `render` if the action has one, or as an embed of its fields. Mark member-written text in outputs as `UntrustedText`, which MCP wraps (D23).
 - To tell the member what went wrong, raise `ActionError("That channel is not a text channel.")`. The message is shown as written and recorded in the audit log. Any other exception shows a generic reply and keeps its details in the audit log.
-- A destructive action's own output is not shown yet: the member sees the plan, then that the change is applying. Report what it did through `ctx.report(...)` progress, which `/admin job_status` shows.
+- A destructive action's output is not shown to the member, who sees the plan and then that the change is applying. Report what it did through `ctx.report(...)` progress, which `/admin job_status` shows.
 
 ## What an action receives
 
@@ -97,7 +97,7 @@ except discord.Forbidden:
     raise ActionError("I am not allowed to post in that channel.") from None
 ```
 
-In tests the server is a `FakeGuild`, whose channels are fakes, so code like this works in both. The `cast` is there because pyright cannot see that the fakes and discord.py's channels share `send`; the SDK's own Discord types will remove it.
+In tests the server is a `FakeGuild`, whose channels are fakes, so code like this works in both. The `cast` is there because pyright cannot see that the fakes and discord.py's channels share `send`.
 
 ## The database
 
@@ -128,7 +128,7 @@ In tests the server is a `FakeGuild`, whose channels are fakes, so code like thi
 ## Config
 
 - A Pydantic model, set by server admins with `/plugins config plugin:raffles setting:<name> value:<value>`. Without a setting, the command shows the current values. A value is read as JSON when it is JSON (numbers, `true`, `false`), and as the text typed otherwise, then validated through the model.
-- `ctx.config` is typed as `BaseModel`; read your own model with `cast(RafflesConfig, ctx.config)` until the SDK types it.
+- `ctx.config` is typed as `BaseModel`; read your own model with `cast(RafflesConfig, ctx.config)`.
 - The plugin never writes to its config; anything the plugin writes goes in its tables.
 - Change it only in ways older stored config still validates: new fields with defaults, `AliasChoices` for renames, `extra="ignore"` for removals, `model_validator(mode="before")` for anything else (D10).
 - Keep stored samples from earlier versions in `tests/fixtures/` and test that they still validate.
@@ -139,7 +139,7 @@ In tests the server is a `FakeGuild`, whose channels are fakes, so code like thi
 - A handler receives one `JobContext`, with `guild_id`, `payload`, `db` (as in actions), `client` and `report(progress)`. To post from a job, find the channel with `ctx.client.get_channel(channel_id)`.
 - A job can run twice: after a crash, its lease runs out and another worker takes it. Write handlers so a second run changes nothing.
 - A failing job, including one that raises `ActionError`, is retried after 2, 4, 8 and 16 seconds, five attempts in all, then stays failed with its error, which `/admin job_status` shows.
-- Known gap: `tx.schedule` and `ctx.queue.schedule` go through the plugin's `schedule_job` function, which takes the server's id as an argument, so plugin code could queue a job for another server. Always schedule for `ctx.guild.id`; a later release takes the server from the connection instead.
+- `tx.schedule` and `ctx.queue.schedule` queue a job for the action's own server. The plugin's `schedule_job` SQL function takes a server's id as an argument, so SQL that calls it directly can name any server; always go through `tx.schedule` or `ctx.queue.schedule`.
 
 ## Testing
 
@@ -165,7 +165,7 @@ In tests the server is a `FakeGuild`, whose channels are fakes, so code like thi
     await harness.run_jobs()
     ```
 
-- `harness.run_jobs()` runs every due job through the real worker. If a job fails, it raises `JobFailed` with the job's own exception as its cause, so the traceback shows; a test that expects a failure catches `JobFailed`. Until the SDK has a test clock, make a scheduled job due with `await harness.admin.execute("UPDATE core.jobs SET run_at = now() WHERE id = $1", job_id)`.
+- `harness.run_jobs()` runs every due job through the real worker. If a job fails, it raises `JobFailed` with the job's own exception as its cause, so the traceback shows; a test that expects a failure catches `JobFailed`. To make a scheduled job due, use `await harness.admin.execute("UPDATE core.jobs SET run_at = now() WHERE id = $1", job_id)`.
 - A refusal raises `Refused` with one of these codes:
 
     | Code | Meaning |
