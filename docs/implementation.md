@@ -144,7 +144,7 @@ Milestone 6 does not depend on milestone 5, so it can start once milestone 4 is 
 
 **Exit check.** The milestone 6 "done when" list in `plan.md`.
 
-Met on 2026-11-14 with the dev bot in the test server. Confirming a `devtools.clear_notes` plan after adding a note was refused with `plan_stale` and answered with a fresh plan. A plan made before a restart of the bot was confirmed after it and applied. A clear with `seconds_each:3` showed 2 of 8, then 4 of 8, through `/admin job_status`, and finished 8 of 8. Asking about the job before its first report failed, since `progress` is NULL until then; that was fixed in `6559497`. The 15-minute expiry and a confirm by another member rest on `test_a_confirm_value_is_refused_unless_it_is_this_members_live_unused_plan`, with the live expiry left to the maintainer.
+Met on 2026-11-14 with the dev bot in the test server. Confirming a `devtools.clear_notes` plan after adding a note was refused with `plan_stale` and answered with a fresh plan. A plan made before a restart of the bot was confirmed after it and applied. A clear with `seconds_each:3` showed 2 of 8, then 4 of 8, through `/admin job_status`, and finished 8 of 8. Asking about the job before its first report failed, since `progress` is NULL until then; that was fixed in `6559497`. Confirming a plan more than 15 minutes old was refused. A confirm by another member needs a second account, so it rests on `test_a_confirm_value_is_refused_unless_it_is_this_members_live_unused_plan`.
 
 ## Milestone 7: open-source release
 
