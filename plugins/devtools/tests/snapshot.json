@@ -1,0 +1,99 @@
+{
+  "commands": {
+    "description": "devtools commands",
+    "name": "devtools",
+    "options": [
+      {
+        "description": "Clear notes, after showing which.",
+        "name": "clear_notes",
+        "options": [
+          {
+            "description": "Only notes containing this; empty for all",
+            "max_length": 200,
+            "name": "containing",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "A pause after each note, to watch progress",
+            "max_value": 5,
+            "min_value": 0,
+            "name": "seconds_each",
+            "required": false,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Note something down.",
+        "name": "note",
+        "options": [
+          {
+            "description": "What to note down",
+            "max_length": 200,
+            "name": "text",
+            "required": true,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Try to read the core schema, and report the refusal. Reading it would mean role isolation (D9) is",
+        "name": "peek_core",
+        "options": [],
+        "type": 1
+      }
+    ],
+    "type": 1
+  },
+  "jobs": {},
+  "tools": {
+    "devtools_clear_notes": {
+      "properties": {
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "containing": {
+          "default": "",
+          "description": "Only notes containing this; empty for all",
+          "maxLength": 200,
+          "title": "Containing",
+          "type": "string"
+        },
+        "seconds_each": {
+          "default": 0,
+          "description": "A pause after each note, to watch progress",
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Seconds Each",
+          "type": "integer"
+        }
+      },
+      "title": "DevtoolsClearNotesInput",
+      "type": "object"
+    },
+    "devtools_note": {
+      "properties": {
+        "text": {
+          "description": "What to note down",
+          "maxLength": 200,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "DevtoolsNoteInput",
+      "type": "object"
+    },
+    "devtools_peek_core": {
+      "properties": {},
+      "title": "DevtoolsPeekCoreInput",
+      "type": "object"
+    }
+  }
+}
