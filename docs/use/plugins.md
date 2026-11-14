@@ -15,6 +15,7 @@ teabot lists each plugin, and whether it is on here:
 ```text
 announcements enabled
 giveaways disabled
+roles disabled
 ```
 
 A plugin may say `not loaded`, with a reason. That is for the operator to fix, and the plugin cannot be turned on until they do.
@@ -60,6 +61,6 @@ Change one:
 - A channel, role or member is given by its ID. To copy an ID, turn on **Developer Mode** in Discord's **Advanced** settings, then right-click the channel, role or member and choose **Copy ID**.
 - teabot checks the value, and says what is wrong if it does not fit.
 
-Each plugin's page lists its settings: [Announcements](plugins/announcements.md) and [Giveaways](plugins/giveaways.md).
+Each plugin's page lists its settings: [Announcements](plugins/announcements.md), [Giveaways](plugins/giveaways.md) and [Roles](plugins/roles.md).
 
 **Next:** [Who can use what](permissions.md).

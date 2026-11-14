@@ -123,7 +123,7 @@ The results, after the clock moves past the end:
 ```
 
 - `harness.call(start, ...)` runs the action through teabot's real path, permissions and audit included. Pyright checks the arguments against the function, and `out` is a `Started`.
-- It calls as the server's first member, who has Administrator. `harness.as_member(member).call(...)` calls as someone else.
+- It calls as the server's owner, its first member, who has Administrator. `harness.as_member(member).call(...)` calls as someone else.
 - `harness.advance(minutes=61)` moves the clock: `ctx.now`, `now()` in your SQL, and when jobs fall due. `harness.run_jobs()` then runs the due jobs, and raises with the job's own error if one fails.
 
 Settings, as an admin would set them:

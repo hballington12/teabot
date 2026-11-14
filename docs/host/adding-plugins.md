@@ -6,7 +6,7 @@ A plugin is installed on your instance by you, the operator, and then turned on 
 
 ## The plugins that come with teabot
 
-[Announcements](../use/plugins/announcements.md) and [giveaways](../use/plugins/giveaways.md) ship inside teabot. They are installed already, and off in every server until an admin turns them on.
+[Announcements](../use/plugins/announcements.md), [giveaways](../use/plugins/giveaways.md) and [roles](../use/plugins/roles.md) ship inside teabot. They are installed already, and off in every server until an admin turns them on.
 
 ## Install a plugin
 

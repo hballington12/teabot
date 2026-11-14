@@ -1,12 +1,13 @@
 """The documentation site stays true to the code: the commands, the plugins, the settings and the scaffold."""
 
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from teabot.cli.new_plugin import write_package
-from teabot.plugins import announcements, giveaways
+from teabot.plugins import announcements
 from teabot.sdk import Plugin
 from teabot.settings import Settings
 from teabot.testing import HarnessFactory
@@ -30,7 +31,15 @@ async def test_every_built_in_command_is_in_the_commands_table(teabot_harness: H
     assert [a for a in built_in if command(a) not in page] == []
 
 
-@pytest.mark.parametrize("plugin", [announcements.plugin, giveaways.plugin], ids=lambda p: p.id)
+def first_party() -> list[Plugin[Any]]:
+    """Every plugin that ships inside teabot, from teabot's own entry points."""
+    found = [
+        ep.load() for ep in entry_points(group="teabot.plugins") if ep.value.startswith("teabot.plugins.")
+    ]
+    return sorted(found, key=lambda p: p.id)
+
+
+@pytest.mark.parametrize("plugin", first_party(), ids=lambda p: p.id)
 def test_every_first_party_plugin_has_a_page_naming_each_action(plugin: Plugin[Any]) -> None:
     page = (DOCS / f"use/plugins/{plugin.id}.md").read_text()
     assert [a for a in plugin.actions if command(a) not in page] == []

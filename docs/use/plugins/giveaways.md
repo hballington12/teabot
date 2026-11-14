@@ -77,4 +77,4 @@ Change them with `/plugins config plugin:giveaways setting:<name> value:<value>`
 
 The tools are `giveaways_start`, `giveaways_enter`, `giveaways_list` and `giveaways_cancel`.
 
-**Next:** [Troubleshooting](../troubleshooting.md).
+**Next:** [Roles](roles.md).

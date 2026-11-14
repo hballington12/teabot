@@ -36,6 +36,7 @@
 |---|---|
 | [`announcements`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/announcements) | Posts an announcement to a channel, now or at a set time. |
 | [`giveaways`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/giveaways) | Runs giveaways: members enter, and winners are drawn when time is up. |
+| [`roles`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/roles) | Posts a role picker: a button for each role, which members press to take it. |
 
 These ship with teabot. Turn one on in a server with `/plugins enable plugin:<name>`.
 

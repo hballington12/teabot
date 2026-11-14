@@ -32,6 +32,7 @@ Type `/plugins list` in any channel. teabot replies with the plugins it has, and
 ```text
 announcements disabled
 giveaways disabled
+roles disabled
 ```
 
 Only you see the reply. Most of teabot's replies are private to the member who ran the command.

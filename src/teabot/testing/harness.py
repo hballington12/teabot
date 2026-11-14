@@ -72,7 +72,7 @@ type HarnessFactory = Callable[[LoadablePlugin], Awaitable["PluginHarness"]]
 
 @dataclass
 class PluginHarness:
-    """One plugin, enabled in one fake server whose first member has Administrator."""
+    """One plugin, enabled in one fake server whose first member owns it and has Administrator."""
 
     registry: Registry
     statuses: dict[str, str]
@@ -114,9 +114,9 @@ class PluginHarness:
         return ran
 
     async def call[**P, R](self, action: Action[Any, P, R], /, *args: P.args, **kwargs: P.kwargs) -> R:
-        """Run a decorated action as the server's first member, who has Administrator, through the real call path.
-        Returns what the action's function returned. A refusal raises `Refused`, and an `ActionError` raises
-        `ActionFailed`. A destructive action goes through `plan` and `confirm` instead."""
+        """Run a decorated action as the server's owner, its first member, who has Administrator, through the
+        real call path. Returns what the action's function returned. A refusal raises `Refused`, and an
+        `ActionError` raises `ActionFailed`. A destructive action goes through `plan` and `confirm` instead."""
         return await self.as_member(self.member).call(action, *args, **kwargs)
 
     async def plan[**P](self, action: Action[Any, P, Any], /, *args: P.args, **kwargs: P.kwargs) -> Planned:
@@ -309,6 +309,7 @@ async def build_harness(
         raise RuntimeError(f"{plugin_id} did not load ({status.reason}): {status.error}")
     guild = FakeGuild()
     member = guild.add_member(discord.Permissions.all())
+    guild.owner_id = member.id
     client = FakeClient({guild.id: guild})
     await admin.execute(ENABLE, guild.id, plugin_id)
     core = assemble(report, pools, Queue(pools.core_db()), client)

@@ -81,10 +81,25 @@ Every parameter after the context is an input. Each may be optional (`X | None =
 | `LongText` | multi-line text, typed in a modal |
 | `TextChannel`, `Role`, `Member` | a picker; the function receives the channel, role or member itself |
 | `ChannelRef`, `RoleRef`, `MemberRef` | a picker; the function receives the Discord ID |
+| `list[X]` of any of these but `LongText`, with `Field(max_length=...)` up to 10 | numbered options, such as `roles_1` to `roles_5`; MCP clients send an array |
 
 - Limits go in `Annotated[int, Field(ge=1, le=20)]` or `Annotated[str, Field(max_length=100)]`. Discord enforces them before the member sends.
 - A `TextChannel` that is missing or takes no messages, or a `Role` or `Member` not in the server, is refused with a message the member sees, and the function does not run.
+- A list needs its `max_length`, and its `min_length` says how many of its options are required: `Annotated[list[Role], Field(min_length=1, max_length=5)]`.
 - Any other type fails the load.
+
+### Suggestions
+
+```python
+@enter.autocomplete("giveaway")
+async def running(ctx: Ctx, typed: str) -> list[Choice[int]]:
+    rows = await ctx.db.fetch(Running, RUNNING, ctx.guild.id)
+    return [Choice(f"{r.id}: {r.prize}", r.id) for r in rows if typed in r.prize]
+```
+
+- `@action.autocomplete("option")` suggests values for a `str` or `int` option as the member types: up to 25 `Choice(name, value)`s, from what has been typed so far.
+- It runs as the member, without the audit log, and must answer within Discord's three seconds. When the action would be refused, or the function fails or is slow, the member sees no suggestions.
+- One function can suggest for several actions: stack the decorators.
 
 ### Outputs
 
@@ -111,8 +126,8 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 
 `ctx` is for one server:
 
-- `ctx.guild`: the server, as a `Guild`. `get_text_channel(id)`, `get_role(id)` and `await get_member(id)` find things in it, or return `None`.
-- `ctx.actor`: who asked. `user_id` is the member, `via` how the call came in (`"slash"`, `"component"` for a button or a confirmation, `"mcp"`, `"service"`, or `"job"`), and `token_id` the token for MCP and service calls. In a job, it is the member who scheduled it, or `SYSTEM`.
+- `ctx.guild`: the server, as a `Guild`. `get_text_channel(id)`, `get_channel(id)`, `get_role(id)` and `await get_member(id)` find things in it, or return `None`. [Working with the server](#working-with-the-server) lists what else it does.
+- `ctx.actor`: who asked. `user_id` is the member, `via` how the call came in (`"slash"`, `"component"` for a button, a select menu or a confirmation, `"mcp"`, `"service"`, `"job"`, or `"event"`), and `token_id` the token for MCP and service calls. In a job, it is the member who scheduled it; in an event, and a job nobody scheduled, it is `SYSTEM`.
 - `ctx.config`: the plugin's config for this server, as the plugin's own model.
 - `ctx.db`: the plugin's database, as its own role in its own schema.
 - `ctx.now`: the time. Read the clock only through it, since tests move it.
@@ -128,6 +143,54 @@ await channel.send(embed=discord.Embed(title="Results"))
 
 - Messages mention nobody unless you name members with `ping=`.
 - A channel the bot may not post in raises an `ActionError` that says so.
+- `files=[File("results.csv", data)]` attaches files.
+
+## Working with the server
+
+Every operation acts with the bot's own power, so **the plugin decides who may use it**: through the action's `needs=`, and its own checks where it lets members do something they could not do in Discord themselves, as the [roles plugin](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/roles/__init__.py) does. Before calling Discord, each operation refuses what Discord would, with an `ActionError` the member can read, such as "Raids is at or above my highest role".
+
+| On | Read | Do |
+|---|---|---|
+| `Member` | `name`, `display_name`, `roles` (highest first), `top_role`, `role_ids`, `joined_at`, `avatar_url`, `bot`, `timed_out_until` | `add_role`, `remove_role`, `set_nickname`, `timeout(timedelta)` up to 28 days, `remove_timeout`, `kick`, `send` a direct message |
+| `Role` | `name`, `position`, `permissions` (as `needs=` names them), `colour`, `managed`, `mentionable`, `hoisted` | |
+| `Guild` | `name`, `icon_url`, `owner_id`, `member_count`, `me` (the bot), `roles`, `channels` (any kind, each with its `kind` and `parent_id`) | `find_members(prefix)`, `ban(user_id, delete_message_days=)`, `unban`, `bans()` |
+| `Message` the bot sent | `id`, `channel_id`, `jump_url` | `edit`, which replaces its text, embed, buttons and files; `delete` |
+| `TextChannel` | `name`, `mention` | `send`, `get_message(id)` for one of the bot's own posts |
+
+- Every change takes `reason=`, which Discord's audit log shows. Without one, it says which action asked and for whom.
+- The bot cannot manage a role at or above its own highest role, a managed role, or a member who outranks it, and it cannot kick, ban or rename the server's owner.
+
+## Buttons and select menus
+
+```python
+await channel.send(
+    "**Pick your pings**",
+    buttons=[Button(toggle.bind(role=raids), label="Raids", emoji="🗡️", style="primary")],
+)
+```
+
+- `action.bind(...)` fixes an action's arguments, checked by pyright against its function. A `Role`, `TextChannel` or `Member` is kept as its ID.
+- A `Button` runs the bound action as the member who presses it, through the same path as a slash command: `needs=` is checked against the presser, the call is audited, and a destructive action shows its plan.
+- The call is held in the button itself, so a button keeps working after a restart, and needs nothing stored. It must fit Discord's 100 characters: bind IDs, never long text.
+- A post holds up to 25 buttons, five to a row. `style` is `"primary"`, `"secondary"` (the default), `"success"` or `"danger"`.
+- `Select(action.bind(...), into="roles", ...)` is a select menu: of `Option`s, filling a `list[str]` parameter, or with `kind="role"`, `"channel"` or `"member"`, Discord's own pickers, filling a list of those. The parameter it fills needs a default, such as `= None`, since `bind` leaves it out. A post holds one menu and up to 20 buttons.
+- A press's reply is private unless the action says `reply="public"`.
+
+## Member events
+
+```python
+@plugin.on_member_join
+async def welcome(ctx: Ctx, member: Member) -> None:
+    await member.send(f"Welcome to {ctx.guild.name}!")
+
+
+@plugin.on_member_leave
+async def farewell(ctx: Ctx, user_id: int) -> None: ...
+```
+
+- They run in the servers where the plugin is enabled, as the bot: `ctx.actor` is `SYSTEM`, with `via` `"event"`.
+- Each runs as one of the plugin's jobs, `on_member_join` or `on_member_leave`, so a failure is retried, up to three attempts, and shows in `/admin job_status`. A member who has left again by the time a join runs is skipped.
+- A leave gets the user's ID, since they are no longer a member.
 
 ## The database
 
@@ -201,11 +264,15 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 
 | Helper | What it does |
 |---|---|
-| `harness.call(action, ...)` | runs an action through the real call path, permissions and audit included, as the server's first member, who has Administrator; returns what the function returned |
+| `harness.call(action, ...)` | runs an action through the real call path, permissions and audit included, as the server's owner, its first member, who has Administrator; returns what the function returned |
 | `harness.as_member(member).call(...)` | the same, as another member; `.plan(...)` too |
 | `harness.plan(action, ...)` | a destructive action's `Planned` |
 | `harness.confirm(plan)` | confirms the plan and runs the apply |
 | `harness.run_jobs()` | runs every due job through the real worker; a failure raises `JobFailed` with the job's exception as its cause |
+| `harness.press(message.buttons[0])` | presses a button on a fake message, through the real call path, returning the reply the member sees; `as_member(m).press(...)` presses as someone else |
+| `harness.choose(message.select, values)` | chooses from a select menu: option values, or roles, channels or members |
+| `harness.join(member)`, `harness.leave(member)` | fire a member joining or leaving, and run the jobs they queue |
+| `harness.autocomplete(action, "option", typed)` | the suggestions a member sees after typing `typed` |
 | `harness.run_job(job.bind(...))` | runs the job now, as if scheduled again; use it after the job's first run, then check that nothing changed again |
 | `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |
 | `harness.configure(Cfg(...))` | stores the server's config, as an admin would |
@@ -213,7 +280,10 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 | `harness.admin` | a connection that can read every table, for checking what a test wrote |
 
 - `harness.guild.add_channel(FakeChannel())` adds a channel, whose `sent` lists what was posted. `FakeChannel(forbidden=True)` refuses to send, and `FakeVoiceChannel` takes no messages.
-- `harness.guild.add_member(permissions, roles=[...], cached=False)` adds a member, found only over REST when `cached=False`. `harness.guild.add_role(name)` adds a role.
+- `harness.guild.add_member(permissions, roles=[...], cached=False)` adds a member, found only over REST when `cached=False`. The fake member records what the bot did to it: its `roles`, `nick`, `timed_out_until`, `kicked`, the `dms` it was sent, and every `reasons` given.
+- `harness.guild.add_role(name, position=, permissions=, managed=)` adds a role, above the test's other roles and below the bot's, at position 100, unless `position` says otherwise.
+- A fake message keeps its `buttons`, `select`, `attachments`, how many `edits` it had, and whether it was `deleted`. `harness.guild.banned` holds the bans.
+- The harness's first member owns the server and has Administrator, so it may do anything; give a test member only the roles and permissions the test is about.
 - A column whose `DEFAULT now()` is filled in while the migration runs does not follow the test clock. Rows inserted later do.
 - A refusal raises `Refused` with one of these codes, and an `ActionError` raises `ActionFailed`, whose `public_message` is what the member saw:
 

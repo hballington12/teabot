@@ -321,6 +321,11 @@ class Guild(Protocol):
         ...
 
     @property
+    def me(self) -> Member:
+        """The bot itself, as a member, to compare roles with: it can manage only roles below its highest."""
+        ...
+
+    @property
     def member_count(self) -> int:
         """How many members the server has."""
         ...

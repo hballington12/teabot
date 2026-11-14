@@ -1,6 +1,6 @@
 # Built-in commands
 
-These commands come with teabot, and work in every server. Plugins add more: see [Announcements](plugins/announcements.md) and [Giveaways](plugins/giveaways.md).
+These commands come with teabot, and work in every server. Plugins add more: see [Announcements](plugins/announcements.md), [Giveaways](plugins/giveaways.md) and [Roles](plugins/roles.md).
 
 ## `/plugins`
 

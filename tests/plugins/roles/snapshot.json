@@ -1,0 +1,305 @@
+{
+  "commands": {
+    "description": "roles commands",
+    "name": "roles",
+    "options": [
+      {
+        "description": "Add a role to a role picker.",
+        "name": "add",
+        "options": [
+          {
+            "autocomplete": true,
+            "description": "The role picker's number",
+            "name": "post",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "The role to add",
+            "name": "role",
+            "required": true,
+            "type": 8
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Delete a role picker and its post. Members keep the roles they took.",
+        "name": "delete",
+        "options": [
+          {
+            "autocomplete": true,
+            "description": "The role picker's number",
+            "name": "post",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "The server's role pickers.",
+        "name": "list",
+        "options": [],
+        "type": 1
+      },
+      {
+        "description": "Post a role picker: a button for each role.",
+        "name": "post",
+        "options": [
+          {
+            "description": "Where to post it",
+            "name": "channel",
+            "required": true,
+            "type": 7
+          },
+          {
+            "description": "The post's title, such as \"Pick your pings\"",
+            "max_length": 100,
+            "name": "title",
+            "required": true,
+            "type": 3
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_1",
+            "required": true,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_2",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_3",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_4",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_5",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_6",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_7",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_8",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_9",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "The roles members can take",
+            "name": "roles_10",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "A line under the title",
+            "max_length": 500,
+            "name": "note",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Take a role off a role picker. Members keep it if they have it.",
+        "name": "remove",
+        "options": [
+          {
+            "autocomplete": true,
+            "description": "The role picker's number",
+            "name": "post",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "The role to take off",
+            "name": "role",
+            "required": true,
+            "type": 8
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Take a role from a role picker, or give it back. A role picker's buttons run this.",
+        "name": "toggle",
+        "options": [
+          {
+            "description": "The role picker's number",
+            "name": "post",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "The role",
+            "name": "role",
+            "required": true,
+            "type": 8
+          }
+        ],
+        "type": 1
+      }
+    ],
+    "type": 1
+  },
+  "jobs": {},
+  "tools": {
+    "roles_add": {
+      "properties": {
+        "post": {
+          "description": "The role picker's number",
+          "title": "Post",
+          "type": "integer"
+        },
+        "role": {
+          "description": "The role to add",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "post",
+        "role"
+      ],
+      "title": "RolesAddInput",
+      "type": "object"
+    },
+    "roles_delete": {
+      "properties": {
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "post": {
+          "description": "The role picker's number",
+          "title": "Post",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "post"
+      ],
+      "title": "RolesDeleteInput",
+      "type": "object"
+    },
+    "roles_list": {
+      "properties": {},
+      "title": "RolesListInput",
+      "type": "object"
+    },
+    "roles_post": {
+      "properties": {
+        "channel": {
+          "description": "Where to post it",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Channel",
+          "type": "string"
+        },
+        "note": {
+          "default": "",
+          "description": "A line under the title",
+          "maxLength": 500,
+          "title": "Note",
+          "type": "string"
+        },
+        "roles": {
+          "description": "The roles members can take",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Roles",
+          "type": "array"
+        },
+        "title": {
+          "description": "The post's title, such as \"Pick your pings\"",
+          "maxLength": 100,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "title",
+        "roles"
+      ],
+      "title": "RolesPostInput",
+      "type": "object"
+    },
+    "roles_remove": {
+      "properties": {
+        "post": {
+          "description": "The role picker's number",
+          "title": "Post",
+          "type": "integer"
+        },
+        "role": {
+          "description": "The role to take off",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "post",
+        "role"
+      ],
+      "title": "RolesRemoveInput",
+      "type": "object"
+    },
+    "roles_toggle": {
+      "properties": {
+        "post": {
+          "description": "The role picker's number",
+          "title": "Post",
+          "type": "integer"
+        },
+        "role": {
+          "description": "The role",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "post",
+        "role"
+      ],
+      "title": "RolesToggleInput",
+      "type": "object"
+    }
+  }
+}

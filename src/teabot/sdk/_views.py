@@ -458,6 +458,10 @@ class GuildView:
         return int(self.raw.member_count or 0)
 
     @property
+    def me(self) -> Member:
+        return self._member(self.raw.me)
+
+    @property
     def roles(self) -> Sequence[Role]:
         return _roles(self.raw.roles, self.raw)
 
