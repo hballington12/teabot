@@ -12,6 +12,7 @@ import os
 import secrets
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import asyncpg
@@ -27,6 +28,7 @@ from teabot.sdk import LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.testing.cleanup import cleanup, role_prefix, run_db_name
 from teabot.testing.harness import HarnessFactory, PluginHarness, build_harness
+from teabot.testing.snapshot import ACCEPT, SnapshotCheck, compare
 
 APP_PASSWORD = "app-test"
 PLUGINS_PASSWORD = "plugins-test"
@@ -149,3 +151,24 @@ def teabot_harness(admin: Conn, naming: Naming, pools: Pools) -> Iterator[Harnes
     CLOCK.offset = timedelta()
     yield make
     CLOCK.offset = timedelta()
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        ACCEPT,
+        action="store_true",
+        default=False,
+        help="teabot: write plugin snapshots instead of comparing them",
+    )
+
+
+@pytest.fixture
+def teabot_snapshot(request: pytest.FixtureRequest) -> SnapshotCheck:
+    """`teabot_snapshot(plugin, path)` fails when the plugin's commands, MCP tools or job payloads differ from the
+    snapshot at `path`, and writes it with `pytest --teabot-accept` or when there is none yet."""
+    accept = bool(request.config.getoption(ACCEPT))
+
+    def check(plugin: LoadablePlugin, path: Path) -> None:
+        compare(plugin, path, accept=accept)
+
+    return check

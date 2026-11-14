@@ -1,8 +1,10 @@
 """A plugin under test (D45): loaded, migrated and invoked through the real loader and call path."""
 
+import sys
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 
 import discord
@@ -19,6 +21,7 @@ from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
+from teabot.lint import check_package
 from teabot.sdk import DESTRUCTIVE, Action, Actor, LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
@@ -28,6 +31,25 @@ ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
 ON CONFLICT (guild_id, plugin_id) DO UPDATE SET enabled = true
 """
+
+
+class CheckFailed(Exception):
+    """The plugin's code fails the review checklist that `teabot check` runs. The message lists each problem with
+    its file and line."""
+
+
+def lint_plugin(plugin: LoadablePlugin) -> None:
+    """Run `teabot check` on a `Plugin`'s own package. A plugin written inside a test module is not checked."""
+    module = getattr(plugin, "_module", None)
+    if not module:
+        return
+    top = module.split(".", 1)[0]
+    file = getattr(sys.modules.get(top), "__file__", None)
+    if top in ("tests", "test") or file is None or Path(file).name != "__init__.py":
+        return
+    problems = check_package(Path(file).parent)
+    if problems:
+        raise CheckFailed("\n".join(str(p) for p in problems))
 
 
 class JobFailed(Exception):
@@ -198,6 +220,7 @@ async def build_harness(
     async def migrator(plugins: Sequence[PluginMigrations]) -> MigrationReport:
         return await migrate(admin, naming, plugins)
 
+    lint_plugin(plugin)
     report = await load(from_plugins([plugin]), disabled=(), migrate_with=migrator)
     plugin_id = plugin.manifest.id
     status = report.statuses[plugin_id]

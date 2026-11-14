@@ -24,10 +24,19 @@ from teabot.testing.fakes import (
     FakeRole,
     FakeVoiceChannel,
 )
-from teabot.testing.harness import HarnessFactory, JobFailed, MemberCalls, PluginHarness, build_harness
+from teabot.testing.harness import (
+    CheckFailed,
+    HarnessFactory,
+    JobFailed,
+    MemberCalls,
+    PluginHarness,
+    build_harness,
+)
+from teabot.testing.snapshot import SnapshotCheck, plugin_snapshot
 
 __all__ = [
     "ActionFailed",
+    "CheckFailed",
     "FakeCategory",
     "FakeChannel",
     "FakeClient",
@@ -43,5 +52,7 @@ __all__ = [
     "PluginHarness",
     "Queued",
     "Refused",
+    "SnapshotCheck",
     "build_harness",
+    "plugin_snapshot",
 ]
