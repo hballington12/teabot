@@ -1,30 +1,30 @@
-# Writing a teapot plugin
+# Writing a teabot plugin
 
-A plugin is a Python package that adds actions to teapot. Anyone running an instance can write one and install it without asking anyone (D44). This guide covers SDK 0.x; it becomes 1.0 at milestone 7, after which breaking changes need a major version (D45). Decision numbers point at the [README](../README.md).
+A plugin is a Python package that adds actions to teabot. Anyone running an instance can write one and install it without asking anyone (D44). This guide covers SDK 0.x; it becomes 1.0 at milestone 7, after which breaking changes need a major version (D45). Decision numbers point at the [README](../README.md).
 
 ## Starting a plugin
 
-- In your instance, `uv run teapot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, a manifest with one example action, a first migration, a README and tests.
-- Then `uv lock`, and run its tests against the Compose Postgres with `uv run --env-file .env --package teapot-raffles pytest plugins/raffles`.
-- Restart teapot, and `/plugins enable raffles` in a server.
+- In your instance, `uv run teabot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, a manifest with one example action, a first migration, a README and tests.
+- Then `uv lock`, and run its tests against the Compose Postgres with `uv run --env-file .env --package teabot-raffles pytest plugins/raffles`.
+- Restart teabot, and `/plugins enable raffles` in a server.
 
 ## The package
 
-- A plugin imports only `teapot.sdk` (D45). Everything else in `teapot` is internal and may change in any release. First-party plugins have an import-linter contract checking this.
-- `pyproject.toml` declares an entry point in the `teapot.plugins` group, pointing at the plugin object:
+- A plugin imports only `teabot.sdk` (D45). Everything else in `teabot` is internal and may change in any release. First-party plugins have an import-linter contract checking this.
+- `pyproject.toml` declares an entry point in the `teabot.plugins` group, pointing at the plugin object:
 
     ```toml
-    [project.entry-points."teapot.plugins"]
-    raffles = "teapot_raffles:plugin"
+    [project.entry-points."teabot.plugins"]
+    raffles = "teabot_raffles:plugin"
     ```
 
-- A plugin outside this repository depends on a compatible range of teapot, such as `teapot>=1.2,<2` (D14).
+- A plugin outside this repository depends on a compatible range of teabot, such as `teabot>=1.2,<2` (D14).
 - Ship a `py.typed` marker, and a `README.md` with an "External connections" section listing every host the plugin contacts, or "none" (D12).
 
 ## The plugin object
 
 ```python
-from teapot.sdk import Manifest, Registrar
+from teabot.sdk import Manifest, Registrar
 
 
 class Raffles:
@@ -38,7 +38,7 @@ class Raffles:
 plugin = Raffles()
 ```
 
-- The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teapot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load (D46).
+- The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teabot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load (D46).
 - `setup` only registers. Anything it raises fails the plugin, which keeps none of its registrations; everything else still loads (D14).
 
 ## Actions
@@ -122,24 +122,24 @@ DRAW = ActionSpec(
 
 ## Testing
 
-- Install `teapot[testing]` and run Postgres 16 (the instance template's Compose file has one). Add `-p teapot.testing.fixtures` to pytest's `addopts`.
-- `teapot_harness` loads the plugin through the real loader and migrations into a fake server, and `harness.invoke` runs actions through the real call path, permissions and audit included:
+- Install `teabot[testing]` and run Postgres 16 (the instance template's Compose file has one). Add `-p teabot.testing.fixtures` to pytest's `addopts`.
+- `teabot_harness` loads the plugin through the real loader and migrations into a fake server, and `harness.invoke` runs actions through the real call path, permissions and audit included:
 
     ```python
-    async def test_draw_picks_an_entrant(teapot_harness):
-        harness = await teapot_harness(plugin)
+    async def test_draw_picks_an_entrant(teabot_harness):
+        harness = await teabot_harness(plugin)
         channel = harness.guild.add_channel(FakeChannel())
         out = await harness.invoke("raffles.draw", {"channel": str(channel.id), "prize": "A pet"})
     ```
 
-- Tests import only `teapot.sdk` and `teapot.testing`, which also has what `invoke` raises and returns: `Refused` (check its `code`) before the action runs, `ActionFailed` (check its `public_message`) when the action raised, and a destructive action's `Planned` and `Queued`.
+- Tests import only `teabot.sdk` and `teabot.testing`, which also has what `invoke` raises and returns: `Refused` (check its `code`) before the action runs, `ActionFailed` (check its `public_message`) when the action raised, and a destructive action's `Planned` and `Queued`.
 - `harness.guild.add_member(permissions, cached=False)` adds a member found only over REST. `FakeChannel(forbidden=True)` refuses to send; `FakeVoiceChannel` takes no messages.
 
 ## Review checklist
 
 The PR template repeats this list for first-party plugins.
 
-- Imports only `teapot.sdk`.
+- Imports only `teabot.sdk`.
 - External connections listed in the README, and nothing else contacted.
 - Every table has `guild_id`; released migrations unchanged.
 - No Discord or HTTP awaits inside transaction blocks, and no blocking I/O.

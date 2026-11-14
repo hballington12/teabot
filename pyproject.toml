@@ -1,5 +1,5 @@
 [project]
-name = "teapot"
+name = "teabot"
 version = "0.1.0.dev0"
 description = "A plugin-based Discord bot framework, built to self-host and to scale"
 readme = "README.md"
@@ -26,7 +26,7 @@ testing = [
 ]
 
 [project.scripts]
-teapot = "teapot.cli:app"
+teabot = "teabot.cli:app"
 
 [dependency-groups]
 dev = [
@@ -40,25 +40,25 @@ dev = [
     "pytest-asyncio>=1.5",
     "pytest-postgresql>=10.0",
     "ruff>=0.17",
-    "teapot-announcements",
-    "teapot-devtools",
+    "teabot-announcements",
+    "teabot-devtools",
 ]
-duplicate-check = ["teapot-devtools-twin"]
+duplicate-check = ["teabot-devtools-twin"]
 
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/teapot"]
+packages = ["src/teabot"]
 
 [tool.uv.workspace]
 members = ["plugins/*"]
 
 [tool.uv.sources]
-teapot-announcements = { workspace = true }
-teapot-devtools = { workspace = true }
-teapot-devtools-twin = { workspace = true }
+teabot-announcements = { workspace = true }
+teabot-devtools = { workspace = true }
+teabot-devtools-twin = { workspace = true }
 
 [tool.ruff]
 line-length = 110
@@ -71,7 +71,7 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "RUF", "ASYNC", "PL"]
 ignore = ["PLR2004"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["teapot", "teapot_announcements", "teapot_devtools", "teapot_devtools_twin"]
+known-first-party = ["teabot", "teabot_announcements", "teabot_devtools", "teabot_devtools_twin"]
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
@@ -93,57 +93,57 @@ typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "plugins"]
-addopts = "-p teapot.testing.fixtures"
+addopts = "-p teabot.testing.fixtures"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 # discord.py's escape_markdown passes re.sub's count positionally, which Python 3.13 deprecates. Only that one
-# warning from that one module is hidden, so teapot's own warnings still show.
+# warning from that one module is hidden, so teabot's own warnings still show.
 filterwarnings = ["ignore:'count' is passed as positional argument:DeprecationWarning:discord.utils"]
 
 [tool.importlinter]
-root_packages = ["teapot", "teapot_announcements", "teapot_devtools"]
+root_packages = ["teabot", "teabot_announcements", "teabot_devtools"]
 
 [[tool.importlinter.contracts]]
 name = "The plugin SDK does not depend on the core's internals (D45)"
 type = "forbidden"
-source_modules = ["teapot.sdk"]
+source_modules = ["teabot.sdk"]
 forbidden_modules = [
-    "teapot.adapters",
-    "teapot.app",
-    "teapot.assembly",
-    "teapot.auth",
-    "teapot.builtin",
-    "teapot.cli",
-    "teapot.core",
-    "teapot.db",
-    "teapot.envfile",
-    "teapot.health",
-    "teapot.logs",
-    "teapot.runtime",
-    "teapot.settings",
-    "teapot.testing",
-    "teapot.web",
+    "teabot.adapters",
+    "teabot.app",
+    "teabot.assembly",
+    "teabot.auth",
+    "teabot.builtin",
+    "teabot.cli",
+    "teabot.core",
+    "teabot.db",
+    "teabot.envfile",
+    "teabot.health",
+    "teabot.logs",
+    "teabot.runtime",
+    "teabot.settings",
+    "teabot.testing",
+    "teabot.web",
 ]
 
 [[tool.importlinter.contracts]]
 name = "First-party plugins import only the SDK (D45)"
 type = "forbidden"
-source_modules = ["teapot_announcements", "teapot_devtools"]
+source_modules = ["teabot_announcements", "teabot_devtools"]
 forbidden_modules = [
-    "teapot.adapters",
-    "teapot.app",
-    "teapot.assembly",
-    "teapot.auth",
-    "teapot.builtin",
-    "teapot.cli",
-    "teapot.core",
-    "teapot.db",
-    "teapot.envfile",
-    "teapot.health",
-    "teapot.logs",
-    "teapot.runtime",
-    "teapot.settings",
-    "teapot.testing",
-    "teapot.web",
+    "teabot.adapters",
+    "teabot.app",
+    "teabot.assembly",
+    "teabot.auth",
+    "teabot.builtin",
+    "teabot.cli",
+    "teabot.core",
+    "teabot.db",
+    "teabot.envfile",
+    "teabot.health",
+    "teabot.logs",
+    "teabot.runtime",
+    "teabot.settings",
+    "teabot.testing",
+    "teabot.web",
 ]

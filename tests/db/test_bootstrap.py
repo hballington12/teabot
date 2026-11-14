@@ -1,13 +1,13 @@
-"""The database bootstrap behind `teapot init` (WP1.3)."""
+"""The database bootstrap behind `teabot init` (WP1.3)."""
 
 from typing import Any
 
 import pytest
 
-from teapot.db.bootstrap import bootstrap
-from teapot.db.naming import InvalidPluginId, Naming
-from teapot.db.pool import ConnectionInfo, Login, connect
-from teapot.db.types import Conn
+from teabot.db.bootstrap import bootstrap
+from teabot.db.naming import InvalidPluginId, Naming
+from teabot.db.pool import ConnectionInfo, Login, connect
+from teabot.db.types import Conn
 
 
 async def test_creates_roles_then_is_idempotent(admin: Conn, naming: Naming) -> None:

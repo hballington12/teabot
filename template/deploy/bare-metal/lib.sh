@@ -3,10 +3,10 @@
 
 # Used by the scripts that source this file.
 # shellcheck disable=SC2034
-ENV_FILE=/etc/teapot/teapot.env
+ENV_FILE=/etc/teabot/teabot.env
 # shellcheck disable=SC2034
-APP_DIR=/opt/teapot
-APP_HOME=/var/lib/teapot
+APP_DIR=/opt/teabot
+APP_HOME=/var/lib/teabot
 # shellcheck disable=SC2034
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -38,7 +38,7 @@ install_if_changed() {
     echo changed
 }
 
-as_teapot() { sudo -u teapot -H env UV_CACHE_DIR="$APP_HOME/.cache/uv" "$@"; }
+as_teabot() { sudo -u teabot -H env UV_CACHE_DIR="$APP_HOME/.cache/uv" "$@"; }
 
 # The cluster's data and config directories, from pg_lsclusters: "16 main" -> /var/lib/postgresql/16/main.
 pg_version() { pg_lsclusters --no-header | awk 'NR == 1 { print $1 }'; }

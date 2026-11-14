@@ -484,7 +484,7 @@ wheels = [
 ]
 
 [[package]]
-name = "teapot-explainer"
+name = "teabot-explainer"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

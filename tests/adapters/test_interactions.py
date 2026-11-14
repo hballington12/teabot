@@ -9,14 +9,14 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.adapters.interactions import InteractionRouter, default_embed
-from teapot.core.plans import Planned, Queued
-from teapot.core.registry import ActionFailed, Call, Refused
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import ActionSpec, Actor, ChannelRef, DiffEntry, LongText, Risk, UntrustedText
+from teabot.adapters.interactions import InteractionRouter, default_embed
+from teabot.core.plans import Planned, Queued
+from teabot.core.registry import ActionFailed, Call, Refused
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import ActionSpec, Actor, ChannelRef, DiffEntry, LongText, Risk, UntrustedText
 
 GUILD, USER, CHANNEL = 1001, 2001, 3001
 
@@ -187,7 +187,7 @@ async def test_a_modal_submitted_by_someone_else_is_refused(
 
 async def test_an_unknown_or_expired_draft_is_refused(router: tuple[InteractionRouter, FakeRegistry]) -> None:
     r, registry = router
-    submit = modal_submit("teapot:core:modal:00000000-0000-0000-0000-000000000000", {"body": "x"})
+    submit = modal_submit("teabot:core:modal:00000000-0000-0000-0000-000000000000", {"body": "x"})
     await r.handle(submit)
     assert registry.calls == [] and submit.events == [
         ("message", "That form has expired. Run the command again.", True)
@@ -224,11 +224,11 @@ async def test_commands_outside_a_server_are_refused(router: tuple[InteractionRo
     interaction.guild_id = None
     await r.handle(interaction)
     assert registry.calls == [] and interaction.events == [
-        ("message", "teapot commands work inside a server.", True)
+        ("message", "teabot commands work inside a server.", True)
     ]
 
 
-async def test_interactions_that_are_not_teapots_are_ignored(
+async def test_interactions_that_are_not_teabots_are_ignored(
     router: tuple[InteractionRouter, FakeRegistry],
 ) -> None:
     r, registry = router
@@ -298,7 +298,7 @@ async def test_a_plan_is_shown_with_a_confirm_button(router: tuple[InteractionRo
     assert fields["First entries"] == "remove post \\*0\\*\nremove post \\*1\\*"
     view = next(e[1] for e in interaction.events if e[0] == "view")
     (button,) = view.children
-    assert (button.label, button.custom_id) == ("Confirm", f"teapot:core:confirm:{CONFIRM}")
+    assert (button.label, button.custom_id) == ("Confirm", f"teabot:core:confirm:{CONFIRM}")
     assert view.is_finished()
 
 
@@ -328,7 +328,7 @@ async def test_pressing_confirm_calls_the_action_again_with_the_plans_input(
     handler, registry = router
     await planned_row(admin, {"ok": True})
     registry.result = Queued(job_id=7, audit_id=9)
-    interaction = press(f"teapot:core:confirm:{CONFIRM}")
+    interaction = press(f"teabot:core:confirm:{CONFIRM}")
     await handler.handle(interaction)
     assert registry.calls == [
         Call("announcements.wipe", GUILD, Actor(USER, "component"), {"ok": True, "confirm": CONFIRM})
@@ -345,7 +345,7 @@ async def test_a_button_for_a_plan_that_is_gone_is_refused(
     router: tuple[InteractionRouter, FakeRegistry],
 ) -> None:
     handler, registry = router
-    interaction = press(f"teapot:core:confirm:{CONFIRM}")
+    interaction = press(f"teabot:core:confirm:{CONFIRM}")
     await handler.handle(interaction)
     assert registry.calls == []
     assert interaction.events == [
@@ -359,7 +359,7 @@ async def test_a_refused_confirm_is_told_privately(
     handler, registry = router
     await planned_row(admin, {"ok": True})
     registry.result = Refused("confirm_mismatch", "that plan was made by someone else")
-    interaction = press(f"teapot:core:confirm:{CONFIRM}")
+    interaction = press(f"teabot:core:confirm:{CONFIRM}")
     await handler.handle(interaction)
     assert interaction.events[-1] == ("followup", "that plan was made by someone else", True)
 

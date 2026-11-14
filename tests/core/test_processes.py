@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from teapot.core.processes import (
+from teabot.core.processes import (
     LockConnection,
     ProcessIdentity,
     ShardOwnedError,
@@ -14,11 +14,11 @@ from teapot.core.processes import (
     open_lock_connection,
     write_process_row,
 )
-from teapot.db.lockkeys import PLUGIN_NS, objid_to_key, plugin_key
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Login, Pools
-from teapot.db.types import Conn
+from teabot.db.lockkeys import PLUGIN_NS, objid_to_key, plugin_key
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Login, Pools
+from teabot.db.types import Conn
 
 
 @pytest.fixture

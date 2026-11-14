@@ -10,6 +10,6 @@ need_root
 read -r -s -p "Discord bot token: " token
 echo
 [ -n "$token" ] || die "no token given"
-set_env TEAPOT_DISCORD_TOKEN "$token"
-systemctl restart teapot
-echo "teapot restarted; check it with: curl -s http://127.0.0.1:8780/healthz"
+set_env TEABOT_DISCORD_TOKEN "$token"
+systemctl restart teabot
+echo "teabot restarted; check it with: curl -s http://127.0.0.1:8780/healthz"

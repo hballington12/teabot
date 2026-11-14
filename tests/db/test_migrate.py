@@ -7,11 +7,11 @@ from typing import Any
 import asyncpg
 import pytest
 
-from teapot.db.bootstrap import bootstrap
-from teapot.db.migrate import CORE_MIGRATIONS, MigrationError, PluginMigrations, migrate, read_files
-from teapot.db.naming import Naming
-from teapot.db.pool import ConnectionInfo, Login, Pools, connect
-from teapot.db.types import Conn
+from teabot.db.bootstrap import bootstrap
+from teabot.db.migrate import CORE_MIGRATIONS, MigrationError, PluginMigrations, migrate, read_files
+from teabot.db.naming import Naming
+from teabot.db.pool import ConnectionInfo, Login, Pools, connect
+from teabot.db.types import Conn
 
 ENTRIES = "CREATE TABLE entries (guild_id bigint NOT NULL, name text);"
 
@@ -189,7 +189,7 @@ async def test_a_server_bound_handle_queues_for_its_server_with_an_empty_payload
 async def test_an_owner_that_is_not_a_superuser_migrates_a_plugin(
     admin: Conn, naming: Naming, owner_kwargs: dict[str, Any], info: ConnectionInfo, tmp_path: Path
 ) -> None:
-    """Managed and carefully set up Postgres runs teapot under an owner without superuser rights. The owner
+    """Managed and carefully set up Postgres runs teabot under an owner without superuser rights. The owner
     holds each plugin role without inheriting it, so nothing it does in a plugin's schema may rely on that."""
     owner = f"{naming.prefix}_owner"
     database = owner_kwargs["database"]

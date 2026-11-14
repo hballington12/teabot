@@ -1,4 +1,4 @@
-"""Every public name of `teapot.sdk` is documented (D45), since plugin authors read the SDK and nothing else."""
+"""Every public name of `teabot.sdk` is documented (D45), since plugin authors read the SDK and nothing else."""
 
 import dataclasses
 import inspect
@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from teapot import sdk
+from teabot import sdk
 
 CLASSES = [getattr(sdk, n) for n in sdk.__all__ if inspect.isclass(getattr(sdk, n))]
 

@@ -6,9 +6,9 @@ from dataclasses import dataclass
 
 import pytest
 
-from teapot.app import TeapotClient, public_hosts, shard_latencies, token_or_exit
-from teapot.core.queue import ShardFilter
-from teapot.settings import Settings
+from teabot.app import TeabotClient, public_hosts, shard_latencies, token_or_exit
+from teabot.core.queue import ShardFilter
+from teabot.settings import Settings
 
 
 @dataclass
@@ -36,14 +36,14 @@ def test_no_shards_yet() -> None:
 
 
 def test_a_missing_token_stops_the_run_with_a_message() -> None:
-    with pytest.raises(SystemExit, match="TEAPOT_DISCORD_TOKEN"):
+    with pytest.raises(SystemExit, match="TEABOT_DISCORD_TOKEN"):
         token_or_exit("")
     assert token_or_exit("abc") == "abc"
 
 
 async def test_the_client_caches_members_lazily_without_message_content() -> None:
     """Built, never started: discord.py only creates its shard queue on connect, so it is not closed here."""
-    client = TeapotClient(lock=None)  # type: ignore[arg-type]
+    client = TeabotClient(lock=None)  # type: ignore[arg-type]
     assert client.intents.members is True
     assert client.intents.message_content is False
     assert client._connection._chunk_guilds is False  # pyright: ignore[reportPrivateUsage]
@@ -62,8 +62,8 @@ class FakeHttp:
         self.uploads.append((app_id, None, payload))
 
 
-def client_with(app_id: int | None = 555) -> tuple[TeapotClient, FakeHttp]:
-    client = TeapotClient(lock=None)  # type: ignore[arg-type]
+def client_with(app_id: int | None = 555) -> tuple[TeabotClient, FakeHttp]:
+    client = TeabotClient(lock=None)  # type: ignore[arg-type]
     http = FakeHttp()
     client.http = http  # type: ignore[assignment]
     client._connection.application_id = app_id  # pyright: ignore[reportPrivateUsage]

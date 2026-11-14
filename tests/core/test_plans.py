@@ -9,10 +9,10 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.core.plans import Planned, Queued, canonical, diff_hash
-from teapot.core.registry import Refused
-from teapot.sdk import ActionContext, ActionSpec, Diff, DiffEntry, Manifest, Registrar, Risk
-from teapot.testing import PluginHarness
+from teabot.core.plans import Planned, Queued, canonical, diff_hash
+from teabot.core.registry import Refused
+from teabot.sdk import ActionContext, ActionSpec, Diff, DiffEntry, Manifest, Registrar, Risk
+from teabot.testing import PluginHarness
 
 MIGRATIONS = Path(__file__).parent / "sweep_migrations"
 
@@ -60,8 +60,8 @@ class Sweep:
 
 
 @pytest.fixture
-async def harness(teapot_harness: Any) -> PluginHarness:
-    harness = await teapot_harness(Sweep())
+async def harness(teabot_harness: Any) -> PluginHarness:
+    harness = await teabot_harness(Sweep())
     for name in ("apple", "apricot", "banana", "boomerang"):
         await harness.admin.execute("INSERT INTO plugin_sweep.items VALUES ($1, $2)", harness.guild.id, name)
     return harness

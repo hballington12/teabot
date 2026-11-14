@@ -7,15 +7,15 @@ from datetime import UTC, datetime, timedelta
 import discord
 import pytest
 
-from teapot.core.audit import POST_ATTEMPTS, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
-from teapot.core.queue import Queue
-from teapot.core.registry import CallRecord
-from teapot.core.worker import Workers
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import Actor, Risk
+from teabot.core.audit import POST_ATTEMPTS, AuditLog, AuditMaintenance, PostAudit, ensure_read_partitions
+from teabot.core.queue import Queue
+from teabot.core.registry import CallRecord
+from teabot.core.worker import Workers
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import Actor, Risk
 
 GUILD, CHANNEL = 1001, 3001
 

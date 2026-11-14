@@ -7,10 +7,10 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.builtin.tokens import Created, TokenInfo, TokenList, render_created, render_list
-from teapot.core.registry import ActionFailed, Refused
-from teapot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
-from teapot.testing import PluginHarness
+from teabot.builtin.tokens import Created, TokenInfo, TokenList, render_created, render_list
+from teabot.core.registry import ActionFailed, Refused
+from teabot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
+from teabot.testing import PluginHarness
 
 
 class NoInput(BaseModel):
@@ -29,8 +29,8 @@ class Echo:
 
 
 @pytest.fixture
-async def harness(teapot_harness: Any) -> PluginHarness:
-    return await teapot_harness(Echo())
+async def harness(teabot_harness: Any) -> PluginHarness:
+    return await teabot_harness(Echo())
 
 
 async def create(harness: PluginHarness, user: int | None = None, **raw: Any) -> Any:
@@ -112,14 +112,14 @@ async def test_tokens_cannot_be_managed_with_a_token(harness: PluginHarness) -> 
 
 def test_the_created_reply_shows_the_token_once_with_its_limits() -> None:
     out = Created(
-        token="teapot_ab_cd",
+        token="teabot_ab_cd",
         token_id="ab",
         max_risk="read",
         actions=["echo.say"],
         expires_at=datetime(2026, 12, 13, tzinfo=UTC),
     )
     text = render_created(out)
-    assert "teapot_ab_cd" in text and "read" in text and "echo.say" in text and "2026-12-13" in text
+    assert "teabot_ab_cd" in text and "read" in text and "echo.say" in text and "2026-12-13" in text
 
 
 def test_the_list_reply_names_each_token_and_says_when_there_are_none() -> None:

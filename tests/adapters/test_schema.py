@@ -5,9 +5,9 @@ from typing import Any, Literal
 import pytest
 from pydantic import BaseModel, Field
 
-from teapot.adapters.schema import SchemaError, command_group, mcp_input_schema, slash_fields, tool_name
-from teapot.sdk import ActionSpec, ChannelRef, LongText, MemberRef, Risk, RoleRef
-from teapot.sdk.inputs import input_fields
+from teabot.adapters.schema import SchemaError, command_group, mcp_input_schema, slash_fields, tool_name
+from teabot.sdk import ActionSpec, ChannelRef, LongText, MemberRef, Risk, RoleRef
+from teabot.sdk.inputs import input_fields
 
 
 class Everything(BaseModel):

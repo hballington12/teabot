@@ -5,13 +5,13 @@ from typing import Any
 import httpx
 import pytest
 
-from teapot.core.queue import NewJob, Queue
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.health import Health
-from teapot.web import build_app
+from teabot.core.queue import NewJob, Queue
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.health import Health
+from teabot.web import build_app
 
 
 @pytest.fixture

@@ -7,15 +7,15 @@ from typing import Any
 import asyncpg
 import pytest
 
-from teapot.core.audit import AuditLog
-from teapot.core.lifecycle import Purge, PurgePlan, PurgeRefused
-from teapot.core.queue import Queue
-from teapot.db.bootstrap import bootstrap
-from teapot.db.lockkeys import PLUGIN_NS, plugin_key
-from teapot.db.migrate import PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import ConnectionInfo, Login, Pools, connect
-from teapot.db.types import Conn
+from teabot.core.audit import AuditLog
+from teabot.core.lifecycle import Purge, PurgePlan, PurgeRefused
+from teabot.core.queue import Queue
+from teabot.db.bootstrap import bootstrap
+from teabot.db.lockkeys import PLUGIN_NS, plugin_key
+from teabot.db.migrate import PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import ConnectionInfo, Login, Pools, connect
+from teabot.db.types import Conn
 
 HERE = 1001
 THERE = 1002

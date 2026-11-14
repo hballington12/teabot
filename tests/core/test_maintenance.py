@@ -4,13 +4,13 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from teapot.core.maintenance import Maintenance
-from teapot.core.queue import NewJob, Queue
-from teapot.core.worker import Workers
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
+from teabot.core.maintenance import Maintenance
+from teabot.core.queue import NewJob, Queue
+from teabot.core.worker import Workers
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
 
 
 @pytest.fixture

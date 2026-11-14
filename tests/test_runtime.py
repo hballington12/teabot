@@ -6,14 +6,14 @@ from typing import Any
 
 import pytest
 
-from teapot.core.processes import ShardOwnedError, open_lock_connection
-from teapot.core.queue import Queue
-from teapot.core.worker import Workers
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Login, Pools
-from teapot.db.types import Conn
-from teapot.runtime import Runtime, serve_until_stopped
+from teabot.core.processes import ShardOwnedError, open_lock_connection
+from teabot.core.queue import Queue
+from teabot.core.worker import Workers
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Login, Pools
+from teabot.db.types import Conn
+from teabot.runtime import Runtime, serve_until_stopped
 
 
 class FakeClient:

@@ -6,9 +6,9 @@ import logging
 import asyncpg
 import pytest
 
-from teapot.db.naming import Naming
-from teapot.db.pool import BlockOpenError, Database, Pools, Timing
-from teapot.db.types import Conn
+from teabot.db.naming import Naming
+from teabot.db.pool import BlockOpenError, Database, Pools, Timing
+from teabot.db.types import Conn
 
 
 async def make_plugin(admin: Conn, naming: Naming, plugin_id: str, rows: list[str]) -> None:
@@ -133,7 +133,7 @@ async def test_two_transactions_run_concurrently(world: Pools) -> None:
 
 
 async def test_slow_transaction_is_logged(world: Pools, caplog: pytest.LogCaptureFixture) -> None:
-    caplog.set_level(logging.WARNING, logger="teapot.db.pool")
+    caplog.set_level(logging.WARNING, logger="teabot.db.pool")
     async with world.plugin_db("alpha").transaction():
         await asyncio.sleep(0.15)
     assert any(r.message == "slow transaction" for r in caplog.records)
@@ -156,7 +156,7 @@ async def test_slow_transactions_are_logged_past_the_threshold(
 ) -> None:
     clock = FakeClock()
     db = Database(world.core, "core", Timing(slow_ms=slow_ms, clock=clock))
-    caplog.set_level(logging.WARNING, logger="teapot.db.pool")
+    caplog.set_level(logging.WARNING, logger="teabot.db.pool")
     async with db.transaction():
         clock.now += held_s
     records = [r for r in caplog.records if r.message == "slow transaction"]

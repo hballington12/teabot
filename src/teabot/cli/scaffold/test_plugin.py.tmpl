@@ -1,0 +1,21 @@
+"""teabot-$id, through the real loader, migrations and call path (`teabot.testing`)."""
+
+from typing import Any
+
+import discord
+from teabot.testing import PluginHarness
+
+from teabot_$id import Greeted, plugin
+
+
+async def test_hello_counts_a_members_greetings(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
+    assert await harness.invoke("$id.hello", {}) == Greeted(times=1)
+    assert await harness.invoke("$id.hello", {"greeting": "hi"}) == Greeted(times=2)
+
+
+async def test_each_member_has_their_own_count(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
+    await harness.invoke("$id.hello", {})
+    other = harness.guild.add_member(discord.Permissions.none())
+    assert await harness.invoke("$id.hello", {}, user=other.id) == Greeted(times=1)

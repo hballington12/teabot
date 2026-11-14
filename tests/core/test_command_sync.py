@@ -5,15 +5,15 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from teapot.core.command_sync import SYNC_HANDLER, CommandSync, digest
-from teapot.core.queue import JobContext, Queue
-from teapot.core.registry import ActionSource
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import ActionContext, ActionSpec, Risk
-from teapot.testing import FakeClient
+from teabot.core.command_sync import SYNC_HANDLER, CommandSync, digest
+from teabot.core.queue import JobContext, Queue
+from teabot.core.registry import ActionSource
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import ActionContext, ActionSpec, Risk
+from teabot.testing import FakeClient
 
 HERE = 1001
 THERE = 1002

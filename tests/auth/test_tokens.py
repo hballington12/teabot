@@ -5,13 +5,13 @@ from datetime import timedelta
 
 import pytest
 
-from teapot.auth.tokens import Grant, NewToken, TokenRefused, Tokens, parse
-from teapot.core.registry import TokenLimits
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import Risk
+from teabot.auth.tokens import Grant, NewToken, TokenRefused, Tokens, parse
+from teabot.core.registry import TokenLimits
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import Risk
 
 GUILD, MEMBER = 1001, 2001
 
@@ -39,7 +39,7 @@ async def test_an_issued_token_checks_as_its_member_server_and_limits(tokens: To
     issued = await tokens.issue(
         GUILD, MEMBER, NewToken("claude", max_risk=Risk.READ, allowed=["alpha.count"])
     )
-    assert issued.token.startswith(f"teapot_{issued.token_id}_")
+    assert issued.token.startswith(f"teabot_{issued.token_id}_")
     assert await tokens.check(issued.token) == Grant(
         issued.token_id, GUILD, MEMBER, TokenLimits(Risk.READ, frozenset({"alpha.count"}))
     )
@@ -66,15 +66,15 @@ async def test_a_wrong_secret_is_refused(tokens: Tokens, mangle: Callable[[str],
         await tokens.check(mangle(issued.token))
 
 
-@pytest.mark.parametrize("presented", ["", "teapot", "teapot_abc", "teapot__x", "github_abc_def", "Bearer x"])
-async def test_a_malformed_token_is_refused_as_not_a_teapot_token(tokens: Tokens, presented: str) -> None:
-    with pytest.raises(TokenRefused, match="not a teapot token"):
+@pytest.mark.parametrize("presented", ["", "teabot", "teabot_abc", "teabot__x", "github_abc_def", "Bearer x"])
+async def test_a_malformed_token_is_refused_as_not_a_teabot_token(tokens: Tokens, presented: str) -> None:
+    with pytest.raises(TokenRefused, match="not a teabot token"):
         await tokens.check(presented)
 
 
 async def test_a_well_formed_token_nobody_issued_is_unknown(tokens: Tokens) -> None:
     with pytest.raises(TokenRefused, match="unknown token"):
-        await tokens.check("teapot_nosuchid_secret")
+        await tokens.check("teabot_nosuchid_secret")
 
 
 async def test_an_expired_token_is_refused(tokens: Tokens, admin: Conn) -> None:

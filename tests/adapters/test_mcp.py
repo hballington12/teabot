@@ -10,11 +10,11 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from teapot.adapters.mcp import McpAdapter, wrap_untrusted
-from teapot.auth.middleware import BearerTokens
-from teapot.auth.tokens import NewToken
-from teapot.health import Health
-from teapot.sdk import (
+from teabot.adapters.mcp import McpAdapter, wrap_untrusted
+from teabot.auth.middleware import BearerTokens
+from teabot.auth.tokens import NewToken
+from teabot.health import Health
+from teabot.sdk import (
     ActionContext,
     ActionError,
     ActionSpec,
@@ -27,10 +27,10 @@ from teapot.sdk import (
     Surface,
     UntrustedText,
 )
-from teapot.testing import PluginHarness
-from teapot.web import build_app
+from teabot.testing import PluginHarness
+from teabot.web import build_app
 
-HOST = "teapot.example.org"
+HOST = "teabot.example.org"
 
 
 class Say(BaseModel):
@@ -89,8 +89,8 @@ class Echo:
 
 
 @pytest.fixture
-async def harness(teapot_harness: Any) -> PluginHarness:
-    return await teapot_harness(Echo())
+async def harness(teabot_harness: Any) -> PluginHarness:
+    return await teabot_harness(Echo())
 
 
 @pytest.fixture

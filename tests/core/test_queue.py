@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pytest
 
-from teapot.core.processes import open_lock_connection
-from teapot.core.queue import NOTIFY_CHANNEL, Job, JobContext, NewJob, Queue, ShardFilter
-from teapot.core.worker import Workers, seed_maintenance
-from teapot.db.migrate import PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Login, Pools
-from teapot.db.types import Conn
+from teabot.core.processes import open_lock_connection
+from teabot.core.queue import NOTIFY_CHANNEL, Job, JobContext, NewJob, Queue, ShardFilter
+from teabot.core.worker import Workers, seed_maintenance
+from teabot.db.migrate import PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Login, Pools
+from teabot.db.types import Conn
 
 SHARD0_GUILD = 0 << 22 | 7
 SHARD1_GUILD = 1 << 22 | 7

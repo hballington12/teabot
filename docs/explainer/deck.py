@@ -1,17 +1,17 @@
-"""The teapot walkthrough as one ManimGX scene: each `next_section` is a slide.
+"""The teabot walkthrough as one ManimGX scene: each `next_section` is a slide.
 
 Present it with `uv run manimgx present deck.py --pdf`.
 """
 
 import manimgx as m
 
-from teapot_explainer import s_architecture, s_close, s_hosting, s_intro, s_lifecycle, s_plugins
-from teapot_explainer.theme import apply_config
+from teabot_explainer import s_architecture, s_close, s_hosting, s_intro, s_lifecycle, s_plugins
+from teabot_explainer.theme import apply_config
 
 apply_config()
 
 
-class TeapotWalkthrough(m.Scene):
+class TeabotWalkthrough(m.Scene):
     """Title, agenda, the four chapters and the close."""
 
     def construct(self) -> None:

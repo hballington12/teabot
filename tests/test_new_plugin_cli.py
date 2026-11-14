@@ -1,4 +1,4 @@
-"""`teapot new-plugin` (WP7.2, D45): a package that loads, migrates and runs as it is written."""
+"""`teabot new-plugin` (WP7.2, D45): a package that loads, migrates and runs as it is written."""
 
 import importlib
 import subprocess
@@ -11,15 +11,15 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from teapot.cli import app
-from teapot.testing import PluginHarness
+from teabot.cli import app
+from teabot.testing import PluginHarness
 
 FILES = [
     "README.md",
     "pyproject.toml",
-    "src/teapot_scaffolded/__init__.py",
-    "src/teapot_scaffolded/migrations/0001_greetings.sql",
-    "src/teapot_scaffolded/py.typed",
+    "src/teabot_scaffolded/__init__.py",
+    "src/teabot_scaffolded/migrations/0001_greetings.sql",
+    "src/teabot_scaffolded/py.typed",
     "tests/test_scaffolded.py",
 ]
 
@@ -35,10 +35,10 @@ def scaffolded(tmp_path: Path) -> Iterator[ModuleType]:
     src = str(tmp_path / "plugins/scaffolded/src")
     sys.path.insert(0, src)
     try:
-        yield importlib.import_module("teapot_scaffolded")
+        yield importlib.import_module("teabot_scaffolded")
     finally:
         sys.path.remove(src)
-        sys.modules.pop("teapot_scaffolded", None)
+        sys.modules.pop("teabot_scaffolded", None)
 
 
 def test_it_writes_the_package(tmp_path: Path) -> None:
@@ -46,15 +46,15 @@ def test_it_writes_the_package(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     root = tmp_path / "plugins/scaffolded"
     assert sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()) == FILES
-    assert 'scaffolded = "teapot_scaffolded:plugin"' in (root / "pyproject.toml").read_text()
+    assert 'scaffolded = "teabot_scaffolded:plugin"' in (root / "pyproject.toml").read_text()
     assert "External connections: none" in (root / "README.md").read_text()
-    assert f"uv run --env-file .env --package teapot-scaffolded pytest {root}" in result.output
+    assert f"uv run --env-file .env --package teabot-scaffolded pytest {root}" in result.output
 
 
 async def test_the_scaffolded_plugin_loads_migrates_and_runs(
-    scaffolded: ModuleType, teapot_harness: Any
+    scaffolded: ModuleType, teabot_harness: Any
 ) -> None:
-    harness: PluginHarness = await teapot_harness(scaffolded.plugin)
+    harness: PluginHarness = await teabot_harness(scaffolded.plugin)
     assert await harness.invoke("scaffolded.hello", {}) == scaffolded.Greeted(times=1)
     assert await harness.admin.fetchval("SELECT greeting FROM plugin_scaffolded.greetings") == "hello"
 

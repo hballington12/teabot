@@ -9,7 +9,7 @@
 
 ## For a plugin
 
-- [ ] Imports only `teapot.sdk`
+- [ ] Imports only `teabot.sdk`
 - [ ] The README's "External connections" section lists every host contacted (D12)
 - [ ] Every table has a `bigint guild_id` column, and no released migration was edited (D9)
 - [ ] No Discord or HTTP awaits inside a transaction block, and no blocking I/O (D30, D33)

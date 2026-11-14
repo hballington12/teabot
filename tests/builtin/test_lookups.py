@@ -6,10 +6,10 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.auth.tokens import NewToken
-from teapot.core.registry import ActionFailed, Refused
-from teapot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
-from teapot.testing import FakeCategory, FakeChannel, FakeVoiceChannel, PluginHarness
+from teabot.auth.tokens import NewToken
+from teabot.core.registry import ActionFailed, Refused
+from teabot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
+from teabot.testing import FakeCategory, FakeChannel, FakeVoiceChannel, PluginHarness
 
 
 class NoInput(BaseModel):
@@ -28,8 +28,8 @@ class Echo:
 
 
 @pytest.fixture
-async def harness(teapot_harness: Any) -> PluginHarness:
-    return await teapot_harness(Echo())
+async def harness(teabot_harness: Any) -> PluginHarness:
+    return await teabot_harness(Echo())
 
 
 def dumped(out: BaseModel) -> dict[str, Any]:

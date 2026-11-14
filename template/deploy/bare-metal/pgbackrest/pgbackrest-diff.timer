@@ -1,6 +1,6 @@
 # A differential backup every other night. Between backups, archived WAL covers every change.
 [Unit]
-Description=Daily differential pgBackRest backup of teapot
+Description=Daily differential pgBackRest backup of teabot
 
 [Timer]
 OnCalendar=Mon..Sat *-*-* 03:15

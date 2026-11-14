@@ -1,23 +1,23 @@
 [project]
-name = "teapot-instance"
+name = "teabot-instance"
 version = "0.1.0"
-description = "One teapot instance: the plugins it runs, and how it is deployed (D42, D43)."
+description = "One teabot instance: the plugins it runs, and how it is deployed (D42, D43)."
 requires-python = ">=3.12"
 dependencies = [
-    "teapot",
+    "teabot",
     # First-party plugins this instance runs. Add or remove them here, then `uv lock`.
-    "teapot-announcements",
+    "teabot-announcements",
 ]
 
 [tool.uv]
 package = false
 
-# Your own plugins live in plugins/<id>/ as workspace members (D44): `uv run teapot new-plugin <id>`.
+# Your own plugins live in plugins/<id>/ as workspace members (D44): `uv run teabot new-plugin <id>`.
 [tool.uv.workspace]
 members = ["plugins/*"]
 
-# Until teapot is published (M7), it and its first-party plugins come from GitHub. uv.lock pins the exact
-# commit; upgrade with `uv lock --upgrade-package teapot --upgrade-package teapot-announcements`.
+# Until teabot is published (M7), it and its first-party plugins come from GitHub. uv.lock pins the exact
+# commit; upgrade with `uv lock --upgrade-package teabot --upgrade-package teabot-announcements`.
 [tool.uv.sources]
-teapot = { git = "ssh://git@github.com/hballington12/teapot.git", branch = "main" }
-teapot-announcements = { git = "ssh://git@github.com/hballington12/teapot.git", branch = "main", subdirectory = "plugins/announcements" }
+teabot = { git = "ssh://git@github.com/hballington12/teabot.git", branch = "main" }
+teabot-announcements = { git = "ssh://git@github.com/hballington12/teabot.git", branch = "main", subdirectory = "plugins/announcements" }

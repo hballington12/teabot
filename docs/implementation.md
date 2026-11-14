@@ -1,6 +1,6 @@
 # Implementation plan
 
-How teapot gets built. The [README](../README.md) records the decisions (D1 to D50) and [`plan.md`](plan.md) describes what the finished milestones contain. This document turns those milestones into ordered work packages, each small enough to finish in a few focused commits.
+How teabot gets built. The [README](../README.md) records the decisions (D1 to D50) and [`plan.md`](plan.md) describes what the finished milestones contain. This document turns those milestones into ordered work packages, each small enough to finish in a few focused commits.
 
 ## Ground rules
 
@@ -9,7 +9,7 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 - Python 3.12 or later, because the SDK uses PEP 695 generics (`class ActionSpec[I: BaseModel, O: BaseModel]`). Development and CI run 3.13, and CI also runs the test suite on 3.12.
 - Postgres 16 or later. Ubuntu 24.04 ships 16, which covers the droplet and most self-hosters.
 - uv for everything. `uv sync` sets up the workspace, and every command runs as `uv run ...`, with no `--with` flags.
-- Typer for the `teapot` CLI.
+- Typer for the `teabot` CLI.
 - Standard-library `logging` with one formatter: readable lines in dev mode, JSON lines in production.
 
 ### Working method
@@ -25,7 +25,7 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 2. Tests sit in `tests/` for the core and in `plugins/<id>/tests/` for plugins, never beside the code.
 3. Every new subdirectory has a short `README.md` in bullet form saying what it holds.
 4. No function is longer than 150 lines, and deep nesting is split into helpers.
-5. Public `teapot.sdk` names have docstrings.
+5. Public `teabot.sdk` names have docstrings.
 6. Any design change is reflected in `README.md` and `plan.md`.
 7. The work package's exit check, listed below, has been run and its result noted in the commit message.
 8. `scripts/quality.sh` passes: every function under CRAP 10 (crapper), no structural duplicates at 0.8 or above (dryer), and no surviving mutants in the changed files (mutator). These are the ub-mode gates; the tools run locally and are not part of CI.
@@ -35,10 +35,10 @@ How teapot gets built. The [README](../README.md) records the decisions (D1 to D
 
 These steps need the maintainers, because they create accounts and secrets.
 
-- [x] Create a private GitHub repository for the framework and push `main`. It stays private until milestone 7 releases it. Done: `hballington12/teapot`.
+- [x] Create a private GitHub repository for the framework and push `main`. It stays private until milestone 7 releases it. Done: `hballington12/teabot`.
 - [x] Create the **dev** Discord application and bot (D38). Turn on the Server Members intent. Leave Message Content off.
 - [x] Create a test server and invite the dev bot with the `bot` and `applications.commands` scopes and Administrator.
-- [x] Put the dev bot token in a local `teapot.env`, which `.gitignore` already excludes. It holds `TEAPOT_DISCORD_TOKEN`. (`TEAPOT_DEV_GUILD_ID` served development registration until WP3.2's command sync replaced it.)
+- [x] Put the dev bot token in a local `teabot.env`, which `.gitignore` already excludes. It holds `TEABOT_DISCORD_TOKEN`. (`TEABOT_DEV_GUILD_ID` served development registration until WP3.2's command sync replaced it.)
 - [x] Install Docker or Podman with Compose locally, for the dev Postgres. Done: Docker with Compose is installed.
 
 ## Spikes
@@ -59,15 +59,15 @@ S1 and S2 run before milestone 1's database work. S3 and S4 run during milestone
 
 | WP | Scope | Depends on |
 |---|---|---|
-| 1.1 Workspace and tooling | Root `pyproject.toml` with the workspace, the `teapot` script and the `dev` group. Ruff, pyright and import-linter configuration. pytest with `pytest-postgresql`. The CI workflow. `template/compose.yaml` with a dev Postgres. Directory READMEs. | setup |
-| 1.2 Settings and logging | `settings.py` with pydantic-settings and `teapot.env.example`. Logging setup and dev mode flags. | 1.1 |
-| 1.3 Database layer | The owner, `teapot_app` and `teapot_plugins` roles and the `set_config` revoke in `teapot init`, the core and plugin pools, role switching on acquire with `RESET ROLE` on release, transaction handles, the open-block check, prepared-statement helpers and slow-transaction logging (D30, S1). | 1.2, S1 |
+| 1.1 Workspace and tooling | Root `pyproject.toml` with the workspace, the `teabot` script and the `dev` group. Ruff, pyright and import-linter configuration. pytest with `pytest-postgresql`. The CI workflow. `template/compose.yaml` with a dev Postgres. Directory READMEs. | setup |
+| 1.2 Settings and logging | `settings.py` with pydantic-settings and `teabot.env.example`. Logging setup and dev mode flags. | 1.1 |
+| 1.3 Database layer | The owner, `teabot_app` and `teabot_plugins` roles and the `set_config` revoke in `teabot init`, the core and plugin pools, role switching on acquire with `RESET ROLE` on release, transaction handles, the open-block check, prepared-statement helpers and slow-transaction logging (D30, S1). | 1.2, S1 |
 | 1.4 Migration runner | The `core` schema, plugin schemas and roles, one transaction per file, the `guild_id` check, the advisory lock, downgrade refusal, and core migration `0001` with `core.migrations`, `core.guilds`, `core.guild_plugins`, `core.jobs` and `core.processes` (D9). Later tables arrive as later core migrations in their own work packages. | 1.3 |
 | 1.5 Locks and process rows | The lock connection, shard locks, plugin lock helpers, exit when the connection drops, and the informational process row (D40). | 1.3, S2 |
 | 1.6 Work queue | Claims with `SKIP LOCKED` and leases, the computed shard filter, `NOTIFY` with `LISTEN` on the lock connection, the poll fallback, retries with back-off, lease reclaim, and the `maintenance` handler shell (D31). | 1.4, 1.5 |
-| 1.7 App runner | `AutoShardedClient` with lazy member caching, uvicorn on `127.0.0.1`, the workers and the lock connection in one loop, `/healthz`, asyncio debug in dev mode, `teapot run` and a first `teapot plugins list`. | 1.6, S4 |
+| 1.7 App runner | `AutoShardedClient` with lazy member caching, uvicorn on `127.0.0.1`, the workers and the lock connection in one loop, `/healthz`, asyncio debug in dev mode, `teabot run` and a first `teabot plugins list`. | 1.6, S4 |
 
-**Exit check.** `uv run teapot run` connects to the test server, and a second `teapot run` with the same token refuses to start. pytest, ruff, pyright and import-linter pass in CI.
+**Exit check.** `uv run teabot run` connects to the test server, and a second `teabot run` with the same token refuses to start. pytest, ruff, pyright and import-linter pass in CI.
 
 Met on 2026-11-13: the test server showed one connected shard, a second process exited 1 with `ShardOwnedError`, and SIGTERM gave exit 0.
 
@@ -75,15 +75,15 @@ Met on 2026-11-13: the test server showed one connected shard, a second process 
 
 | WP | Scope | Depends on |
 |---|---|---|
-| 2.1 SDK types | `teapot.sdk` with `Risk`, `Surface`, `Actor`, `ActionSpec`, `Manifest`, `Plugin`, `Registrar`, the `*Ref` types, `LongText` and `UntrustedText`. The import-linter contract that plugins import only `teapot.sdk` (D45). | M1 |
-| 2.2 Loader | Entry points or a given list, the id rules and reserved ids, duplicate ids, `TEAPOT_DISABLED_PLUGINS`, failure isolation, statuses and plugin locks (D14, D46). | 2.1 |
+| 2.1 SDK types | `teabot.sdk` with `Risk`, `Surface`, `Actor`, `ActionSpec`, `Manifest`, `Plugin`, `Registrar`, the `*Ref` types, `LongText` and `UntrustedText`. The import-linter contract that plugins import only `teabot.sdk` (D45). | M1 |
+| 2.2 Loader | Entry points or a given list, the id rules and reserved ids, duplicate ids, `TEABOT_DISABLED_PLUGINS`, failure isolation, statuses and plugin locks (D14, D46). | 2.1 |
 | 2.3 Registry and call path | Steps 1 to 8 for `READ` and `WRITE`, the default permission check, and member resolution with the REST fallback (D18, D19). | 2.2 |
 | 2.4 Audit | Core migrations for `core.audit_log` and `core.audit_reads`, daily partitions through `maintenance`, the `post_audit` handler, and the log channel from the admin plugin's config (D24). | 2.3, 2.5 |
 | 2.5 Config | Loading and validating `core.guild_plugins` config, and `ctx.config` (D10). | 2.2 |
 | 2.6 Schema builder | One builder from input models to MCP JSON schema and Discord command JSON, with snapshot tests for every field type (D29). | 2.1, S3 |
 | 2.7 Interaction router and renderer | Commands, components and modals, deferral, the `LongText` modal flow and the default embed renderer (D29, D32). | 2.3, 2.6, S3 |
-| 2.8 Testing helpers | `teapot.testing` with guild, member and channel fakes, the `plugin_db` fixture and `invoke` (D45). The core's own tests switch to these fakes. | 2.3 |
-| 2.9 First plugins | `teapot-announcements` with `post`, and `teapot-devtools` with a switch to fail in `setup`, a query against `core`, and a second package that declares the same id. | 2.4, 2.7, 2.8 |
+| 2.8 Testing helpers | `teabot.testing` with guild, member and channel fakes, the `plugin_db` fixture and `invoke` (D45). The core's own tests switch to these fakes. | 2.3 |
+| 2.9 First plugins | `teabot-announcements` with `post`, and `teabot-devtools` with a switch to fail in `setup`, a query against `core`, and a second package that declares the same id. | 2.4, 2.7, 2.8 |
 | 2.10 Authoring guide | `docs/plugin-authoring.md` and the PR template. | 2.9 |
 
 2.6 and 2.8 can run beside 2.3 to 2.5, because they only need the SDK types.
@@ -98,7 +98,7 @@ Met on 2026-11-13. In the test server, `/announcements post` opened its modal, p
 |---|---|---|
 | 3.1 Admin plugin | `/plugins list`, `enable`, `disable` and `config`, and `/audit channel` and `recent`. | M2 |
 | 3.2 Command sync | Global admin commands, per-guild hashes in a new `core.command_sync` migration, and `sync_commands` jobs that save the hash only on success (D32). | 3.1, S3 |
-| 3.3 Plugin purge | `teapot plugins purge` with the exclusive lock, the confirmation prompt and the purge transaction (D7). | 3.1 |
+| 3.3 Plugin purge | `teabot plugins purge` with the exclusive lock, the confirmation prompt and the purge transaction (D7). | 3.1 |
 | 3.4 Guild removal | Join and remove handlers, reconciliation at startup, the grace period and `purge_guild` (D49). | 3.1 |
 
 **Exit check.** The milestone 3 "done when" list in `plan.md`.
@@ -122,7 +122,7 @@ Met on 2026-11-13, except the role-removal step, which no second account was at 
 
 | WP | Scope | Depends on |
 |---|---|---|
-| 5.1 Template | `template/` with `pyproject.toml`, `Dockerfile`, `compose.yaml`, `teapot.env.example` and the bare-metal files (D37, D43). | M4 |
+| 5.1 Template | `template/` with `pyproject.toml`, `Dockerfile`, `compose.yaml`, `teabot.env.example` and the bare-metal files (D37, D43). | M4 |
 | 5.2 Tea instance repo | A new repository made from the template, listing announcements, with the droplet's subdomain, Caddy block, Postgres, systemd unit and pgBackRest. | 5.1 |
 | 5.3 Restore drill | A pgBackRest restore into a scratch cluster on another machine, written up in the instance repo's README. | 5.2 |
 
@@ -130,7 +130,7 @@ Needs the maintainers: the **production** Discord application, a DNS record for 
 
 **Exit check.** The milestone 5 "done when" list in `plan.md`.
 
-Met on 2026-11-14 with the production bot in the test server, through `teapot.tea-osrs.com`. `/plugins enable announcements` and `/audit channel` worked from Discord. Claude Code connected to `/mcp` with a `/tokens create` token, listed the server with `admin_describe_guild` and posted with `announcements_post`. With `curl`, a token allowed only `announcements.post` was refused `admin.describe_guild` (403 `not_allowed_by_token`) and posted (200). The audit log recorded every change with its front door. `/healthz` answers 404 from outside, since Caddy forwards only `/mcp` and `/api`. The restore drill passed on 2026-11-13. The slash `/announcements post` modal was not repeated on production; it was met live in milestone 2 and runs the same code.
+Met on 2026-11-14 with the production bot in the test server, through `teabot.tea-osrs.com`. `/plugins enable announcements` and `/audit channel` worked from Discord. Claude Code connected to `/mcp` with a `/tokens create` token, listed the server with `admin_describe_guild` and posted with `announcements_post`. With `curl`, a token allowed only `announcements.post` was refused `admin.describe_guild` (403 `not_allowed_by_token`) and posted (200). The audit log recorded every change with its front door. `/healthz` answers 404 from outside, since Caddy forwards only `/mcp` and `/api`. The restore drill passed on 2026-11-13. The slash `/announcements post` modal was not repeated on production; it was met live in milestone 2 and runs the same code.
 
 ## Milestone 6: plan then apply
 
@@ -151,11 +151,11 @@ Met on 2026-11-14 with the dev bot in the test server. Confirming a `devtools.cl
 | WP | Scope | Depends on |
 |---|---|---|
 | 7.1 SDK 1.0 | Review of every public name, docstrings, the deprecation helper, and the import-linter contract across first-party plugins (D45). | M6 |
-| 7.2 Scaffolding and init | `teapot new-plugin` and the complete `teapot init` (D43, D44). | 7.1 |
+| 7.2 Scaffolding and init | `teabot new-plugin` and the complete `teabot init` (D43, D44). | 7.1 |
 | 7.3 Self-hosting docs | `docs/self-hosting.md` and the template README. | 7.2 |
 | 7.4 Project files | `LICENSE` (MIT, D41), `CONTRIBUTING.md`, `SECURITY.md`, the code of conduct and `CHANGELOG.md` (D48). | open decision 1 |
-| 7.5 Release pipeline | A release workflow with PyPI trusted publishing for `teapot` and `teapot-announcements`, and a tagged template. | 7.4 |
-| 7.6 Fresh-eyes test | Someone outside the project follows `docs/self-hosting.md` on a clean machine and writes a plugin with `teapot new-plugin`. Every point where they needed help becomes a fix. | 7.3, 7.5 |
+| 7.5 Release pipeline | A release workflow with PyPI trusted publishing for `teabot` and `teabot-announcements`, and a tagged template. | 7.4 |
+| 7.6 Fresh-eyes test | Someone outside the project follows `docs/self-hosting.md` on a clean machine and writes a plugin with `teabot new-plugin`. Every point where they needed help becomes a fix. | 7.3, 7.5 |
 
 **Exit check.** The milestone 7 "done when" list in `plan.md`. The repository then goes public.
 

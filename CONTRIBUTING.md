@@ -1,4 +1,4 @@
-# Contributing to teapot
+# Contributing to teabot
 
 ## Before you start
 
@@ -9,8 +9,8 @@
 ## Setting up
 
 ```
-git clone https://github.com/hballington12/teapot.git
-cd teapot
+git clone https://github.com/hballington12/teabot.git
+cd teabot
 uv sync
 docker compose -f template/compose.yaml up -d --wait postgres
 ```
@@ -28,7 +28,7 @@ docker compose -f template/compose.yaml up -d --wait postgres
 - One change per pull request, with tests that fail without it.
 - Keep functions short and their nesting shallow, and modularise one that passes 150 lines. Each directory's README is a bullet list of what is in it.
 - A commit message has a short title, then says why, what changed, and how it was proven.
-- `teapot.sdk` follows semantic versioning (D45). An addition is a minor release. A breaking change needs a major release, and the old form first keeps working with a warning from `teapot.sdk.deprecation` for at least one minor release.
+- `teabot.sdk` follows semantic versioning (D45). An addition is a minor release. A breaking change needs a major release, and the old form first keeps working with a warning from `teabot.sdk.deprecation` for at least one minor release.
 - A released migration never changes. Add a new numbered file instead.
 - Add a line to [CHANGELOG.md](CHANGELOG.md) under **Unreleased**, with a **For operators** note when upgrading needs a manual step.
 

@@ -9,11 +9,11 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from teapot.adapters.service_api import STATUS
-from teapot.auth.tokens import NewToken
-from teapot.core.registry import RefusalCode
-from teapot.health import Health
-from teapot.sdk import (
+from teabot.adapters.service_api import STATUS
+from teabot.auth.tokens import NewToken
+from teabot.core.registry import RefusalCode
+from teabot.health import Health
+from teabot.sdk import (
     ActionContext,
     ActionError,
     ActionSpec,
@@ -25,8 +25,8 @@ from teapot.sdk import (
     Surface,
     UntrustedText,
 )
-from teapot.testing import PluginHarness
-from teapot.web import build_app
+from teabot.testing import PluginHarness
+from teabot.web import build_app
 
 
 class Post(BaseModel):
@@ -90,8 +90,8 @@ class Feed:
 
 
 @pytest.fixture
-async def harness(teapot_harness: Any) -> PluginHarness:
-    return await teapot_harness(Feed())
+async def harness(teabot_harness: Any) -> PluginHarness:
+    return await teabot_harness(Feed())
 
 
 @pytest.fixture

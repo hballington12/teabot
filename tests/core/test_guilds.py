@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from teapot.core.audit import ensure_read_partitions
-from teapot.core.command_sync import CommandSync
-from teapot.core.lifecycle import PURGE_GUILD, Guilds
-from teapot.core.queue import JobContext, Queue, ShardFilter
-from teapot.db.migrate import PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.testing import FakeClient
+from teabot.core.audit import ensure_read_partitions
+from teabot.core.command_sync import CommandSync
+from teabot.core.lifecycle import PURGE_GUILD, Guilds
+from teabot.core.queue import JobContext, Queue, ShardFilter
+from teabot.db.migrate import PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.testing import FakeClient
 
 HERE = 1001
 THERE = 1002

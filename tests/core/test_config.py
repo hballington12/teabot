@@ -5,12 +5,12 @@ import json
 import pytest
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from teapot.core.config import ConfigError, ConfigStore
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import ChannelRef
+from teabot.core.config import ConfigError, ConfigStore
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import ChannelRef
 
 GUILD = 42
 

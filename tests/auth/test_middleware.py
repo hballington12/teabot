@@ -7,12 +7,12 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from teapot.auth.middleware import BearerTokens, grant_of
-from teapot.auth.tokens import NewToken, Tokens
-from teapot.db.migrate import migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
+from teabot.auth.middleware import BearerTokens, grant_of
+from teabot.auth.tokens import NewToken, Tokens
+from teabot.db.migrate import migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
 
 
 async def whoami(request: Request) -> JSONResponse:
@@ -34,7 +34,7 @@ async def tokens(admin: Conn, naming: Naming, pools: Pools) -> Tokens:
 def client(tokens: Tokens) -> httpx.AsyncClient:
     app = Starlette(routes=[Route("/api/whoami", whoami), Route("/healthz", open_route)])
     guarded = BearerTokens(app, tokens, prefixes=("/api", "/mcp"))
-    return httpx.AsyncClient(transport=httpx.ASGITransport(app=guarded), base_url="http://teapot")
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=guarded), base_url="http://teabot")
 
 
 async def test_a_good_token_reaches_the_route_as_its_member(
@@ -45,7 +45,7 @@ async def test_a_good_token_reaches_the_route_as_its_member(
     assert (response.status_code, response.json()) == (200, {"user": 2001, "guild": 1001})
 
 
-@pytest.mark.parametrize("header", [None, "Bearer", "Basic abc", "Bearer teapot_nope_nope"])
+@pytest.mark.parametrize("header", [None, "Bearer", "Basic abc", "Bearer teabot_nope_nope"])
 async def test_without_a_good_token_the_answer_is_401_with_a_challenge(
     client: httpx.AsyncClient, header: str | None
 ) -> None:
@@ -73,7 +73,7 @@ async def test_a_prefix_guards_only_whole_path_segments(client: httpx.AsyncClien
     assert (await client.get("/apiary")).status_code == 404
 
 
-@pytest.mark.parametrize("header", ["Basic teapot_a_b", "Bearer   "])
+@pytest.mark.parametrize("header", ["Basic teabot_a_b", "Bearer   "])
 async def test_anything_but_a_bearer_token_is_told_so(client: httpx.AsyncClient, header: str) -> None:
     response = await client.get("/api/whoami", headers={"Authorization": header})
     assert response.json()["error_description"] == "a bearer token is required"

@@ -1,4 +1,4 @@
-# teapot-announcements
+# teabot-announcements
 
 A first-party plugin: post an announcement to a channel as an embed.
 
@@ -6,4 +6,4 @@ A first-party plugin: post an announcement to a channel as an embed.
 - Also available as the MCP tool `announcements_post` and the service action `announcements.post`.
 - Config: none yet.
 - External connections: none (D12).
-- Tests: `plugins/announcements/tests/`, through `teapot.testing`.
+- Tests: `plugins/announcements/tests/`, through `teabot.testing`.

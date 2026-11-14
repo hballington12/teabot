@@ -9,10 +9,10 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "teapot",
-    "teapot-announcements",
-    "teapot-devtools",
-    "teapot-devtools-twin",
+    "teabot",
+    "teabot-announcements",
+    "teabot-devtools",
+    "teabot-devtools-twin",
 ]
 
 [[package]]
@@ -1884,7 +1884,7 @@ wheels = [
 ]
 
 [[package]]
-name = "teapot"
+name = "teabot"
 version = "0.1.0.dev0"
 source = { editable = "." }
 dependencies = [
@@ -1918,11 +1918,11 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-postgresql" },
     { name = "ruff" },
-    { name = "teapot-announcements" },
-    { name = "teapot-devtools" },
+    { name = "teabot-announcements" },
+    { name = "teabot-devtools" },
 ]
 duplicate-check = [
-    { name = "teapot-devtools-twin" },
+    { name = "teabot-devtools-twin" },
 ]
 
 [package.metadata]
@@ -1954,43 +1954,43 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.5" },
     { name = "pytest-postgresql", specifier = ">=10.0" },
     { name = "ruff", specifier = ">=0.17" },
-    { name = "teapot-announcements", editable = "plugins/announcements" },
-    { name = "teapot-devtools", editable = "plugins/devtools" },
+    { name = "teabot-announcements", editable = "plugins/announcements" },
+    { name = "teabot-devtools", editable = "plugins/devtools" },
 ]
-duplicate-check = [{ name = "teapot-devtools-twin", editable = "plugins/devtools_twin" }]
+duplicate-check = [{ name = "teabot-devtools-twin", editable = "plugins/devtools_twin" }]
 
 [[package]]
-name = "teapot-announcements"
+name = "teabot-announcements"
 version = "0.1.0"
 source = { editable = "plugins/announcements" }
 dependencies = [
-    { name = "teapot" },
+    { name = "teabot" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "teapot", editable = "." }]
+requires-dist = [{ name = "teabot", editable = "." }]
 
 [[package]]
-name = "teapot-devtools"
+name = "teabot-devtools"
 version = "0.1.0"
 source = { editable = "plugins/devtools" }
 dependencies = [
-    { name = "teapot" },
+    { name = "teabot" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "teapot", editable = "." }]
+requires-dist = [{ name = "teabot", editable = "." }]
 
 [[package]]
-name = "teapot-devtools-twin"
+name = "teabot-devtools-twin"
 version = "0.0.1"
 source = { editable = "plugins/devtools_twin" }
 dependencies = [
-    { name = "teapot" },
+    { name = "teabot" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "teapot", editable = "." }]
+requires-dist = [{ name = "teabot", editable = "." }]
 
 [[package]]
 name = "truststore"

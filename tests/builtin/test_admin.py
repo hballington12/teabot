@@ -7,8 +7,8 @@ import discord
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from teapot.adapters.schema import commands_for
-from teapot.builtin.admin import (
+from teabot.adapters.schema import commands_for
+from teabot.builtin.admin import (
     Admin,
     AuditEntry,
     LogChannelSet,
@@ -24,9 +24,9 @@ from teapot.builtin.admin import (
     render_toggled,
     state_here,
 )
-from teapot.core.registry import ActionFailed, Refused
-from teapot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
-from teapot.testing import FakeChannel, PluginHarness
+from teabot.core.registry import ActionFailed, Refused
+from teabot.sdk import ActionContext, ActionSpec, Manifest, Registrar, Risk
+from teabot.testing import FakeChannel, PluginHarness
 
 
 class EchoConfig(BaseModel):
@@ -57,8 +57,8 @@ class Echo:
 
 
 @pytest.fixture
-async def harness(teapot_harness: Any) -> PluginHarness:
-    return await teapot_harness(Echo())
+async def harness(teabot_harness: Any) -> PluginHarness:
+    return await teabot_harness(Echo())
 
 
 def text(out: BaseModel) -> str:

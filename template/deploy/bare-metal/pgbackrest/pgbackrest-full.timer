@@ -1,6 +1,6 @@
 # A full backup every Sunday night. Persistent catches up on a run missed while the host was down.
 [Unit]
-Description=Weekly full pgBackRest backup of teapot
+Description=Weekly full pgBackRest backup of teabot
 
 [Timer]
 OnCalendar=Sun *-*-* 03:15

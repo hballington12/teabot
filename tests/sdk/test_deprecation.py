@@ -5,11 +5,11 @@ from types import ModuleType
 
 import pytest
 
-from teapot.sdk.deprecation import Renamed, deprecated_names, warn_deprecated
+from teabot.sdk.deprecation import Renamed, deprecated_names, warn_deprecated
 
 
 def module_with_a_renamed_name() -> ModuleType:
-    module = ModuleType("teapot_fake_sdk")
+    module = ModuleType("teabot_fake_sdk")
     module.NewName = object()  # type: ignore[attr-defined]
     module.__getattr__ = deprecated_names(module.__dict__, {"OldName": Renamed("NewName", since="1.2")})  # type: ignore[attr-defined]
     return module
@@ -21,7 +21,7 @@ def test_an_old_name_returns_the_new_one_with_a_warning() -> None:
         found = module.OldName
     assert found is module.NewName
     assert str(caught[0].message) == (
-        "teapot_fake_sdk.OldName is deprecated since 1.2 and will be removed in 2.0: use NewName"
+        "teabot_fake_sdk.OldName is deprecated since 1.2 and will be removed in 2.0: use NewName"
     )
 
 

@@ -1,4 +1,4 @@
-"""`teapot init` against a real database (WP1.3)."""
+"""`teabot init` against a real database (WP1.3)."""
 
 import asyncio
 import base64
@@ -8,19 +8,19 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
-from teapot.cli import app
-from teapot.cli.init import application_id
-from teapot.db.naming import Naming
-from teapot.db.types import Conn
-from teapot.envfile import read_values, set_values
+from teabot.cli import app
+from teabot.cli.init import application_id
+from teabot.db.naming import Naming
+from teabot.db.types import Conn
+from teabot.envfile import read_values, set_values
 
 
 async def test_init_generates_passwords_and_roles(env_file: Path, admin: Conn, naming: Naming) -> None:
     result = await asyncio.to_thread(CliRunner().invoke, app, ["init", "--env-file", str(env_file)])
     assert result.exit_code == 0, result.output
     values = read_values(env_file)
-    assert len(values["TEAPOT_DB_APP_PASSWORD"]) >= 32
-    assert len(values["TEAPOT_DB_PLUGINS_PASSWORD"]) >= 32
+    assert len(values["TEABOT_DB_APP_PASSWORD"]) >= 32
+    assert len(values["TEABOT_DB_PLUGINS_PASSWORD"]) >= 32
     assert f"created role {naming.app_role}" in result.output
     roles = await admin.fetch("SELECT rolname FROM pg_roles WHERE rolname LIKE $1", f"{naming.prefix}\\_%")
     assert {r["rolname"] for r in roles} == {naming.app_role, naming.plugins_role}
@@ -79,7 +79,7 @@ def test_the_application_id_is_the_tokens_first_part(token: str, expected: int |
 
 
 async def test_init_prints_the_discord_settings_with_the_invite(env_file: Path) -> None:
-    set_values(env_file, {"TEAPOT_DISCORD_TOKEN": TOKEN})
+    set_values(env_file, {"TEABOT_DISCORD_TOKEN": TOKEN})
     result = await asyncio.to_thread(CliRunner().invoke, app, ["init", "--env-file", str(env_file)])
     assert result.exit_code == 0, result.output
     assert "Server Members Intent" in result.output

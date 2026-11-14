@@ -1,21 +1,21 @@
-name: teapot
+name: teabot
 # The instance template's quick setup (D43): the bot and Postgres 16 on one machine.
-# Compose reads `.env` next to this file: TEAPOT_DB_OWNER_PASSWORD, and TEAPOT_UID and TEAPOT_GID. The owner
+# Compose reads `.env` next to this file: TEABOT_DB_OWNER_PASSWORD, and TEABOT_UID and TEABOT_GID. The owner
 # password goes to both services from there, so it is written once.
-# teapot's own development uses only the postgres service: `docker compose -f template/compose.yaml up -d postgres`.
+# teabot's own development uses only the postgres service: `docker compose -f template/compose.yaml up -d postgres`.
 services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: teapot_owner
-      POSTGRES_PASSWORD: ${TEAPOT_DB_OWNER_PASSWORD:-teapot}
-      POSTGRES_DB: teapot
+      POSTGRES_USER: teabot_owner
+      POSTGRES_PASSWORD: ${TEABOT_DB_OWNER_PASSWORD:-teabot}
+      POSTGRES_DB: teabot
     ports:
-      - "127.0.0.1:${TEAPOT_DB_PORT:-55432}:5432"
+      - "127.0.0.1:${TEABOT_DB_PORT:-55432}:5432"
     volumes:
-      - teapot-pgdata:/var/lib/postgresql/data
+      - teabot-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U teapot_owner -d teapot"]
+      test: ["CMD-SHELL", "pg_isready -U teabot_owner -d teabot"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -24,18 +24,18 @@ services:
     build:
       context: .
       ssh: [default]
-    # The env file is mounted, not loaded, so `teapot init` can write the passwords it generates into it. It
+    # The env file is mounted, not loaded, so `teabot init` can write the passwords it generates into it. It
     # holds secrets and is kept at mode 0600, so the bot runs as the file's owner: your user, 1000 by default.
-    user: "${TEAPOT_UID:-1000}:${TEAPOT_GID:-1000}"
+    user: "${TEABOT_UID:-1000}:${TEABOT_GID:-1000}"
     volumes:
-      - ./teapot.env:/app/teapot.env
+      - ./teabot.env:/app/teabot.env
     environment:
-      TEAPOT_DB_HOST: postgres
-      TEAPOT_DB_PORT: "5432"
-      TEAPOT_DB_OWNER_PASSWORD: ${TEAPOT_DB_OWNER_PASSWORD:-teapot}
-      TEAPOT_HTTP_HOST: 0.0.0.0
+      TEABOT_DB_HOST: postgres
+      TEABOT_DB_PORT: "5432"
+      TEABOT_DB_OWNER_PASSWORD: ${TEABOT_DB_OWNER_PASSWORD:-teabot}
+      TEABOT_HTTP_HOST: 0.0.0.0
     ports:
-      - "127.0.0.1:${TEAPOT_HTTP_PORT:-8780}:8780"
+      - "127.0.0.1:${TEABOT_HTTP_PORT:-8780}:8780"
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,4 +43,4 @@ services:
     stop_grace_period: 30s
 
 volumes:
-  teapot-pgdata:
+  teabot-pgdata:

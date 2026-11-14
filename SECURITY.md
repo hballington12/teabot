@@ -1,6 +1,6 @@
 # Security
 
-teapot holds near-Administrator power in every server it joins, so a flaw in it can reach a whole community. Please report one privately.
+teabot holds near-Administrator power in every server it joins, so a flaw in it can reach a whole community. Please report one privately.
 
 ## Reporting a vulnerability
 

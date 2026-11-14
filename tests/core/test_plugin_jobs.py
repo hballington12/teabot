@@ -6,17 +6,17 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from teapot.adapters.schema import commands_for
-from teapot.core.loader import Loaded
-from teapot.core.plugin_jobs import register_plugin_jobs
-from teapot.core.queue import NewJob, Queue
-from teapot.core.registry import sources_from
-from teapot.core.worker import Workers
-from teapot.db.migrate import PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import ActionSpec, JobContext, LongText, Manifest, Risk, Surface
+from teabot.adapters.schema import commands_for
+from teabot.core.loader import Loaded
+from teabot.core.plugin_jobs import register_plugin_jobs
+from teabot.core.queue import NewJob, Queue
+from teabot.core.registry import sources_from
+from teabot.core.worker import Workers
+from teabot.db.migrate import PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import ActionSpec, JobContext, LongText, Manifest, Risk, Surface
 
 GUILD = 1001
 

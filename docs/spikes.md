@@ -9,7 +9,7 @@ Run on 2026-11-13 against Postgres 16.16 and asyncpg 0.30, with a core table, tw
 ### Pool reset
 
 - asyncpg's pool runs `SELECT pg_advisory_unlock_all(); CLOSE ALL; UNLISTEN *; RESET ALL;` when a connection is released.
-- `RESET ALL` resets `search_path`, and does **not** reset the role. A connection released after `SET ROLE teapot_plugin_x` came back from the next acquire still as `teapot_plugin_x`.
+- `RESET ALL` resets `search_path`, and does **not** reset the role. A connection released after `SET ROLE teabot_plugin_x` came back from the next acquire still as `teabot_plugin_x`.
 - The reset releases every advisory lock the connection holds, and drops every `LISTEN`.
 
 Consequences:
@@ -27,40 +27,40 @@ Consequence: the `ctx.db` and `tx` helpers send every statement through a prepar
 
 ### Escaping the plugin role
 
-With the connection logged in as `teapot_app` and switched to `teapot_plugin_x`:
+With the connection logged in as `teabot_app` and switched to `teabot_plugin_x`:
 
 | Attempt | Result |
 |---|---|
 | Read `core.tokens` or another plugin's table directly | refused: permission denied for schema |
 | Injected `UNION SELECT ... FROM core.tokens` | refused: permission denied for schema core |
 | Injected stacked `; RESET ROLE; SELECT ... FROM core.tokens` through `fetch` | refused: multiple commands |
-| The same through argument-less `execute` | **succeeded**, role back to `teapot_app` |
-| Injected single expression `set_config('role', 'teapot_app', false)` through `fetch` | **succeeded**. The role changed for every later statement on the connection, and the next query read `core.tokens`. `set_config('role', 'teapot_plugin_y')` reached the other plugin's data the same way |
+| The same through argument-less `execute` | **succeeded**, role back to `teabot_app` |
+| Injected single expression `set_config('role', 'teabot_app', false)` through `fetch` | **succeeded**. The role changed for every later statement on the connection, and the next query read `core.tokens`. `set_config('role', 'teabot_plugin_y')` reached the other plugin's data the same way |
 | `set_config` and a read of `core` in the same statement | refused. The new role only applies from the next statement |
 
 The design's claim that one statement per call makes the role a hard limit for SQL injection (D9) was therefore false. A single injected expression escapes.
 
 ### Closing the escape
 
-- Revoking `EXECUTE` on `pg_catalog.set_config(text, text, boolean)` from `PUBLIC`, and granting it back to `teapot_app`, refused the injected `set_config` with "permission denied for function set_config". Plugin reads, writes and `RETURNING` kept working, and `teapot_app` could still call `set_config`.
-- One route remained. A plpgsql function in the plugin's own schema that runs dynamic SQL (`EXECUTE sql`) could still run `SET ROLE teapot_app`, because `SET ROLE` is checked against the session user, and the session user was `teapot_app`.
-- With the plugin connection logged in as a separate session user `teapot_plugins`, which has no rights of its own and is only a member of the plugin roles, the same function was refused `SET ROLE teapot_app`. It could still switch to another plugin's role that `teapot_plugins` is a member of.
+- Revoking `EXECUTE` on `pg_catalog.set_config(text, text, boolean)` from `PUBLIC`, and granting it back to `teabot_app`, refused the injected `set_config` with "permission denied for function set_config". Plugin reads, writes and `RETURNING` kept working, and `teabot_app` could still call `set_config`.
+- One route remained. A plpgsql function in the plugin's own schema that runs dynamic SQL (`EXECUTE sql`) could still run `SET ROLE teabot_app`, because `SET ROLE` is checked against the session user, and the session user was `teabot_app`.
+- With the plugin connection logged in as a separate session user `teabot_plugins`, which has no rights of its own and is only a member of the plugin roles, the same function was refused `SET ROLE teabot_app`. It could still switch to another plugin's role that `teabot_plugins` is a member of.
 
 ### Queuing jobs from a plugin role
 
 - Inside a `SECURITY DEFINER` function, `current_user` is the function's owner, so the planned `core.schedule_job` could not tell which plugin called it.
-- A function `plugin_x.schedule_job(guild_id, handler)` owned by `teapot_app`, `SECURITY DEFINER`, with `SET search_path = core, pg_temp` and the plugin id written into its body, worked:
+- A function `plugin_x.schedule_job(guild_id, handler)` owned by `teabot_app`, `SECURITY DEFINER`, with `SET search_path = core, pg_temp` and the plugin id written into its body, worked:
     - plugin `x` queued a job through it, and the row carried the plugin id `x`
     - plugin `x` still could not read `core.jobs`
     - plugin `x` could not replace the function, because it does not own it
 
 ### Design changes from S1
 
-- **Two session users (D9, D30).** The core's pool logs in as `teapot_app`. Plugin code uses a second pool that logs in as `teapot_plugins`, which has no rights of its own and is a member of every plugin role. A plugin connection runs `SET ROLE` and sets `search_path` on acquire, and `RESET ROLE` on release.
-- **`set_config` is revoked from `PUBLIC`** and granted to `teapot_app` and the owner. `teapot init` does this. It needs a superuser once. On managed Postgres without a superuser, `teapot init` warns, and the injection limit falls back to review.
+- **Two session users (D9, D30).** The core's pool logs in as `teabot_app`. Plugin code uses a second pool that logs in as `teabot_plugins`, which has no rights of its own and is a member of every plugin role. A plugin connection runs `SET ROLE` and sets `search_path` on acquire, and `RESET ROLE` on release.
+- **`set_config` is revoked from `PUBLIC`** and granted to `teabot_app` and the owner. `teabot init` does this. It needs a superuser once. On managed Postgres without a superuser, `teabot init` warns, and the injection limit falls back to review.
 - **Helpers use prepared statements only.**
 - **What the role now guarantees.** An SQL injection bug in a plugin cannot reach `core`, where token hashes live, and cannot change the role through `set_config`. Reaching another plugin needs a plpgsql function in that plugin which runs dynamic SQL built from untrusted input. The authoring guide forbids that, and review checks it.
-- **Per-plugin `schedule_job`.** The migration runner creates `plugin_<id>.schedule_job` for each plugin, owned by `teapot_app`, with the plugin id built in, and grants `EXECUTE` only to that plugin's role. `core.schedule_job` is dropped from the design.
+- **Per-plugin `schedule_job`.** The migration runner creates `plugin_<id>.schedule_job` for each plugin, owned by `teabot_app`, with the plugin id built in, and grants `EXECUTE` only to that plugin's role. `core.schedule_job` is dropped from the design.
 
 ## S2 advisory locks
 
@@ -74,7 +74,7 @@ Run on 2026-11-13 against Postgres 16.16, with plain connections outside any poo
 | Two connections take `pg_try_advisory_lock_shared(7002, key)` for one plugin | both true |
 | A third tries the same key exclusively, as purge would | false while either shared lock is held, true once both are released |
 | A connection tries the shared lock while purge holds it exclusively | false |
-| `LISTEN teapot_jobs` on the lock-holding connection, with `pg_notify` from another connection, inside and outside a transaction | both notifications arrived, and the lock stayed held |
+| `LISTEN teabot_jobs` on the lock-holding connection, with `pg_notify` from another connection, inside and outside a transaction | both notifications arrived, and the lock stayed held |
 
 `pg_locks` shows the two-key form as `classid` (the namespace), `objid` and `objsubid = 2`, with `mode` `ExclusiveLock` or `ShareLock`. `objid` is an `oid`, so a negative key appears as its unsigned value: the key `-1405399493` showed as `2889567803`.
 
@@ -140,7 +140,7 @@ Run on 2026-11-13 with `mcp` 2.3.0 in process, through `httpx.ASGITransport` (`t
 | A foreign `Origin`, then the public one | 403, then 200 |
 
 - The SDK checks the raw `Host` header and reads no `X-Forwarded-*` header. The reverse proxy must pass the original `Host` through. Caddy does by default, and nginx needs `proxy_set_header Host $host`.
-- Without `security_settings` the manager turns DNS-rebinding protection off. teapot always passes settings with the public hostname.
+- Without `security_settings` the manager turns DNS-rebinding protection off. teabot always passes settings with the public hostname.
 - A raised exception becomes a JSON-RPC error, not an `isError` result. That differs from 1.x. A refusal or a failed action must be returned as `isError`, so the LLM sees the reason.
 - Stateless mode answers each request on its own transport, with no session to bind to a token or to a process. Any process can serve any MCP request (D40).
 - On the 2026-07-28 protocol, header validation may call the `tools/list` handler itself. Passing `get_tool_input_schema=` avoids that, and the schema builder already has each tool's schema.

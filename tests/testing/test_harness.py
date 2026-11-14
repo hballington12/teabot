@@ -1,4 +1,4 @@
-"""`teapot.testing` (WP2.8, D45): plugin authors test through the real loader, migrations and call path."""
+"""`teabot.testing` (WP2.8, D45): plugin authors test through the real loader, migrations and call path."""
 
 from pathlib import Path
 from typing import Any, cast
@@ -7,9 +7,9 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.core.registry import Refused
-from teapot.sdk import ActionContext, ActionSpec, ChannelRef, Manifest, Registrar, Risk
-from teapot.testing import FakeChannel, FakeGuild, PluginHarness
+from teabot.core.registry import Refused
+from teabot.sdk import ActionContext, ActionSpec, ChannelRef, Manifest, Registrar, Risk
+from teabot.testing import FakeChannel, FakeGuild, PluginHarness
 
 MANAGE = discord.Permissions(manage_messages=True)
 
@@ -52,8 +52,8 @@ def echo(tmp_path: Path) -> Echo:
     return Echo(directory)
 
 
-async def test_an_action_runs_through_the_real_call_path(teapot_harness: Any, echo: Echo) -> None:
-    harness: PluginHarness = await teapot_harness(echo)
+async def test_an_action_runs_through_the_real_call_path(teabot_harness: Any, echo: Echo) -> None:
+    harness: PluginHarness = await teabot_harness(echo)
     channel = harness.guild.add_channel(FakeChannel(77))
     out = await harness.invoke("echo.say", {"channel": "77", "text": "hello"})
     assert isinstance(out, Said) and out.stored == 1
@@ -63,8 +63,8 @@ async def test_an_action_runs_through_the_real_call_path(teapot_harness: Any, ec
     )
 
 
-async def test_permissions_are_checked_as_in_production(teapot_harness: Any, echo: Echo) -> None:
-    harness: PluginHarness = await teapot_harness(echo)
+async def test_permissions_are_checked_as_in_production(teabot_harness: Any, echo: Echo) -> None:
+    harness: PluginHarness = await teabot_harness(echo)
     harness.guild.add_channel(FakeChannel(77))
     stranger = harness.guild.add_member(discord.Permissions.none())
     with pytest.raises(Refused) as caught:
@@ -72,16 +72,16 @@ async def test_permissions_are_checked_as_in_production(teapot_harness: Any, ech
     assert caught.value.code == "forbidden"
 
 
-async def test_a_plugin_that_fails_to_load_says_why(teapot_harness: Any, tmp_path: Path) -> None:
+async def test_a_plugin_that_fails_to_load_says_why(teabot_harness: Any, tmp_path: Path) -> None:
     broken = tmp_path / "broken"
     broken.mkdir()
     (broken / "0001_bad.sql").write_text("CREATE TABLE notes (body text);")
     with pytest.raises(RuntimeError, match="guild_id"):
-        await teapot_harness(Echo(broken))
+        await teabot_harness(Echo(broken))
 
 
-async def test_a_member_found_only_over_rest_is_checked_too(teapot_harness: Any, echo: Echo) -> None:
-    harness: PluginHarness = await teapot_harness(echo)
+async def test_a_member_found_only_over_rest_is_checked_too(teabot_harness: Any, echo: Echo) -> None:
+    harness: PluginHarness = await teabot_harness(echo)
     harness.guild.add_channel(FakeChannel(77))
     uncached = harness.guild.add_member(discord.Permissions(manage_messages=True), cached=False)
     assert harness.guild.get_member(uncached.id) is None

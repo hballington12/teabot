@@ -6,10 +6,10 @@
 # this machine's disk, and the container and its data are removed at the end. The restored cluster has WAL
 # archiving off, so it can never write to the real repository.
 # Just before the drill it writes the time into restore_drill in the cluster's `postgres` maintenance
-# database, never teapot's. That row is newer than any backup, so finding it proves archived WAL replays.
+# database, never teabot's. That row is newer than any backup, so finding it proves archived WAL replays.
 set -euo pipefail
 TARGET=${1:?usage: restore-drill.sh <user@host>}
-NAME=teapot-restore-drill
+NAME=teabot-restore-drill
 COMPARE="SELECT (SELECT string_agg(plugin_id || ':' || version, ',' ORDER BY plugin_id, version) FROM core.migrations),
     (SELECT count(*) FROM core.guild_plugins), (SELECT count(*) FROM core.audit_log), (SELECT count(*) FROM core.tokens)"
 
@@ -22,7 +22,7 @@ MARK="CREATE TABLE IF NOT EXISTS restore_drill (at timestamptz NOT NULL);
 
 echo "== on the host now"
 # shellcheck disable=SC2029  # COMPARE and MARK are meant to expand here
-host_state=$(ssh "$TARGET" "sudo -u postgres psql -d teapot -tAc \"$COMPARE\"")
+host_state=$(ssh "$TARGET" "sudo -u postgres psql -d teabot -tAc \"$COMPARE\"")
 # shellcheck disable=SC2029
 marker=$(ssh "$TARGET" "sudo -u postgres psql -qtA -d postgres -c \"$MARK\" && sudo -u postgres psql -qtAc 'SELECT pg_switch_wal()' >/dev/null")
 echo "$host_state"
@@ -35,11 +35,11 @@ docker exec "$NAME" sh -c 'apt-get update -qq && apt-get install -y -qq pgbackre
 echo "== the host's pgBackRest config, with the restore path and archiving off"
 ssh "$TARGET" "cat /etc/pgbackrest/pgbackrest.conf /etc/pgbackrest/conf.d/secrets.conf" \
     | sed -e 's|^pg1-path=.*|pg1-path=/var/lib/postgresql/restore|' -e 's|^pg1-socket-path=.*|pg1-socket-path=/tmp|' \
-    | grep -v '^\[global\]$' | awk 'BEGIN { print "[global]" } /^\[teapot\]$/ { s = 1 } { if (s) t = t $0 "\n"; else print } END { printf "%s", t }' \
+    | grep -v '^\[global\]$' | awk 'BEGIN { print "[global]" } /^\[teabot\]$/ { s = 1 } { if (s) t = t $0 "\n"; else print } END { printf "%s", t }' \
     | docker exec -i "$NAME" sh -c 'install -d -o postgres /etc/pgbackrest /var/lib/postgresql/restore /var/log/pgbackrest /var/spool/pgbackrest && cat > /etc/pgbackrest/pgbackrest.conf && chown postgres /etc/pgbackrest/pgbackrest.conf && chmod 600 /etc/pgbackrest/pgbackrest.conf'
 
 echo "== restore the latest backup and replay the archived WAL"
-docker exec -u postgres "$NAME" pgbackrest --stanza=teapot --archive-mode=off --log-level-console=warn restore
+docker exec -u postgres "$NAME" pgbackrest --stanza=teabot --archive-mode=off --log-level-console=warn restore
 # Ubuntu keeps postgresql.conf and pg_hba.conf outside the data directory, so the backup does not hold them.
 docker exec -u postgres "$NAME" sh -c 'cd /var/lib/postgresql/restore && : > postgresql.conf && echo "local all all trust" > pg_hba.conf'
 docker exec -u postgres "$NAME" pg_ctl -D /var/lib/postgresql/restore -w -t 120 -l /tmp/restore.log \
@@ -50,7 +50,7 @@ for _ in $(seq 60); do
 done
 
 echo "== the restored cluster"
-restored=$(docker exec -u postgres "$NAME" psql -h /tmp -d teapot -tAc "$COMPARE")
+restored=$(docker exec -u postgres "$NAME" psql -h /tmp -d teabot -tAc "$COMPARE")
 restored_marker=$(docker exec -u postgres "$NAME" psql -h /tmp -d postgres -tAc "SELECT max(at) FROM restore_drill")
 echo "$restored"
 echo "newest marker restored: $restored_marker"

@@ -1,4 +1,4 @@
-"""`teapot plugins purge` (WP3.3, D7): the prompt, the outcome, and the refusal while loaded."""
+"""`teabot plugins purge` (WP3.3, D7): the prompt, the outcome, and the refusal while loaded."""
 
 import asyncio
 from datetime import UTC, datetime
@@ -6,15 +6,15 @@ from pathlib import Path
 
 from typer.testing import CliRunner, Result
 
-from teapot.cli import app
-from teapot.cli.plugins import describe
-from teapot.core.audit import OPERATOR, audit_embed
-from teapot.core.lifecycle import PurgePlan
-from teapot.core.processes import open_lock_connection
-from teapot.db.migrate import PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Login, Pools
-from teapot.db.types import Conn
+from teabot.cli import app
+from teabot.cli.plugins import describe
+from teabot.core.audit import OPERATOR, audit_embed
+from teabot.core.lifecycle import PurgePlan
+from teabot.core.processes import open_lock_connection
+from teabot.db.migrate import PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Login, Pools
+from teabot.db.types import Conn
 
 
 async def installed(admin: Conn, naming: Naming, tmp_path: Path) -> None:

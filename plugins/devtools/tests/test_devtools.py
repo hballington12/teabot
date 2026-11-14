@@ -1,31 +1,31 @@
-"""teapot-devtools (WP2.9): its own table, the core refusing it, and a setup that can be made to fail."""
+"""teabot-devtools (WP2.9): its own table, the core refusing it, and a setup that can be made to fail."""
 
 from typing import Any
 
 import discord
 import pytest
 
-from teapot.testing import Planned, PluginHarness, Queued, Refused
-from teapot_devtools import FAIL_SETUP, Noted, Peeked, plugin
+from teabot.testing import Planned, PluginHarness, Queued, Refused
+from teabot_devtools import FAIL_SETUP, Noted, Peeked, plugin
 
 
-async def test_notes_go_to_the_plugins_own_table(teapot_harness: Any) -> None:
-    harness: PluginHarness = await teapot_harness(plugin)
+async def test_notes_go_to_the_plugins_own_table(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
     assert await harness.invoke("devtools.note", {"text": "one"}) == Noted(notes=1)
     assert await harness.invoke("devtools.note", {"text": "two"}) == Noted(notes=2)
     assert await harness.admin.fetchval("SELECT count(*) FROM plugin_devtools.notes") == 2
 
 
-async def test_the_core_schema_refuses_the_plugin(teapot_harness: Any) -> None:
-    harness: PluginHarness = await teapot_harness(plugin)
+async def test_the_core_schema_refuses_the_plugin(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
     out = await harness.invoke("devtools.peek_core", {})
     assert isinstance(out, Peeked) and "permission denied for schema core" in out.refusal
 
 
-async def test_the_failure_switch_fails_setup(teapot_harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_failure_switch_fails_setup(teabot_harness: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(FAIL_SETUP, "1")
     with pytest.raises(RuntimeError, match=FAIL_SETUP):
-        await teapot_harness(plugin)
+        await teabot_harness(plugin)
 
 
 async def notes(harness: PluginHarness, *texts: str) -> None:
@@ -33,8 +33,8 @@ async def notes(harness: PluginHarness, *texts: str) -> None:
         await harness.invoke("devtools.note", {"text": text})
 
 
-async def test_clearing_notes_plans_first_then_applies_with_progress(teapot_harness: Any) -> None:
-    harness: PluginHarness = await teapot_harness(plugin)
+async def test_clearing_notes_plans_first_then_applies_with_progress(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
     await notes(harness, "buy milk", "bingo teams", "bingo prizes")
     plan = await harness.invoke("devtools.clear_notes", {"containing": "bingo"})
     assert isinstance(plan, Planned)
@@ -50,15 +50,15 @@ async def test_clearing_notes_plans_first_then_applies_with_progress(teapot_harn
     assert (status["state"], status["progress"]) == ("done", {"done": 2, "total": 2})
 
 
-async def test_an_empty_filter_clears_every_note(teapot_harness: Any) -> None:
-    harness: PluginHarness = await teapot_harness(plugin)
+async def test_an_empty_filter_clears_every_note(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
     await notes(harness, "one", "two")
     plan = await harness.invoke("devtools.clear_notes", {})
     assert isinstance(plan, Planned) and plan.total == 2
 
 
-async def test_a_note_added_after_the_plan_makes_it_stale(teapot_harness: Any) -> None:
-    harness: PluginHarness = await teapot_harness(plugin)
+async def test_a_note_added_after_the_plan_makes_it_stale(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
     await notes(harness, "one")
     plan = await harness.invoke("devtools.clear_notes", {})
     assert isinstance(plan, Planned)
@@ -67,8 +67,8 @@ async def test_a_note_added_after_the_plan_makes_it_stale(teapot_harness: Any) -
     assert isinstance(fresh, Planned) and fresh.stale and fresh.total == 2
 
 
-async def test_clearing_notes_needs_manage_server(teapot_harness: Any) -> None:
-    harness: PluginHarness = await teapot_harness(plugin)
+async def test_clearing_notes_needs_manage_server(teabot_harness: Any) -> None:
+    harness: PluginHarness = await teabot_harness(plugin)
     member = harness.guild.add_member(discord.Permissions(manage_messages=True))
     with pytest.raises(Refused) as caught:
         await harness.invoke("devtools.clear_notes", {}, user=member.id)

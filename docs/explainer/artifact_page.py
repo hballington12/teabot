@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 HERE = Path(__file__).parent
-SOURCE = HERE / "out" / "teapot-walkthrough.html"
+SOURCE = HERE / "out" / "teabot-walkthrough.html"
 TEMPLATE = HERE / "player.html"
 TARGET = HERE / "out" / "artifact" / "index.html"
 

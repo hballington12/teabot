@@ -9,14 +9,14 @@ from typing import Any
 import pytest
 from pydantic import BaseModel
 
-from teapot.core.loader import Candidate, LoadReport, PluginStatus, discover, from_plugins, load
-from teapot.core.processes import open_lock_connection
-from teapot.db.lockkeys import PLUGIN_NS, plugin_key
-from teapot.db.migrate import MigrationReport, PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Login
-from teapot.db.types import Conn
-from teapot.sdk import ActionSpec, JobContext, Manifest, Registrar, Risk
+from teabot.core.loader import Candidate, LoadReport, PluginStatus, discover, from_plugins, load
+from teabot.core.processes import open_lock_connection
+from teabot.db.lockkeys import PLUGIN_NS, plugin_key
+from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Login
+from teabot.db.types import Conn
+from teabot.sdk import ActionSpec, JobContext, Manifest, Registrar, Risk
 
 
 class In(BaseModel):
@@ -136,22 +136,22 @@ class FakeEntryPoint:
 
 def test_discovery_reports_import_failures_and_non_plugins() -> None:
     eps = [
-        FakeEntryPoint("alpha", plugin("alpha"), FakeDist("teapot-alpha")),
-        FakeEntryPoint("broken", ImportError("no module"), FakeDist("teapot-broken")),
-        FakeEntryPoint("odd", object(), FakeDist("teapot-odd")),
+        FakeEntryPoint("alpha", plugin("alpha"), FakeDist("teabot-alpha")),
+        FakeEntryPoint("broken", ImportError("no module"), FakeDist("teabot-broken")),
+        FakeEntryPoint("odd", object(), FakeDist("teabot-odd")),
     ]
 
     def find(group: str) -> list[FakeEntryPoint]:
-        return eps if group == "teapot.plugins" else []
+        return eps if group == "teabot.plugins" else []
 
     candidates = {c.name: c for c in discover(find)}
-    assert candidates["alpha"].plugin is not None and candidates["alpha"].origin == "teapot-alpha"
+    assert candidates["alpha"].plugin is not None and candidates["alpha"].origin == "teabot-alpha"
     assert candidates["broken"].plugin is None and "no module" in (candidates["broken"].error or "")
-    assert candidates["odd"].plugin is None and "not a teapot plugin" in (candidates["odd"].error or "")
+    assert candidates["odd"].plugin is None and "not a teabot plugin" in (candidates["odd"].error or "")
 
 
 async def test_a_broken_entry_point_is_reported_failed() -> None:
-    eps = [FakeEntryPoint("broken", ImportError("no module"), FakeDist("teapot-broken"))]
+    eps = [FakeEntryPoint("broken", ImportError("no module"), FakeDist("teabot-broken"))]
 
     def find(_group: str) -> list[FakeEntryPoint]:
         return eps
@@ -202,7 +202,7 @@ def test_reasons_are_never_set_for_loaded_plugins() -> None:
 
 
 async def test_failures_are_logged_as_errors_and_blocks_are_not(caplog: pytest.LogCaptureFixture) -> None:
-    caplog.set_level(logging.INFO, logger="teapot.core.loader")
+    caplog.set_level(logging.INFO, logger="teabot.core.loader")
     await run(from_plugins([plugin("alpha"), plugin("beta", fail_setup=True)]), disabled=["alpha"])
     errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
     assert [r.__dict__["plugin"] for r in errors] == ["beta"]
@@ -214,13 +214,13 @@ class ManifestOnly:
 
 
 def test_an_object_without_setup_is_not_a_plugin() -> None:
-    eps = [FakeEntryPoint("half", ManifestOnly(Manifest("half", "1.0")), FakeDist("teapot-half"))]
+    eps = [FakeEntryPoint("half", ManifestOnly(Manifest("half", "1.0")), FakeDist("teabot-half"))]
 
     def find(_group: str) -> list[FakeEntryPoint]:
         return eps
 
     (candidate,) = discover(find)
-    assert candidate.plugin is None and "not a teapot plugin" in (candidate.error or "")
+    assert candidate.plugin is None and "not a teabot plugin" in (candidate.error or "")
 
 
 async def test_a_plugin_whose_setup_fails_releases_its_lock(admin: Conn, owner_login: Login) -> None:

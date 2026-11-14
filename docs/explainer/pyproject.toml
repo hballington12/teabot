@@ -1,7 +1,7 @@
 [project]
-name = "teapot-explainer"
+name = "teabot-explainer"
 version = "0.1.0"
-description = "An animated slide deck that explains the teapot Discord bot framework, made with ManimGX."
+description = "An animated slide deck that explains the teabot Discord bot framework, made with ManimGX."
 requires-python = ">=3.13"
 dependencies = ["manimgx==0.1.1"]
 

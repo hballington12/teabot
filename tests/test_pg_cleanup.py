@@ -6,18 +6,18 @@ from typing import Any
 import psycopg
 import pytest
 
-from teapot.testing.cleanup import cleanup, role_prefix, run_db_name
+from teabot.testing.cleanup import cleanup, role_prefix, run_db_name
 
 DEAD_PID = 2**22 + 12345  # above Linux's largest pid, so never alive
 
 
 @pytest.fixture
-def maintenance(teapot_pg_server: Any) -> Any:
+def maintenance(teabot_pg_server: Any) -> Any:
     conn = psycopg.connect(
-        host=teapot_pg_server.host,
-        port=teapot_pg_server.port,
-        user=teapot_pg_server.user,
-        password=teapot_pg_server.password,
+        host=teabot_pg_server.host,
+        port=teabot_pg_server.port,
+        user=teabot_pg_server.user,
+        password=teabot_pg_server.password,
         dbname="postgres",
         autocommit=True,
     )

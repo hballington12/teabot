@@ -9,8 +9,8 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teapot.core.loader import Loaded
-from teapot.core.registry import (
+from teabot.core.loader import Loaded
+from teabot.core.registry import (
     ActionFailed,
     Call,
     PluginActionContext,
@@ -19,12 +19,12 @@ from teapot.core.registry import (
     TokenLimits,
     sources_from,
 )
-from teapot.db.migrate import PluginMigrations, migrate
-from teapot.db.naming import Naming
-from teapot.db.pool import Pools
-from teapot.db.types import Conn
-from teapot.sdk import ActionContext, ActionError, ActionSpec, Actor, Manifest, Risk, Surface
-from teapot.testing import FakeClient, FakeGuild, FakeMember
+from teabot.db.migrate import PluginMigrations, migrate
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
+from teabot.sdk import ActionContext, ActionError, ActionSpec, Actor, Manifest, Risk, Surface
+from teabot.testing import FakeClient, FakeGuild, FakeMember
 
 GUILD, MEMBER, STRANGER, UNCACHED = 1001, 2001, 2002, 2003
 

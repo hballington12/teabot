@@ -1,19 +1,19 @@
 [project]
-name = "teapot-devtools"
+name = "teabot-devtools"
 version = "0.1.0"
-description = "A development-only teapot plugin that exercises the core"
+description = "A development-only teabot plugin that exercises the core"
 requires-python = ">=3.12"
-dependencies = ["teapot"]
+dependencies = ["teabot"]
 
-[project.entry-points."teapot.plugins"]
-devtools = "teapot_devtools:plugin"
+[project.entry-points."teabot.plugins"]
+devtools = "teabot_devtools:plugin"
 
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/teapot_devtools"]
+packages = ["src/teabot_devtools"]
 
 [tool.uv.sources]
-teapot = { workspace = true }
+teabot = { workspace = true }

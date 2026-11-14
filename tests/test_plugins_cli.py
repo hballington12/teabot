@@ -1,16 +1,16 @@
-"""`teapot plugins list` (WP1.7): plugins, their migration versions, and whether any process has them loaded."""
+"""`teabot plugins list` (WP1.7): plugins, their migration versions, and whether any process has them loaded."""
 
 import asyncio
 from pathlib import Path
 
 from typer.testing import CliRunner
 
-from teapot.cli import app
-from teapot.core.processes import open_lock_connection
-from teapot.db.migrate import CORE_MIGRATIONS, PluginMigrations, migrate, read_files
-from teapot.db.naming import Naming
-from teapot.db.pool import Login, Pools
-from teapot.db.types import Conn
+from teabot.cli import app
+from teabot.core.processes import open_lock_connection
+from teabot.db.migrate import CORE_MIGRATIONS, PluginMigrations, migrate, read_files
+from teabot.db.naming import Naming
+from teabot.db.pool import Login, Pools
+from teabot.db.types import Conn
 
 
 async def test_lists_plugins_with_versions_and_load_state(

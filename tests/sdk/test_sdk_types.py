@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from teapot.sdk import (
+from teabot.sdk import (
     ActionSpec,
     ChannelRef,
     InputError,
@@ -101,7 +101,7 @@ def test_an_action_knows_its_plugin() -> None:
 
 
 @pytest.mark.parametrize(
-    "plugin_id", ["Bad", "x", "core", "admin", "teapot", "plugin", "plugins", "audit", "tokens"]
+    "plugin_id", ["Bad", "x", "core", "admin", "teabot", "plugin", "plugins", "audit", "tokens"]
 )
 def test_manifests_refuse_bad_and_reserved_ids(plugin_id: str) -> None:
     with pytest.raises(ValueError):

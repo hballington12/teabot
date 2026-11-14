@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Continuous backups of the teapot database to an S3-compatible bucket with pgBackRest (D37). Run as root
+# Continuous backups of the teabot database to an S3-compatible bucket with pgBackRest (D37). Run as root
 # after setup-host.sh; safe to run again.
 #   setup-backups.sh <bucket> <region, e.g. lon1>
 # It asks for the bucket's access key and secret on the terminal, so they never reach a command line or a
@@ -42,12 +42,12 @@ write_secrets() {
 
 start_archiving() {
     say "stanza and WAL archiving"
-    sudo -u postgres pgbackrest --stanza=teapot stanza-create
-    if [ -n "$(install_if_changed "$HERE/postgresql/teapot-archive.conf" "$(pg_conf_dir)/conf.d/teapot-archive.conf")" ]; then
+    sudo -u postgres pgbackrest --stanza=teabot stanza-create
+    if [ -n "$(install_if_changed "$HERE/postgresql/teabot-archive.conf" "$(pg_conf_dir)/conf.d/teabot-archive.conf")" ]; then
         systemctl restart postgresql
-        systemctl try-restart teapot
+        systemctl try-restart teabot
     fi
-    sudo -u postgres pgbackrest --stanza=teapot check
+    sudo -u postgres pgbackrest --stanza=teabot check
 }
 
 schedule() {
@@ -57,9 +57,9 @@ schedule() {
     done
     systemctl daemon-reload
     systemctl enable -q --now pgbackrest-full.timer pgbackrest-diff.timer
-    sudo -u postgres pgbackrest --stanza=teapot info | grep -q 'full backup' \
+    sudo -u postgres pgbackrest --stanza=teabot info | grep -q 'full backup' \
         || systemctl start pgbackrest-backup@full.service
-    sudo -u postgres pgbackrest --stanza=teapot info
+    sudo -u postgres pgbackrest --stanza=teabot info
 }
 
 need_root

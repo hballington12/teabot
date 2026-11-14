@@ -19,7 +19,7 @@ from playwright.sync_api import Page, sync_playwright
 
 HERE = Path(__file__).parent.parent
 PAGE = HERE / "out" / "artifact" / "index.html"
-MP4 = HERE / "out" / "teapot-walkthrough.mp4"
+MP4 = HERE / "out" / "teabot-walkthrough.mp4"
 STEPS = 5
 
 
