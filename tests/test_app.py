@@ -1,12 +1,15 @@
 """Pieces of the app runner that do not need Discord. The whole runner is checked live against a
 test server."""
 
+import asyncio
 import math
+import signal
 from dataclasses import dataclass
+from typing import Any
 
 import pytest
 
-from teabot.app import TeabotClient, public_hosts, shard_latencies, token_or_exit
+from teabot.app import TeabotClient, public_hosts, shard_latencies, stop_on_signals, token_or_exit
 from teabot.core.queue import ShardFilter
 from teabot.settings import Settings
 
@@ -148,3 +151,22 @@ async def test_ready_compares_the_servers_on_this_processes_shards() -> None:
 )
 def test_the_public_host_comes_from_the_public_url(url: str | None, hosts: list[str]) -> None:
     assert public_hosts(Settings(public_url=url)) == hosts
+
+
+async def test_without_loop_signal_handlers_the_process_handler_stops_the_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows' event loops raise NotImplementedError for add_signal_handler."""
+    installed: dict[int, Any] = {}
+    monkeypatch.setattr(signal, "signal", installed.setdefault)
+    loop = asyncio.get_running_loop()
+
+    def unsupported(*_: object) -> None:
+        raise NotImplementedError
+
+    monkeypatch.setattr(loop, "add_signal_handler", unsupported)
+    stop = asyncio.Event()
+    stop_on_signals(loop, stop)
+    assert set(installed) == {signal.SIGINT, signal.SIGTERM}
+    installed[signal.SIGTERM](signal.SIGTERM, None)
+    await asyncio.wait_for(stop.wait(), timeout=1)

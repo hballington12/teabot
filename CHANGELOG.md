@@ -6,6 +6,14 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Self-hosting
+
+- `teabot run` starts on Windows. Its event loop has no signal handlers, so SIGINT and SIGTERM fall back to the process-wide handler, which still stops the bot cleanly.
+
+### Writing plugins
+
+- The test fixtures' cleanup of killed runs works on Windows, where `os.kill(pid, 0)` raised an error for a dead process, and sent Ctrl+C to a live one, instead of probing it.
+
 ## 1.2.0 - 2026-11-14
 
 ### Documentation

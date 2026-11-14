@@ -7,6 +7,7 @@ Concurrent runs never share a name, so they never collide.
 
 import os
 import re
+import sys
 from collections.abc import Callable
 from typing import Any
 
@@ -17,6 +18,9 @@ ROLE_RE = re.compile(r"t(\d+)r[0-9a-f]+_\w+")
 LEGACY_ROLE_RE = re.compile(r"t[0-9a-f]{8}_\w+")
 # Fixed names that earlier versions of this suite used before names carried the pid.
 LEGACY_DATABASES = frozenset({"tests", "tests_tmpl"})
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+ERROR_ACCESS_DENIED = 5
+STILL_ACTIVE = 259
 
 
 def run_db_name(pid: int) -> str:
@@ -27,7 +31,24 @@ def role_prefix(pid: int, token: str) -> str:
     return f"t{pid}r{token}"
 
 
+def _alive_on_windows(pid: int) -> bool:
+    """`os.kill(pid, 0)` sends CTRL_C_EVENT on Windows rather than probing, so ask the kernel instead."""
+    import ctypes  # noqa: PLC0415
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    if not handle:
+        return ctypes.get_last_error() == ERROR_ACCESS_DENIED  # it exists but belongs to someone else
+    try:
+        code = ctypes.c_ulong()
+        return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
 def _alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        return _alive_on_windows(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
