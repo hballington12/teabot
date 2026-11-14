@@ -1,0 +1,71 @@
+name: Release
+
+# A tag v<major>.<minor>.<patch> releases teabot and teabot-announcements to PyPI through trusted publishing,
+# then attaches the instance template, locked against them, to a GitHub release (WP7.5, D42, D48).
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.12"
+      - name: Check the versions, the changelog and the template against the tag
+        run: uv run --no-project python scripts/release/check.py "$GITHUB_REF_NAME"
+      - name: Pin the plugin to the core it is released with
+        run: uv run --no-project python scripts/release/pin.py "$GITHUB_REF_NAME"
+      - name: Build both packages
+        run: |
+          uv build --package teabot -o dist
+          uv build --package teabot-announcements -o dist
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # PyPI's trusted publisher for each package names this workflow and this environment.
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: astral-sh/setup-uv@v10.3.3
+      - run: uv publish --trusted-publishing always dist/*
+
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - name: Build the template, locked against the packages just published
+        run: uv run --no-project python scripts/release/template.py "$GITHUB_REF_NAME" teabot-template.tar.gz
+      - name: Write the release notes from the changelog
+        run: uv run --no-project python scripts/release/notes.py "$GITHUB_REF_NAME" > notes.md
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" teabot-template.tar.gz dist/*
+          --title "teabot ${GITHUB_REF_NAME#v}" --notes-file notes.md

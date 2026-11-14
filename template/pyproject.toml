@@ -4,9 +4,9 @@ version = "0.1.0"
 description = "One teabot instance: the plugins it runs, and how it is deployed (D42, D43)."
 requires-python = ">=3.12"
 dependencies = [
-    "teabot",
+    "teabot>=1.0,<2",
     # First-party plugins this instance runs. Add or remove them here, then `uv lock`.
-    "teabot-announcements",
+    "teabot-announcements>=1.0,<2",
 ]
 
 [tool.uv]
@@ -16,8 +16,5 @@ package = false
 [tool.uv.workspace]
 members = ["plugins/*"]
 
-# Until teabot is published (M7), it and its first-party plugins come from GitHub. uv.lock pins the exact
-# commit; upgrade with `uv lock --upgrade-package teabot --upgrade-package teabot-announcements`.
-[tool.uv.sources]
-teabot = { git = "ssh://git@github.com/hballington12/teabot.git", branch = "main" }
-teabot-announcements = { git = "ssh://git@github.com/hballington12/teabot.git", branch = "main", subdirectory = "plugins/announcements" }
+# uv.lock pins the exact versions. Upgrade with `uv lock --upgrade-package teabot --upgrade-package
+# teabot-announcements`, then rebuild or deploy.

@@ -32,6 +32,17 @@ docker compose -f template/compose.yaml up -d --wait postgres
 - A released migration never changes. Add a new numbered file instead.
 - Add a line to [CHANGELOG.md](CHANGELOG.md) under **Unreleased**, with a **For operators** note when upgrading needs a manual step.
 
+## Releasing
+
+For the maintainers. `teabot` and `teabot-announcements` are released together under one version.
+
+1. In one commit on `main`, set that version in `pyproject.toml` and `plugins/announcements/pyproject.toml`, and rename the changelog's **Unreleased** heading to `## <version> - <date>`.
+2. Tag it and push the tag: `git tag v<version>` and `git push origin v<version>`.
+3. The release workflow checks the versions, the changelog and the template against the tag, publishes both packages to PyPI, and attaches the locked template to a GitHub release with the changelog section as its notes.
+4. Set the versions to the next `.dev0` and add a new **Unreleased** heading.
+
+A new major version also moves the template's ranges, such as `teabot>=2.0,<3`.
+
 ## Licence and conduct
 
 - Contributions are under the [MIT licence](LICENSE), as the rest of the project is.

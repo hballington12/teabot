@@ -1,6 +1,6 @@
 [project]
 name = "teabot"
-version = "0.1.0.dev0"
+version = "1.0.0.dev0"
 description = "A plugin-based Discord bot framework, built to self-host and to scale"
 readme = "README.md"
 license = "MIT"
@@ -63,7 +63,7 @@ teabot-devtools-twin = { workspace = true }
 [tool.ruff]
 line-length = 110
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "scripts/release"]
 include = ["*.py", "*.pyi"]
 
 [tool.ruff.lint]
@@ -87,12 +87,15 @@ max-statements = 60
 max-nested-blocks = 3
 
 [tool.pyright]
-include = ["src", "tests", "plugins"]
+include = ["src", "tests", "plugins", "scripts"]
+# The release scripts import release_lib from their own directory (WP7.5).
+extraPaths = ["scripts/release"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "plugins"]
+pythonpath = ["scripts/release"]
 addopts = "-p teabot.testing.fixtures"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"

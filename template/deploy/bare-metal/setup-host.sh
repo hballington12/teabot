@@ -34,7 +34,8 @@ deploy_keys() {
     say "deploy keys"
     local framework
     framework=$(grep -o 'ssh://git@github.com/[^"]*' "$HERE/../../pyproject.toml" | head -1)
-    for name in instance framework; do
+    # teabot itself needs a key only while the instance takes it from a git repository instead of PyPI.
+    for name in instance ${framework:+framework}; do
         [ -f "$APP_HOME/.ssh/$name" ] || as_teabot ssh-keygen -q -t ed25519 -N '' -C "teabot-$name@$HOST" -f "$APP_HOME/.ssh/$name"
     done
     as_teabot sh -c "ssh-keyscan -t ed25519 github.com > '$APP_HOME/.ssh/known_hosts' 2>/dev/null"

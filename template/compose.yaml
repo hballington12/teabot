@@ -23,7 +23,6 @@ services:
   bot:
     build:
       context: .
-      ssh: [default]
     # The env file is mounted, not loaded, so `teabot init` can write the passwords it generates into it. It
     # holds secrets and is kept at mode 0600, so the bot runs as the file's owner: your user, 1000 by default.
     user: "${TEABOT_UID:-1000}:${TEABOT_GID:-1000}"

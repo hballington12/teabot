@@ -7,6 +7,7 @@
 """
 
 from datetime import UTC, datetime, timedelta
+from importlib.metadata import version
 from typing import Any, Literal, cast
 
 import discord
@@ -125,7 +126,8 @@ SCHEDULE = ActionSpec(
 
 
 class Announcements:
-    manifest = Manifest("announcements", "0.2.0")
+    # Released with the core under one version, so the manifest takes the package's own.
+    manifest = Manifest("announcements", version("teabot-announcements"))
 
     def setup(self, registrar: Registrar) -> None:
         registrar.action(POST)
