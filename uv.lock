@@ -1895,6 +1895,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "starlette" },
     { name = "typer" },
+    { name = "typing-extensions" },
     { name = "uvicorn" },
 ]
 
@@ -1938,6 +1939,7 @@ requires-dist = [
     { name = "pytest-postgresql", marker = "extra == 'testing'", specifier = ">=10.0" },
     { name = "starlette", specifier = ">=0.47" },
     { name = "typer", specifier = ">=0.29" },
+    { name = "typing-extensions", specifier = ">=4.12" },
     { name = "uvicorn", specifier = ">=0.35" },
 ]
 provides-extras = ["testing"]

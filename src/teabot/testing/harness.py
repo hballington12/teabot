@@ -17,7 +17,7 @@ from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
-from teabot.sdk import Actor, Plugin
+from teabot.sdk import Actor, LoadablePlugin
 from teabot.sdk.actions import Via
 from teabot.testing.fakes import FakeClient, FakeGuild, FakeMember
 
@@ -80,7 +80,9 @@ class PluginHarness:
         return await self.registry.invoke(Call(action, grant.guild_id, actor, raw_input or {}, grant.limits))
 
 
-async def build_harness(plugin: Plugin, *, admin: Conn, naming: Naming, pools: Pools) -> PluginHarness:
+async def build_harness(
+    plugin: LoadablePlugin, *, admin: Conn, naming: Naming, pools: Pools
+) -> PluginHarness:
     """Load `plugin` through the real loader, or raise with the reason it did not load."""
 
     async def migrator(plugins: Sequence[PluginMigrations]) -> MigrationReport:

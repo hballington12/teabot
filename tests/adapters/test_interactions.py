@@ -49,6 +49,9 @@ WIPE = ActionSpec("announcements.wipe", "Wipe old posts", Ping, Pong, Risk.DESTR
 PING = ActionSpec(
     "announcements.ping", "Ping", Ping, Pong, Risk.READ, never, render=lambda out: f"pong {out.ok}"
 )
+SHOUT = ActionSpec(
+    "announcements.shout", "Shout", Ping, Pong, Risk.READ, never, render=lambda out: "HEY", reply="public"
+)
 
 
 @dataclass
@@ -113,6 +116,9 @@ class FakeInteraction:
         self.response = FakeResponse(self.events)
         self.followup = FakeFollowup(self.events)
 
+    async def delete_original_response(self) -> None:
+        self.events.append(("delete",))
+
 
 def command(sub: str, options: list[dict[str, Any]]) -> FakeInteraction:
     data = {"name": "announcements", "options": [{"name": sub, "type": 1, "options": options}]}
@@ -127,7 +133,7 @@ def modal_submit(custom_id: str, values: dict[str, str]) -> FakeInteraction:
 @pytest.fixture
 async def router(admin: Conn, naming: Naming, pools: Pools) -> tuple[InteractionRouter, FakeRegistry]:
     await migrate(admin, naming, [])
-    registry = FakeRegistry({POST.name: POST, PING.name: PING, WIPE.name: WIPE})
+    registry = FakeRegistry({POST.name: POST, PING.name: PING, WIPE.name: WIPE, SHOUT.name: SHOUT})
     return InteractionRouter(registry, pools.core_db()), registry
 
 
@@ -369,3 +375,26 @@ async def test_other_buttons_are_left_alone(router: tuple[InteractionRouter, Fak
     interaction = press("someone-elses-button")
     await handler.handle(interaction)
     assert (registry.calls, interaction.events) == ([], [])
+
+
+async def test_a_public_action_replies_to_the_channel_once_it_succeeds(
+    router: tuple[InteractionRouter, FakeRegistry],
+) -> None:
+    r, registry = router
+    registry.result = Pong(ok=True)
+    interaction = command("shout", [])
+    await r.handle(interaction)
+    assert interaction.events == [("defer", True, True), ("delete",), ("followup", "HEY", False)]
+
+
+async def test_a_public_actions_refusal_stays_private(router: tuple[InteractionRouter, FakeRegistry]) -> None:
+    r, registry = router
+    registry.result = Refused("forbidden", "announcements.shout needs permissions you do not have")
+    interaction = command("shout", [])
+    await r.handle(interaction)
+    assert interaction.events[-1] == (
+        "followup",
+        "announcements.shout needs permissions you do not have",
+        True,
+    )
+    assert ("delete",) not in interaction.events

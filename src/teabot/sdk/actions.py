@@ -40,8 +40,9 @@ class Surface(Flag):
     ALL = SLASH | MCP | SERVICE
 
 
-type Via = Literal["slash", "component", "mcp", "service"]
-"""The front door a call came through (D1): a slash command, a button, an MCP tool or the service API."""
+type Via = Literal["slash", "component", "mcp", "service", "job", "event"]
+"""How a call came in (D1): a slash command, a button, an MCP tool or the service API; or, with no member
+behind it, a job or a Discord event."""
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     - `surfaces` narrows the front doors; all three by default.
     - `plan` returns the diff a destructive action would make, without changing anything.
     - `render` turns the output into the Discord reply; without it the reply lists the output's fields.
+    - `reply` is `"private"` for a reply only the member sees, or `"public"` for one the channel sees.
     """
 
     name: str
@@ -119,6 +121,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     surfaces: Surface = Surface.ALL
     plan: Callable[[ActionContext, I], Awaitable[Diff]] | None = None
     render: Callable[[O], discord.Embed | str] | None = None
+    reply: Literal["private", "public"] = "private"
 
     def __post_init__(self) -> None:
         if not ACTION_NAME_RE.fullmatch(self.name):

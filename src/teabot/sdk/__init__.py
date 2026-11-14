@@ -6,10 +6,14 @@ least one minor release first. Only the names below are public: the submodules o
 else in `teabot` are internal and may change in any release.
 
 A plugin:
-- `Plugin`: the object a package's `teabot.plugins` entry point names, with a `Manifest` and a `setup`.
-- `Manifest`: the plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
-- `Registrar`: what `setup` registers actions and jobs with.
-- `InvalidPluginId`: what `Manifest` raises for an id that breaks D46.
+- `Plugin`: a plugin, with its id and its config model. `@plugin.action` makes a function an `Action`, and
+  `@plugin.job` makes one a `Job`.
+- `Context`: what an action or a job receives: the server, the actor, the config, the database and the time.
+- `READ`, `WRITE` and `DESTRUCTIVE`: an action's `Risk`. `Permission` names what a member needs.
+- `Manifest`: a plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
+- `LoadablePlugin`: what an entry point may name: a `Plugin`, or any object with a `Manifest` and a `setup`
+  that registers with a `Registrar`.
+- `InvalidPluginId`: what a plugin with an id that breaks D46 raises.
 
 Actions:
 - `ActionSpec`: one action, with its input and output models, `Risk`, permissions and `Surface`.
@@ -36,20 +40,26 @@ The database (D9, D30):
 """
 
 from teabot.sdk.actions import ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
+from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Permission, Plugin
 from teabot.sdk.db import Db, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teabot.sdk.guild import Guild, Member, Message, Role, TextChannel
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
 from teabot.sdk.plans import Diff, DiffEntry
-from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, Manifest, Plugin, Registrar
+from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
 
 __all__ = [
+    "DESTRUCTIVE",
+    "READ",
+    "WRITE",
+    "Action",
     "ActionContext",
     "ActionError",
     "ActionSpec",
     "Actor",
     "ChannelRef",
+    "Context",
     "Db",
     "Diff",
     "DiffEntry",
@@ -57,13 +67,16 @@ __all__ = [
     "Guild",
     "InputError",
     "InvalidPluginId",
+    "Job",
     "JobContext",
     "JobHandler",
+    "LoadablePlugin",
     "LongText",
     "Manifest",
     "Member",
     "MemberRef",
     "Message",
+    "Permission",
     "Plugin",
     "Queries",
     "Registrar",

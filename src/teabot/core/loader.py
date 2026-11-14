@@ -5,7 +5,10 @@ id is unique, it is not disabled, no purge holds its lock, its migrations apply 
 other plugin gets a status with its reason, and everything else still loads.
 """
 
+import importlib
 import logging
+import pkgutil
+import sys
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
@@ -13,7 +16,7 @@ from importlib.metadata import entry_points
 from typing import Any, Literal, Protocol
 
 from teabot.db.migrate import MigrationReport, PluginMigrations
-from teabot.sdk import ActionSpec, JobHandler, Plugin
+from teabot.sdk import ActionSpec, JobHandler, LoadablePlugin
 
 log = logging.getLogger(__name__)
 
@@ -42,13 +45,13 @@ class Candidate:
 
     name: str
     origin: str
-    plugin: Plugin | None
+    plugin: LoadablePlugin | None
     error: str | None = None
 
 
 @dataclass
 class Loaded:
-    plugin: Plugin
+    plugin: LoadablePlugin
     actions: dict[str, ActionSpec[Any, Any]] = field(default_factory=dict[str, ActionSpec[Any, Any]])
     jobs: dict[str, JobHandler] = field(default_factory=dict[str, JobHandler])
 
@@ -93,13 +96,43 @@ def _is_plugin(obj: object) -> bool:
 def _candidate(ep: EntryPointLike) -> Candidate:
     dist = getattr(ep, "dist", None)
     origin: str = dist.name if dist is not None else ep.name
+    module = str(getattr(ep, "module", "") or "")
     try:
         obj = ep.load()
+        if hasattr(obj, "locate"):
+            _import_package(module)
+            obj.locate(module, getattr(dist, "version", None))
     except Exception as exc:
-        return Candidate(ep.name, origin, None, f"import failed: {exc!r}")
+        return Candidate(ep.name, origin, None, f"import failed: {exc}")
     if not _is_plugin(obj):
         return Candidate(ep.name, origin, None, f"{ep.name} is not a teabot plugin")
-    return Candidate(obj.manifest.id, origin, obj)
+    plugin_id = obj.manifest.id
+    if plugin_id != ep.name:
+        reason = (
+            f"its entry point is named {ep.name} but the plugin's id is {plugin_id}; rename one so they match"
+        )
+        return Candidate(ep.name, origin, None, reason)
+    return Candidate(plugin_id, origin, obj)
+
+
+SKIPPED_MODULES = ("tests", "test", "__main__")
+
+
+def _import_package(module: str) -> None:
+    """Import every module of a plugin's package, so actions and jobs decorated anywhere in it register. Tests,
+    private modules and `__main__` are skipped."""
+    package = sys.modules.get(module)
+    path = getattr(package, "__path__", None)
+    if package is None or path is None:
+        return
+    # pkgutil.walk_packages imports a subpackage to look inside it, so the skipping is done here, before import.
+    for found in pkgutil.iter_modules(path):
+        if found.name.startswith("_") or found.name in SKIPPED_MODULES:
+            continue
+        name = f"{module}.{found.name}"
+        importlib.import_module(name)
+        if found.ispkg:
+            _import_package(name)
 
 
 type Finder = Callable[[str], Iterable[EntryPointLike]]
@@ -115,7 +148,7 @@ def discover(find: Finder = installed) -> list[Candidate]:
     return [_candidate(ep) for ep in find(GROUP)]
 
 
-def from_plugins(plugins: Iterable[Plugin]) -> list[Candidate]:
+def from_plugins(plugins: Iterable[LoadablePlugin]) -> list[Candidate]:
     """Candidates from plugin objects, for tests that skip packaging."""
     return [Candidate(p.manifest.id, f"{type(p).__module__}.{type(p).__qualname__}", p) for p in plugins]
 
@@ -141,7 +174,7 @@ class _Registrar:
         self.jobs[name] = handler
 
 
-def _unique(candidates: Sequence[Candidate], report: LoadReport) -> dict[str, Plugin]:
+def _unique(candidates: Sequence[Candidate], report: LoadReport) -> dict[str, LoadablePlugin]:
     """Plugins whose id only one candidate declares. Unimportable and duplicated ones are reported."""
     by_id: defaultdict[str, list[Candidate]] = defaultdict(list)
     for candidate in candidates:
@@ -149,7 +182,7 @@ def _unique(candidates: Sequence[Candidate], report: LoadReport) -> dict[str, Pl
             report.fail(candidate.name, "failed", candidate.error)
         else:
             by_id[candidate.name].append(candidate)
-    unique: dict[str, Plugin] = {}
+    unique: dict[str, LoadablePlugin] = {}
     for plugin_id, group in by_id.items():
         if len(group) > 1:
             report.fail(plugin_id, "duplicate_id", "declared by " + " and ".join(c.origin for c in group))
@@ -158,7 +191,7 @@ def _unique(candidates: Sequence[Candidate], report: LoadReport) -> dict[str, Pl
     return unique
 
 
-async def _lock(plugins: dict[str, Plugin], locks: PluginLocks | None, report: LoadReport) -> None:
+async def _lock(plugins: dict[str, LoadablePlugin], locks: PluginLocks | None, report: LoadReport) -> None:
     if locks is None:
         return
     for plugin_id in await locks.take_plugins(plugins):
@@ -166,7 +199,7 @@ async def _lock(plugins: dict[str, Plugin], locks: PluginLocks | None, report: L
         del plugins[plugin_id]
 
 
-async def _migrate(plugins: dict[str, Plugin], migrator: Migrator, report: LoadReport) -> list[str]:
+async def _migrate(plugins: dict[str, LoadablePlugin], migrator: Migrator, report: LoadReport) -> list[str]:
     result = await migrator([PluginMigrations(p, plugins[p].manifest.migrations) for p in plugins])
     for plugin_id, error in result.failed.items():
         report.fail(plugin_id, "failed", error)
@@ -174,7 +207,7 @@ async def _migrate(plugins: dict[str, Plugin], migrator: Migrator, report: LoadR
     return list(result.failed)
 
 
-def _setup(plugin_id: str, plugin: Plugin, report: LoadReport) -> bool:
+def _setup(plugin_id: str, plugin: LoadablePlugin, report: LoadReport) -> bool:
     registrar = _Registrar(plugin_id)
     try:
         plugin.setup(registrar)

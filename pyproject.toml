@@ -26,6 +26,7 @@ dependencies = [
     "pydantic-settings>=2.7",
     "starlette>=0.47",
     "typer>=0.29",
+    "typing-extensions>=4.12",
     "uvicorn>=0.35",
 ]
 

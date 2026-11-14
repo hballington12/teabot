@@ -5,8 +5,8 @@ from typing import Any
 import discord
 import pytest
 
-from teabot.core.views import guild_view
 from teabot.sdk import ActionError, Guild
+from teabot.sdk._views import guild_view
 from teabot.testing import FakeChannel, FakeGuild, FakeVoiceChannel
 
 

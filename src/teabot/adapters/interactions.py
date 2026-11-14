@@ -1,8 +1,8 @@
 """The interaction router (D29, D32): one handler for every teabot command and modal.
 
 A command with a `LongText` field saves its other options as a draft row and opens a modal whose custom id
-holds only the draft id, so any process can finish the submit (D40). Every reply is ephemeral; refusals say
-why, failures point at the audit log without leaking details.
+holds only the draft id, so any process can finish the submit (D40). Replies are ephemeral unless the action
+asks for a public one; refusals say why, failures point at the audit log without leaking details.
 """
 
 import json
@@ -199,10 +199,15 @@ class InteractionRouter:
             )
             return
         rendered = spec.render(output) if spec.render is not None else default_embed(spec, output)
+        private = spec.reply != "public"
+        if not private:
+            # The command was acknowledged privately, so a refusal stays private; a success is shown to the
+            # channel as a follow-up, and the private placeholder goes.
+            await interaction.delete_original_response()
         if isinstance(rendered, str):
-            await interaction.followup.send(rendered, ephemeral=True)
+            await interaction.followup.send(rendered, ephemeral=private)
         else:
-            await interaction.followup.send(embed=rendered, ephemeral=True)
+            await interaction.followup.send(embed=rendered, ephemeral=private)
 
 
 async def prune_drafts(db: Database, minutes: int = DRAFT_MINUTES) -> str:

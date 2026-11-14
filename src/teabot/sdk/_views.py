@@ -1,7 +1,7 @@
-"""The SDK's Discord types (`teabot.sdk.guild`) over discord.py's objects.
+"""The SDK's Discord types (`teabot.sdk.guild`) over discord.py's objects. Internal to the SDK.
 
 The views read only discord.py's own attributes, which `teabot.testing`'s fakes share, so one implementation
-serves Discord and tests alike. They are the only place the core hands Discord objects to plugin code.
+serves Discord and tests alike. They are the only Discord objects plugin code receives.
 """
 
 from collections.abc import Iterable

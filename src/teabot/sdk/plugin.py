@@ -84,8 +84,9 @@ class Registrar(Protocol):
         ...
 
 
-class Plugin(Protocol):
-    """A plugin: the object a package's `teabot.plugins` entry point names (D4)."""
+class LoadablePlugin(Protocol):
+    """What a package's `teabot.plugins` entry point names (D4): a `Plugin`, or any object with a manifest and a
+    setup that registers `ActionSpec`s and jobs."""
 
     @property
     def manifest(self) -> Manifest:

@@ -22,7 +22,7 @@ from teabot.db.bootstrap import bootstrap
 from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, create_pools
 from teabot.db.types import Conn
-from teabot.sdk import Plugin
+from teabot.sdk import LoadablePlugin
 from teabot.testing.cleanup import cleanup, role_prefix, run_db_name
 from teabot.testing.harness import PluginHarness, build_harness
 
@@ -137,10 +137,12 @@ async def pools(admin: Conn, naming: Naming, info: ConnectionInfo) -> AsyncItera
 
 
 @pytest.fixture
-def teabot_harness(admin: Conn, naming: Naming, pools: Pools) -> Callable[[Plugin], Awaitable[PluginHarness]]:
+def teabot_harness(
+    admin: Conn, naming: Naming, pools: Pools
+) -> Callable[[LoadablePlugin], Awaitable[PluginHarness]]:
     """`await teabot_harness(plugin)` loads the plugin into a fresh instance and returns its harness."""
 
-    async def make(plugin: Plugin) -> PluginHarness:
+    async def make(plugin: LoadablePlugin) -> PluginHarness:
         return await build_harness(plugin, admin=admin, naming=naming, pools=pools)
 
     return make
