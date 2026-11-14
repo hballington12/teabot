@@ -30,6 +30,10 @@ STATUS: dict[RefusalCode, int] = {
     "plugin_not_enabled": 409,
     "config_invalid": 409,
     "invalid_input": 422,
+    "confirm_unknown": 404,
+    "confirm_mismatch": 403,
+    "plan_expired": 409,
+    "plan_used": 409,
 }
 
 

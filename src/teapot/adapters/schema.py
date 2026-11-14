@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from teapot.core.registry import ActionSource
-from teapot.sdk import ActionSpec, Surface
+from teapot.sdk import ActionSpec, Risk, Surface
 from teapot.sdk.inputs import InputError, InputField, input_fields
 
 SchemaError = InputError
@@ -68,8 +68,18 @@ def command_group(plugin_id: str, specs: Iterable[ActionSpec[Any, Any]]) -> dict
     }
 
 
+CONFIRM_FIELD = {
+    "type": "string",
+    "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+}
+
+
 def mcp_input_schema(spec: ActionSpec[Any, Any]) -> dict[str, Any]:
-    return spec.input.model_json_schema()
+    """The tool's JSON schema. A destructive action gains the optional `confirm` the core adds (D21)."""
+    schema = spec.input.model_json_schema()
+    if spec.risk is Risk.DESTRUCTIVE:
+        schema["properties"] = {**schema.get("properties", {}), "confirm": CONFIRM_FIELD}
+    return schema
 
 
 def tool_name(spec: ActionSpec[Any, Any]) -> str:

@@ -95,6 +95,9 @@ addopts = "-p teapot.testing.fixtures"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+# discord.py's escape_markdown passes re.sub's count positionally, which Python 3.13 deprecates. Only that one
+# warning from that one module is hidden, so teapot's own warnings still show.
+filterwarnings = ["ignore:'count' is passed as positional argument:DeprecationWarning:discord.utils"]
 
 [tool.importlinter]
 root_packages = ["teapot", "teapot_announcements", "teapot_devtools"]

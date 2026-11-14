@@ -2,19 +2,23 @@
 
 import json
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, get_args
 
 import discord
 import httpx
 import pytest
 from pydantic import BaseModel
 
+from teapot.adapters.service_api import STATUS
 from teapot.auth.tokens import NewToken
+from teapot.core.registry import RefusalCode
 from teapot.health import Health
 from teapot.sdk import (
     ActionContext,
     ActionError,
     ActionSpec,
+    Diff,
+    DiffEntry,
     Manifest,
     Registrar,
     Risk,
@@ -54,6 +58,18 @@ async def crash(ctx: ActionContext, data: NoInput) -> NoInput:
     raise RuntimeError("secret internals")
 
 
+class Clear(BaseModel):
+    prefix: str
+
+
+async def clear_plan(ctx: ActionContext, data: Clear) -> Diff:
+    return Diff(entries=[DiffEntry(change="remove", target="apple")])
+
+
+async def clear(ctx: ActionContext, data: Clear) -> NoInput:
+    return NoInput()
+
+
 class Feed:
     manifest = Manifest("feed", "1.0")
 
@@ -63,6 +79,9 @@ class Feed:
             ActionSpec("feed.post", "Post", Post, Posted, Risk.WRITE, post, default_permissions=manage)
         )
         registrar.action(ActionSpec("feed.look", "Look", NoInput, NoInput, Risk.READ, look))
+        registrar.action(
+            ActionSpec("feed.clear", "Clear", Clear, NoInput, Risk.DESTRUCTIVE, clear, plan=clear_plan)
+        )
         registrar.action(ActionSpec("feed.sulk", "Refuse", NoInput, NoInput, Risk.READ, sulk))
         registrar.action(ActionSpec("feed.crash", "Crash", NoInput, NoInput, Risk.READ, crash))
         registrar.action(
@@ -196,3 +215,28 @@ async def test_an_action_error_is_told_and_a_crash_is_not(
 async def test_only_post_is_served(client: httpx.AsyncClient, harness: PluginHarness) -> None:
     headers = {"Authorization": f"Bearer {await token(harness)}"}
     assert (await client.get("/api/v1/actions/feed.look", headers=headers)).status_code == 405
+
+
+def test_every_refusal_code_has_a_status() -> None:
+    assert set(STATUS) == set(get_args(RefusalCode.__value__))
+
+
+async def test_a_destructive_action_plans_then_applies_over_the_api(
+    client: httpx.AsyncClient, harness: PluginHarness
+) -> None:
+    bearer = await token(harness, max_risk=Risk.DESTRUCTIVE)
+    plan = (await act(client, bearer, "feed.clear", {"input": {"prefix": "a"}})).json()["output"]
+    assert (plan["counts"], plan["entries"][0]["target"]) == ({"remove": 1}, "apple")
+    confirmed = await act(
+        client, bearer, "feed.clear", {"input": {"prefix": "a", "confirm": plan["confirm"]}}
+    )
+    assert confirmed.status_code == 200 and confirmed.json()["output"]["job_id"]
+    reused = await act(client, bearer, "feed.clear", {"input": {"prefix": "a", "confirm": plan["confirm"]}})
+    assert (reused.status_code, reused.json()["error"]) == (409, "plan_used")
+
+
+async def test_a_destructive_action_needs_a_token_that_allows_it(
+    client: httpx.AsyncClient, harness: PluginHarness
+) -> None:
+    response = await act(client, await token(harness), "feed.clear", {"input": {"prefix": "a"}})
+    assert (response.status_code, response.json()["error"]) == (403, "above_token_risk")
