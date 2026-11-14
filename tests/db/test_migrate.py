@@ -14,6 +14,10 @@ from teabot.db.pool import ConnectionInfo, Login, Pools, connect
 from teabot.db.types import Conn
 
 ENTRIES = "CREATE TABLE entries (guild_id bigint NOT NULL, name text);"
+PARENT = (
+    "CREATE TABLE parent (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, guild_id bigint NOT NULL, "
+    "UNIQUE (guild_id, id));"
+)
 
 
 def write(directory: Path, files: dict[str, str]) -> Path:
@@ -97,6 +101,22 @@ CREATE TRIGGER upper_name BEFORE INSERT ON entries FOR EACH ROW EXECUTE FUNCTION
         ("CREATE TABLE notes (guild_id integer);", "without a bigint guild_id"),
         ("CREATE TABLE core.sneaky (guild_id bigint);", "permission denied"),
         ("CREATE TABLE public.sneaky (guild_id bigint);", "permission denied"),
+        (
+            PARENT
+            + "CREATE TABLE child (guild_id bigint NOT NULL, parent_id bigint REFERENCES parent (id));",
+            "foreign key child_parent_id_fkey on child leaves out guild_id",
+        ),
+        (
+            "CREATE TABLE tags (guild_id bigint NOT NULL, name text UNIQUE);",
+            "unique index tags_name_key on tags leaves out guild_id",
+        ),
+        (PARENT + "CREATE VIEW seen AS SELECT * FROM parent;", "view seen runs with its owner's rights"),
+        (PARENT + "CREATE MATERIALIZED VIEW kept AS SELECT * FROM parent;", "materialized view kept"),
+        (
+            PARENT + "CREATE FUNCTION peek() RETURNS bigint LANGUAGE sql SECURITY DEFINER "
+            "AS $$ SELECT count(*) FROM parent $$;",
+            "function peek is SECURITY DEFINER",
+        ),
     ],
 )
 async def test_bad_migrations_are_refused(
@@ -214,3 +234,15 @@ async def test_an_owner_that_is_not_a_superuser_migrates_a_plugin(
         assert functions == 1
     finally:
         await admin.execute(f'ALTER DATABASE "{database}" OWNER TO "{owner_kwargs["user"]}"')
+
+
+async def test_the_safe_forms_are_accepted(admin: Conn, naming: Naming, ready: Pools, tmp_path: Path) -> None:
+    safe = (
+        PARENT + "CREATE TABLE child (guild_id bigint NOT NULL, parent_id bigint NOT NULL, "
+        "FOREIGN KEY (guild_id, parent_id) REFERENCES parent (guild_id, id), UNIQUE (guild_id, parent_id));"
+        + "CREATE VIEW seen WITH (security_invoker = true) AS SELECT * FROM parent;"
+    )
+    report = await migrate(
+        admin, naming, [PluginMigrations("alpha", write(tmp_path / "a", {"0001_x.sql": safe}))]
+    )
+    assert report.failed == {} and report.applied["alpha"] == [1]

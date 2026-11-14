@@ -47,6 +47,64 @@ WHERE n.nspname = $1 AND c.relkind IN ('r', 'p') AND NOT EXISTS (
 """
 
 
+# Foreign keys that leave out guild_id: a member could point a row at another server's, revealing that it exists,
+# and that row would block the other server's data removal (D49, S6).
+LOOSE_FOREIGN_KEYS = """
+SELECT c.conname, t.relname FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid
+JOIN pg_namespace n ON n.oid = t.relnamespace
+WHERE n.nspname = $1 AND c.contype = 'f' AND NOT EXISTS (
+    SELECT 1 FROM unnest(c.conkey) k JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k
+    WHERE a.attname = 'guild_id')
+ORDER BY t.relname, c.conname
+"""
+
+# Unique indexes that leave out guild_id collide across servers, unless they hold an identity column, which is
+# unique on its own (S6).
+LOOSE_UNIQUE = """
+SELECT i.indexrelid::regclass::text AS index_name, t.relname FROM pg_index i JOIN pg_class t ON t.oid = i.indrelid
+JOIN pg_namespace n ON n.oid = t.relnamespace
+WHERE n.nspname = $1 AND i.indisunique AND NOT EXISTS (
+    SELECT 1 FROM pg_attribute a WHERE a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
+    AND (a.attname = 'guild_id' OR a.attidentity IN ('a', 'd')))
+ORDER BY 1
+"""
+
+# Objects that read tables with someone else's rights, or keep a copy outside them (S6). The instance owner's own
+# functions, such as schedule_job, are SECURITY DEFINER by design.
+BYPASSES = """
+SELECT c.relname AS name, c.relkind::text AS kind FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = $1 AND (c.relkind = 'm' OR (c.relkind = 'v'
+    AND NOT coalesce('security_invoker=true' = ANY(c.reloptions) OR 'security_invoker=on' = ANY(c.reloptions), false)))
+UNION ALL
+SELECT p.proname, 'f' FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = $1 AND p.prosecdef AND p.proowner <> (SELECT oid FROM pg_roles WHERE rolname = current_user)
+ORDER BY 1
+"""
+
+BYPASS_FIX = {
+    "v": "view {name} runs with its owner's rights and sees every server's rows; "
+    "create it WITH (security_invoker = true)",
+    "m": "materialized view {name} keeps every server's rows outside the plugin's tables; use a table with guild_id",
+    "f": "function {name} is SECURITY DEFINER, so it sees every server's rows; drop SECURITY DEFINER",
+}
+
+
+async def schema_problems(conn: Conn, schema: str) -> list[str]:
+    """What in a plugin's schema could mix servers' data, each with what to write instead."""
+    found = [
+        f"foreign key {r['conname']} on {r['relname']} leaves out guild_id; write FOREIGN KEY (guild_id, ...) "
+        f"REFERENCES ... (guild_id, ...), against a UNIQUE (guild_id, ...) on the parent"
+        for r in await conn.fetch(LOOSE_FOREIGN_KEYS, schema)
+    ]
+    found += [
+        f"unique index {r['index_name'].split('.')[-1].strip(chr(34))} on {r['relname']} leaves out guild_id, so it "
+        f"collides across servers; make it UNIQUE (guild_id, ...)"
+        for r in await conn.fetch(LOOSE_UNIQUE, schema)
+    ]
+    found += [BYPASS_FIX[r["kind"]].format(name=r["name"]) for r in await conn.fetch(BYPASSES, schema)]
+    return found
+
+
 class MigrationError(Exception):
     """A plugin's migrations cannot be applied as they stand."""
 
@@ -206,6 +264,9 @@ async def _apply(conn: Conn, naming: Naming, plugin_id: str, migration: Migratio
                 raise MigrationError(
                     f"{plugin_id}: tables without a bigint guild_id column: {', '.join(missing)}"
                 )
+            problems = await schema_problems(conn, naming.plugin_schema(plugin_id))
+            if problems:
+                raise MigrationError(f"{plugin_id}: " + "; ".join(problems))
         await conn.execute(
             "INSERT INTO core.migrations (plugin_id, version, name, checksum) VALUES ($1, $2, $3, $4)",
             plugin_id,
