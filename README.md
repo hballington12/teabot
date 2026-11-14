@@ -16,7 +16,7 @@
 
 </div>
 
-<p align="center">Teabot is a scalable, open-source, plugin-based bot for Discord. People use it through slash commands, LLMs through MCP, and your own services through HTTP routes.</p>
+<p align="center">Teabot is a scalable, open-source, plugin-based bot for Discord. It works with slash commands, LLMs through MCP, and your own services via HTTP.</p>
 
 ## Why Teabot?
 
