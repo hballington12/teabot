@@ -130,6 +130,8 @@ Needs the maintainers: the **production** Discord application, a DNS record for 
 
 **Exit check.** The milestone 5 "done when" list in `plan.md`.
 
+Met on 2026-11-14 with the production bot in the test server, through `teapot.tea-osrs.com`. `/plugins enable announcements` and `/audit channel` worked from Discord. Claude Code connected to `/mcp` with a `/tokens create` token, listed the server with `admin_describe_guild` and posted with `announcements_post`. With `curl`, a token allowed only `announcements.post` was refused `admin.describe_guild` (403 `not_allowed_by_token`) and posted (200). The audit log recorded every change with its front door. `/healthz` answers 404 from outside, since Caddy forwards only `/mcp` and `/api`. The restore drill passed on 2026-11-13. The slash `/announcements post` modal was not repeated on production; it was met live in milestone 2 and runs the same code.
+
 ## Milestone 6: plan then apply
 
 | WP | Scope | Depends on |
@@ -141,6 +143,8 @@ Needs the maintainers: the **production** Discord application, a DNS record for 
 Milestone 6 does not depend on milestone 5, so it can start once milestone 4 is merged.
 
 **Exit check.** The milestone 6 "done when" list in `plan.md`.
+
+Met on 2026-11-14 with the dev bot in the test server. Confirming a `devtools.clear_notes` plan after adding a note was refused with `plan_stale` and answered with a fresh plan. A plan made before a restart of the bot was confirmed after it and applied. A clear with `seconds_each:3` showed 2 of 8, then 4 of 8, through `/admin job_status`, and finished 8 of 8. Asking about the job before its first report failed, since `progress` is NULL until then; that was fixed in `6559497`. The 15-minute expiry and a confirm by another member rest on `test_a_confirm_value_is_refused_unless_it_is_this_members_live_unused_plan`, with the live expiry left to the maintainer.
 
 ## Milestone 7: open-source release
 
