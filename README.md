@@ -4,7 +4,7 @@ An open-source framework for a general Discord bot built from plugins, in the sp
 
 The Tea clan runs the first instance, on its droplet, and is the source of the first requirements. Staff use it through Discord slash commands, and LLM clients such as Claude Code use it through an authenticated MCP server.
 
-The concrete build plan lives in [`docs/plan.md`](docs/plan.md), and the order of work in [`docs/implementation.md`](docs/implementation.md).
+To run your own teapot, follow [`docs/self-hosting.md`](docs/self-hosting.md); to write plugins for it, [`docs/plugin-authoring.md`](docs/plugin-authoring.md). The concrete build plan lives in [`docs/plan.md`](docs/plan.md), and the order of work in [`docs/implementation.md`](docs/implementation.md).
 
 ## Goals
 

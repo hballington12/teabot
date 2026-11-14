@@ -5,7 +5,7 @@ The starting point for running your own teapot (D35, D42, D43). Copy this direct
 - your own plugins, in `plugins/`
 - how it is deployed, in `compose.yaml` and `deploy/bare-metal/`
 
-teapot itself stays in its own repository, and your instance depends on it.
+teapot itself stays in its own repository, and your instance depends on it. For a walkthrough from nothing to a running bot with a plugin of your own, follow `docs/self-hosting.md` in the teapot repository. This README is the reference for the instance's files.
 
 ## The Discord application
 
