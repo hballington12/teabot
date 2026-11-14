@@ -144,3 +144,9 @@ async def test_categories_are_not_listed_but_name_their_channels(harness: Plugin
     bingo = harness.guild.add_channel(FakeChannel(name="bingo", category=events))
     out = dumped(await harness.invoke("admin.describe_guild"))
     assert out["channels"] == [{"id": str(bingo.id), "name": "bingo", "kind": "text", "category": "Events"}]
+
+
+async def test_a_job_that_has_not_reported_yet_has_no_progress(harness: PluginHarness) -> None:
+    job_id = await job(harness)
+    await harness.admin.execute("UPDATE core.jobs SET progress = NULL WHERE id = $1", job_id)
+    assert dumped(await harness.invoke("admin.job_status", {"job_id": job_id}))["progress"] is None

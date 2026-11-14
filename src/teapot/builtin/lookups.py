@@ -86,7 +86,7 @@ class JobInfo(BaseModel):
     handler: str
     state: str
     attempts: int
-    progress: dict[str, Any]
+    progress: dict[str, Any] | None = Field(description="What the job last reported; null until it reports")
     error: UntrustedText | None
     run_at: datetime
 
@@ -147,7 +147,7 @@ class Lookups:
             handler=row["handler"],
             state=row["state"],
             attempts=row["attempts"],
-            progress=json.loads(row["progress"]),
+            progress=None if row["progress"] is None else json.loads(row["progress"]),
             error=row["last_error"],
             run_at=row["run_at"],
         )
