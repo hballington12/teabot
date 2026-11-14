@@ -2,7 +2,7 @@
 
 Every release of `teabot`, `teabot-announcements` and the instance template, newest first. The versions follow semantic versioning, which `teabot.sdk` keeps from 1.0 (D45). A **For operators** section lists any manual step an upgrade needs (D48).
 
-## Unreleased
+## 1.0.0 - 2026-11-14
 
 The first release.
 

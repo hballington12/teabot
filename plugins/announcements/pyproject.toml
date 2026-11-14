@@ -1,6 +1,6 @@
 [project]
 name = "teabot-announcements"
-version = "1.0.0.dev0"
+version = "1.0.0"
 description = "Post announcements to a channel, a first-party teabot plugin"
 license = "MIT"
 license-files = ["LICENSE"]
