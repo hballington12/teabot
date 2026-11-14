@@ -1,0 +1,245 @@
+{
+  "commands": {
+    "description": "announcements commands",
+    "name": "announcements",
+    "options": [
+      {
+        "description": "Post an announcement.",
+        "name": "post",
+        "options": [
+          {
+            "description": "The channel to post in",
+            "name": "channel",
+            "required": true,
+            "type": 7
+          },
+          {
+            "description": "The announcement's title",
+            "max_length": 256,
+            "name": "title",
+            "required": true,
+            "type": 3
+          },
+          {
+            "choices": [
+              {
+                "name": "blurple",
+                "value": "blurple"
+              },
+              {
+                "name": "green",
+                "value": "green"
+              },
+              {
+                "name": "red",
+                "value": "red"
+              },
+              {
+                "name": "gold",
+                "value": "gold"
+              }
+            ],
+            "description": "The embed's colour",
+            "name": "colour",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Post an announcement later.",
+        "name": "schedule",
+        "options": [
+          {
+            "description": "The channel to post in",
+            "name": "channel",
+            "required": true,
+            "type": 7
+          },
+          {
+            "description": "The announcement's title",
+            "max_length": 256,
+            "name": "title",
+            "required": true,
+            "type": 3
+          },
+          {
+            "description": "Minutes from now, up to a week",
+            "max_value": 10080,
+            "min_value": 1,
+            "name": "in_minutes",
+            "required": true,
+            "type": 4
+          },
+          {
+            "choices": [
+              {
+                "name": "blurple",
+                "value": "blurple"
+              },
+              {
+                "name": "green",
+                "value": "green"
+              },
+              {
+                "name": "red",
+                "value": "red"
+              },
+              {
+                "name": "gold",
+                "value": "gold"
+              }
+            ],
+            "description": "The embed's colour",
+            "name": "colour",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      }
+    ],
+    "type": 1
+  },
+  "jobs": {
+    "post": {
+      "$defs": {
+        "Colour": {
+          "enum": [
+            "blurple",
+            "green",
+            "red",
+            "gold"
+          ],
+          "type": "string"
+        }
+      },
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "channel": {
+          "title": "Channel",
+          "type": "integer"
+        },
+        "colour": {
+          "$ref": "#/$defs/Colour"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "title",
+        "body",
+        "colour"
+      ],
+      "title": "AnnouncementsPostInput",
+      "type": "object"
+    }
+  },
+  "tools": {
+    "announcements_post": {
+      "$defs": {
+        "Colour": {
+          "enum": [
+            "blurple",
+            "green",
+            "red",
+            "gold"
+          ],
+          "type": "string"
+        }
+      },
+      "properties": {
+        "body": {
+          "description": "The announcement",
+          "maxLength": 4000,
+          "title": "Body",
+          "type": "string"
+        },
+        "channel": {
+          "description": "The channel to post in",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Channel",
+          "type": "string"
+        },
+        "colour": {
+          "$ref": "#/$defs/Colour",
+          "default": "blurple",
+          "description": "The embed's colour"
+        },
+        "title": {
+          "description": "The announcement's title",
+          "maxLength": 256,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "title",
+        "body"
+      ],
+      "title": "AnnouncementsPostInput",
+      "type": "object"
+    },
+    "announcements_schedule": {
+      "$defs": {
+        "Colour": {
+          "enum": [
+            "blurple",
+            "green",
+            "red",
+            "gold"
+          ],
+          "type": "string"
+        }
+      },
+      "properties": {
+        "body": {
+          "description": "The announcement",
+          "maxLength": 4000,
+          "title": "Body",
+          "type": "string"
+        },
+        "channel": {
+          "description": "The channel to post in",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Channel",
+          "type": "string"
+        },
+        "colour": {
+          "$ref": "#/$defs/Colour",
+          "default": "blurple",
+          "description": "The embed's colour"
+        },
+        "in_minutes": {
+          "description": "Minutes from now, up to a week",
+          "maximum": 10080,
+          "minimum": 1,
+          "title": "In Minutes",
+          "type": "integer"
+        },
+        "title": {
+          "description": "The announcement's title",
+          "maxLength": 256,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel",
+        "title",
+        "body",
+        "in_minutes"
+      ],
+      "title": "AnnouncementsScheduleInput",
+      "type": "object"
+    }
+  }
+}

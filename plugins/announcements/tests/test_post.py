@@ -1,28 +1,18 @@
 """announcements.post (D41): an embed in a channel, posted by a member who may manage messages."""
 
-from typing import Any
-
 import discord
 import pytest
 
-from teabot.testing import ActionFailed, FakeChannel, FakeVoiceChannel, PluginHarness, Refused
-from teabot_announcements import Posted, plugin
+from teabot.testing import ActionFailed, FakeChannel, FakeVoiceChannel, HarnessFactory, Refused
+from teabot_announcements import Posted, plugin, post
 
 
-async def harness_with_channel(teabot_harness: Any, **channel: Any) -> tuple[PluginHarness, FakeChannel]:
-    harness: PluginHarness = await teabot_harness(plugin)
-    return harness, harness.guild.add_channel(FakeChannel(**channel))
-
-
-async def test_posts_the_announcement_as_an_embed(teabot_harness: Any) -> None:
-    harness, channel = await harness_with_channel(teabot_harness)
-    raw = {
-        "channel": str(channel.id),
-        "title": "Bingo starts",
-        "body": "Teams are up.\nGood luck!",
-        "colour": "green",
-    }
-    out = await harness.invoke("announcements.post", raw)
+async def test_posts_the_announcement_as_an_embed(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
+    out = await harness.call(
+        post, channel=channel, title="Bingo starts", body="Teams are up.\nGood luck!", colour="green"
+    )
     (message,) = channel.sent
     assert message.embed is not None
     assert (message.embed.title, message.embed.description) == ("Bingo starts", "Teams are up.\nGood luck!")
@@ -30,68 +20,56 @@ async def test_posts_the_announcement_as_an_embed(teabot_harness: Any) -> None:
     assert out == Posted(message_id=message.id, url=message.jump_url)
 
 
-async def test_the_colour_defaults_to_blurple(teabot_harness: Any) -> None:
-    harness, channel = await harness_with_channel(teabot_harness)
-    await harness.invoke("announcements.post", {"channel": str(channel.id), "title": "t", "body": "b"})
+async def test_an_announcement_mentions_nobody(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
+    await harness.call(post, channel=channel, title="Hi", body="@everyone come")
+    mentions = channel.sent[0].allowed_mentions
+    assert mentions is not None and mentions.to_dict()["parse"] == []
+
+
+async def test_the_colour_defaults_to_blurple(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
+    await harness.call(post, channel=channel, title="t", body="b")
     assert channel.sent[0].embed is not None and channel.sent[0].embed.colour == discord.Colour.blurple()
 
 
-async def test_an_unknown_channel_is_told_to_the_member(teabot_harness: Any) -> None:
-    harness, _ = await harness_with_channel(teabot_harness)
+@pytest.mark.parametrize("bad", ["missing", "voice"])
+async def test_a_channel_that_takes_no_messages_is_told_to_the_member(
+    teabot_harness: HarnessFactory, bad: str
+) -> None:
+    harness = await teabot_harness(plugin)
+    channel_id = harness.guild.add_channel(FakeVoiceChannel()).id if bad == "voice" else 123
     with pytest.raises(ActionFailed) as caught:
-        await harness.invoke("announcements.post", {"channel": "123", "title": "t", "body": "b"})
+        await harness.invoke("announcements.post", {"channel": str(channel_id), "title": "t", "body": "b"})
     assert caught.value.public_message == "That channel is not a text channel in this server."
 
 
-async def test_a_channel_the_bot_cannot_post_in_is_told_to_the_member(teabot_harness: Any) -> None:
-    harness, channel = await harness_with_channel(teabot_harness, forbidden=True)
+async def test_a_channel_the_bot_cannot_post_in_is_told_to_the_member(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel(forbidden=True))
     with pytest.raises(ActionFailed) as caught:
-        await harness.invoke("announcements.post", {"channel": str(channel.id), "title": "t", "body": "b"})
+        await harness.call(post, channel=channel, title="t", body="b")
     assert caught.value.public_message == "I am not allowed to post in that channel."
 
 
-async def test_posting_needs_manage_messages(teabot_harness: Any) -> None:
-    harness, channel = await harness_with_channel(teabot_harness)
+async def test_posting_needs_manage_messages(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
     member = harness.guild.add_member(discord.Permissions(send_messages=True))
     with pytest.raises(Refused) as caught:
-        await harness.invoke(
-            "announcements.post", {"channel": str(channel.id), "title": "t", "body": "b"}, user=member.id
-        )
+        await harness.as_member(member).call(post, channel=channel, title="t", body="b")
     assert caught.value.code == "forbidden"
 
 
-async def test_a_body_over_discords_limit_is_refused(teabot_harness: Any) -> None:
-    harness, channel = await harness_with_channel(teabot_harness)
+async def test_a_body_over_discords_limit_is_refused(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
     with pytest.raises(Refused) as caught:
-        await harness.invoke(
-            "announcements.post", {"channel": str(channel.id), "title": "t", "body": "x" * 4001}
-        )
+        await harness.call(post, channel=channel, title="t", body="x" * 4001)
     assert caught.value.code == "invalid_input"
 
 
 def test_the_reply_links_to_the_post() -> None:
-    spec = _actions()["announcements.post"]
-    assert spec.render is not None
-    assert spec.render(Posted(message_id=1, url="https://discord.com/x")) == "Posted: https://discord.com/x"
-
-
-def _actions() -> dict[str, Any]:
-    collected: dict[str, Any] = {}
-
-    class Collect:
-        def action(self, spec: Any) -> None:
-            collected[spec.name] = spec
-
-        def job(self, name: str, handler: Any) -> None:
-            collected[f"job:{name}"] = handler
-
-    plugin.setup(Collect())
-    return collected
-
-
-async def test_a_channel_that_takes_no_messages_is_told_to_the_member(teabot_harness: Any) -> None:
-    harness: PluginHarness = await teabot_harness(plugin)
-    voice = harness.guild.add_channel(FakeVoiceChannel())
-    with pytest.raises(ActionFailed) as caught:
-        await harness.invoke("announcements.post", {"channel": str(voice.id), "title": "t", "body": "b"})
-    assert caught.value.public_message == "That channel is not a text channel in this server."
+    assert Posted(message_id=1, url="https://discord.com/x").render() == "Posted: https://discord.com/x"

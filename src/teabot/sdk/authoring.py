@@ -26,7 +26,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Concatenate, Generic, Literal, Protocol, get_args
+from typing import Any, Concatenate, Generic, Literal, Protocol, get_args, overload
 
 import discord
 from pydantic import BaseModel
@@ -275,9 +275,22 @@ class Plugin(Generic[Cfg]):
 
         return register
 
-    def job[**P](self, func: Callable[Concatenate[Context[Cfg], P], Awaitable[None]]) -> Job[Cfg, P]:
-        """Make a function one of the plugin's jobs. Its parameters, after the context, are its payload."""
-        job_name = func.__name__
+    @overload
+    def job[**P](self, func: Callable[Concatenate[Context[Cfg], P], Awaitable[None]], /) -> Job[Cfg, P]: ...
+    @overload
+    def job(self, func: None = None, /, *, name: str) -> "NamedJob[Cfg]": ...
+    def job(self, func: Any = None, /, *, name: str | None = None) -> Any:
+        """Make a function one of the plugin's jobs: `@plugin.job`, or `@plugin.job(name="...")` to keep a name
+        that jobs already queued were stored under. Its parameters, after the context, are its payload."""
+        if func is None:
+            return NamedJob(self, name)
+        return self.register_job(func, name)
+
+    def register_job[**P](
+        self, func: Callable[Concatenate[Context[Cfg], P], Awaitable[None]], name: str | None = None
+    ) -> Job[Cfg, P]:
+        """Register a job; `@plugin.job` is the usual way to call this."""
+        job_name = name or func.__name__
         self._check_context(func, f"{self.id}.{job_name}")
         inputs = read_inputs(func, f"{self.id}.{job_name}", injected={Context: "context"}, needs_docs=False)
         built = Job(func, job_name, inputs)
@@ -329,6 +342,17 @@ class Plugin(Generic[Cfg]):
             registrar.action(action.spec())
         for job in self.jobs.values():
             registrar.job(job.name, job._handle)  # pyright: ignore[reportPrivateUsage]
+
+
+@dataclass(frozen=True)
+class NamedJob[C: BaseModel]:
+    """`@plugin.job(name="...")`: a job decorator that keeps a given name."""
+
+    plugin: Plugin[C]
+    name: str | None
+
+    def __call__[**P](self, func: Callable[Concatenate[Context[C], P], Awaitable[None]]) -> Job[C, P]:
+        return self.plugin.register_job(func, self.name)
 
 
 def _version_of(module: str | None) -> str:

@@ -98,6 +98,8 @@ max-line-length = 120
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0913", "PLR0917"]
+# A plugin action's inputs are its parameters, so an action with six inputs takes six arguments.
+"plugins/*/src/**" = ["PLR0913", "PLR0917"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
