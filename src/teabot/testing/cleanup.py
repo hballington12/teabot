@@ -40,10 +40,18 @@ def _alive_on_windows(pid: int) -> bool:
     if not handle:
         return ctypes.get_last_error() == ERROR_ACCESS_DENIED  # it exists but belongs to someone else
     try:
-        code = ctypes.c_ulong()
-        return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == STILL_ACTIVE
+        return _still_active(kernel32, handle)
     finally:
         kernel32.CloseHandle(handle)
+
+
+def _still_active(kernel32: Any, handle: int) -> bool:
+    """An open process handle can belong to a process that has already exited, so read its exit code.
+    Split from `_alive_on_windows` so each stays simple enough to pass CRAP where it never runs."""
+    import ctypes  # noqa: PLC0415
+
+    code = ctypes.c_ulong()
+    return bool(kernel32.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == STILL_ACTIVE
 
 
 def _alive(pid: int) -> bool:
