@@ -44,7 +44,7 @@ from teabot.sdk._signature import (
     where,
 )
 from teabot.sdk._views import guild_view
-from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk
+from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Choice, Risk
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
 from teabot.sdk.guild import Guild
@@ -99,6 +99,10 @@ class Context[C: BaseModel](Protocol):
         ...
 
 
+type Suggester[C: BaseModel, T: (str, int)] = Callable[[Context[C], str], Awaitable[list[Choice[T]]]]
+"""What `@action.autocomplete(...)` decorates: it takes the context and what the member has typed."""
+
+
 @dataclass
 class _Context:
     guild: Guild
@@ -130,6 +134,7 @@ class Action[C: BaseModel, **P, R]:
     - `risk`, `needs` and `reply` are as the decorator was given them.
     - `inputs` and `output` are read from the function's signature and docstring.
     - `planner` is the plan `.plan` attached, if any.
+    - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
     """
 
     func: Callable[Concatenate[Context[C], P], Awaitable[R]]
@@ -140,6 +145,29 @@ class Action[C: BaseModel, **P, R]:
     inputs: Inputs
     output: Output
     planner: Callable[..., Awaitable[Diff]] | None = None
+    suggesters: dict[str, Callable[..., Awaitable[list[Choice[Any]]]]] = field(
+        default_factory=dict[str, Callable[..., Awaitable[list[Choice[Any]]]]]
+    )
+
+    def autocomplete[T: (str, int)](
+        self, option: str
+    ) -> Callable[
+        [Callable[[Context[C], str], Awaitable[list[Choice[T]]]]],
+        Callable[[Context[C], str], Awaitable[list[Choice[T]]]],
+    ]:
+        """Suggest values for one of the action's options as the member types, such as running giveaways for
+        `giveaway`. The function receives what has been typed so far, and returns up to 25 `Choice`s. It runs as
+        the member, without the audit log, and must answer within Discord's three seconds."""
+        if option not in self.inputs.model.model_fields:
+            raise SignatureError(f"{self.name} has no option {option} to suggest values for")
+
+        def attach(
+            func: Callable[[Context[C], str], Awaitable[list[Choice[T]]]],
+        ) -> Callable[[Context[C], str], Awaitable[list[Choice[T]]]]:
+            self.suggesters[option] = func
+            return func
+
+        return attach
 
     def plan(
         self, func: Callable[Concatenate[Context[C], P], Awaitable[Diff]]
@@ -163,7 +191,16 @@ class Action[C: BaseModel, **P, R]:
             plan=self._plan if planner is not None else None,
             render=self.output.render,
             reply=self.reply,
+            suggest={option: self._suggester(option) for option in self.suggesters},
         )
+
+    def _suggester(self, option: str) -> Callable[[ActionContext, str], Awaitable[list[Choice[Any]]]]:
+        func = self.suggesters[option]
+
+        async def suggest(ctx: ActionContext, typed: str) -> list[Choice[Any]]:
+            return list(await func(_context_of(ctx, self.name), typed))[:25]
+
+        return suggest
 
     def bind(self, *args: P.args, **kwargs: P.kwargs) -> BoundAction:
         """The action with its arguments fixed, for a `Button`. A `Role`, `TextChannel` or `Member` argument is kept

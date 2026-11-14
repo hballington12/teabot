@@ -19,6 +19,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 - `harness.press(button)` presses a button on a fake message, and returns the reply the member would see.
 - Inputs can be lists, such as `Annotated[list[Role], Field(max_length=5)]`. Discord shows one as numbered options, `roles_1` to `roles_5`, and MCP clients and the service API send an array.
 - Posts carry select menus: `Select(action.bind(...), into="roles", ...)`, of `Option`s or of Discord's own role, channel or member pickers, fills that list input with what the member chooses. `harness.choose(select, values)` chooses in tests.
+- Options suggest values as the member types: `@action.autocomplete("option")` attaches a function that receives what has been typed and returns `Choice`s. It runs as the member without the audit log; anything that would refuse the action, or a suggester that fails or takes past Discord's three seconds, suggests nothing. `harness.autocomplete(action, option, typed)` checks it.
 - An optional number keeps its limits on Discord: `Annotated[int, Field(ge=1, le=60)] | None` showed no limits before, so Discord let a member type any number for teabot to refuse.
 - The test fakes do all of it, record what was done, and refuse as Discord would.
 - The test fixtures' cleanup of killed runs works on Windows, where `os.kill(pid, 0)` raised an error for a dead process, and sent Ctrl+C to a live one, instead of probing it.

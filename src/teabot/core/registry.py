@@ -6,6 +6,7 @@ the action is known is audited once with the outcome `refused`. Token checks (D1
 (D21) slot in here.
 """
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
@@ -18,10 +19,12 @@ from pydantic import BaseModel, ValidationError
 from teabot.core.config import ConfigError, ConfigStore
 from teabot.core.loader import Loaded
 from teabot.db.pool import GuildPluginDatabase, Pools
-from teabot.sdk import ActionError, ActionSpec, Actor, Risk, Surface
+from teabot.sdk import ActionError, ActionSpec, Actor, Choice, Risk, Surface
 from teabot.sdk.plans import Diff
 
 log = logging.getLogger(__name__)
+# Discord waits three seconds for suggestions, and the reply itself takes some of them.
+SUGGEST_SECONDS = 2.5
 
 type RefusalCode = Literal[
     "unknown_action",
@@ -295,7 +298,7 @@ class Registry:
         await self.audit.finished(audit_id, "ok", None)
 
     async def _prepare(
-        self, spec: ActionSpec[Any, Any], call: Call, guild: Guild
+        self, spec: ActionSpec[Any, Any], call: Call, guild: Guild, *, check_input: bool = True
     ) -> tuple[PluginActionContext, BaseModel]:
         refusal = door_refusal(spec, call.actor.via, call.token)
         if refusal is not None:
@@ -309,7 +312,7 @@ class Registry:
         except ConfigError as exc:
             raise Refused("config_invalid", str(exc)) from exc
         try:
-            data = spec.input.model_validate(call.raw_input)
+            data = spec.input.model_validate(call.raw_input) if check_input else spec.input.model_construct()
         except ValidationError as exc:
             raise Refused("invalid_input", str(exc)) from exc
         await self._check_permission(spec, call, guild)
@@ -319,6 +322,27 @@ class Registry:
             else partial(self.pools.guild_plugin_db, plugin_id, call.guild_id, call.actor.user_id)
         )
         return PluginActionContext(guild, call.actor, config, open_db), data
+
+    async def suggest(
+        self, action: str, guild_id: int, user_id: int, option: str, typed: str
+    ) -> list[Choice[Any]]:
+        """Suggestions for one option of an action, as a member types it. Nothing is audited, and anything that
+        would refuse the action, or a suggester that fails or takes past Discord's three seconds, suggests nothing."""
+        spec = self.actions.get(action)
+        suggester = spec.suggest.get(option) if spec is not None else None
+        guild = self.client.get_guild(guild_id)
+        if spec is None or suggester is None or guild is None:
+            return []
+        try:
+            ctx, _ = await self._prepare(
+                spec, Call(action, guild_id, Actor(user_id, "slash"), {}), guild, check_input=False
+            )
+            return await asyncio.wait_for(suggester(ctx, typed), SUGGEST_SECONDS)
+        except Refused:
+            return []
+        except Exception:
+            log.exception("suggestions failed", extra={"action": action, "option": option})
+            return []
 
     async def _check_permission(self, spec: ActionSpec[Any, Any], call: Call, guild: Guild) -> None:
         """The member's current permissions against the action's (D19)."""

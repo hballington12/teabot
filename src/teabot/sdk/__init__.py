@@ -32,6 +32,7 @@ The server (D45):
   `BoundAction`, and `ButtonStyle` is its colour. `Select` is a select menu, of `Option`s or of Discord's own
   role, channel or member pickers (its `SelectKind`), which fills a list input with what is chosen. A `Message`
   the bot sent can be edited or deleted.
+- `Choice`: one suggestion an action's `@action.autocomplete("option")` function gives as the member types.
 
 Field types (D23, D29):
 - `ChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
@@ -47,7 +48,17 @@ The database (D9, D30):
   receives, and `JobHandler` runs it.
 """
 
-from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
+from teabot.sdk.actions import (
+    SYSTEM,
+    ActionContext,
+    ActionError,
+    ActionSpec,
+    Actor,
+    Choice,
+    Risk,
+    Surface,
+    Via,
+)
 from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Plugin
 from teabot.sdk.components import BoundAction, Button, ButtonStyle, Option, Select, SelectKind
 from teabot.sdk.db import Bound, Db, Queries, Row, Scheduler, Tx
@@ -77,6 +88,7 @@ __all__ = [
     "Channel",
     "ChannelKind",
     "ChannelRef",
+    "Choice",
     "Context",
     "Db",
     "Diff",

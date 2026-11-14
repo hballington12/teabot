@@ -7,7 +7,7 @@ import pytest
 from pydantic import Field
 
 from teabot.adapters.schema import fold_lists, mcp_input_schema, slash_fields
-from teabot.sdk import Context, EmptyConfig, Option, Plugin, Role, Select, TextChannel
+from teabot.sdk import Choice, Context, EmptyConfig, Option, Plugin, Role, Select, TextChannel
 from teabot.sdk._signature import SignatureError
 from teabot.testing import FakeChannel, HarnessFactory
 
@@ -125,3 +125,46 @@ def test_a_list_without_a_limit_is_refused_when_the_action_is_set_up() -> None:
 
     with pytest.raises((SignatureError, ValueError), match="a list needs Field"):
         bad.actions["bad.many"].spec()
+
+
+picker = Plugin("suggest")
+type PCtx = Context[EmptyConfig]
+
+
+@picker.action(needs="manage_guild")
+async def find(ctx: PCtx, name: str) -> str:
+    """Find a thing.
+
+    Args:
+        name: The thing's name
+    """
+    return name
+
+
+@find.autocomplete("name")
+async def names(ctx: PCtx, typed: str) -> list[Choice[str]]:
+    if typed == "boom":
+        raise RuntimeError("the suggester broke")
+    return [Choice(n, n) for n in ("raids", "bossing", "rares") if n.startswith(typed)]
+
+
+async def test_an_option_suggests_values_as_the_member_types(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(picker)
+    spec = picker.actions["suggest.find"].spec()
+    assert slash_fields(spec.input, spec.suggest).options[0]["autocomplete"] is True
+    assert [c.value for c in await harness.autocomplete(find, "name", "ra")] == ["raids", "rares"]
+    assert await harness.autocomplete(find, "name", "boom") == []
+
+
+async def test_a_member_who_may_not_run_the_action_gets_no_suggestions(
+    teabot_harness: HarnessFactory,
+) -> None:
+    harness = await teabot_harness(picker)
+    member = harness.guild.add_member(discord.Permissions.none())
+    found = await harness.registry.suggest("suggest.find", harness.guild.id, member.id, "name", "ra")
+    assert found == []
+
+
+def test_suggestions_are_for_options_the_action_has() -> None:
+    with pytest.raises(SignatureError, match="has no option nope"):
+        find.autocomplete("nope")

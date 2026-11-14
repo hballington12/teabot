@@ -16,7 +16,7 @@ from teabot.db.migrate import migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
-from teabot.sdk import ActionSpec, Actor, ChannelRef, LongText, Risk, UntrustedText
+from teabot.sdk import ActionSpec, Actor, ChannelRef, Choice, LongText, Risk, UntrustedText
 from teabot.sdk.components import BoundAction
 
 GUILD, USER, CHANNEL = 1001, 2001, 3001
@@ -59,6 +59,7 @@ SHOUT = ActionSpec(
 class FakeRegistry:
     actions: dict[str, ActionSpec[Any, Any]]
     calls: list[Call] = field(default_factory=list[Call])
+    suggested: list[tuple[str, str, str]] = field(default_factory=list[tuple[str, str, str]])
     result: BaseModel | Exception | None = None
 
     async def invoke(self, call: Call) -> BaseModel:
@@ -67,6 +68,12 @@ class FakeRegistry:
             raise self.result
         assert self.result is not None
         return self.result
+
+    async def suggest(
+        self, action: str, guild_id: int, user_id: int, option: str, typed: str
+    ) -> list[Choice[Any]]:
+        self.suggested.append((action, option, typed))
+        return [Choice(f"{typed} one", "1"), Choice(f"{typed} two", "2")]
 
 
 @dataclass
@@ -81,6 +88,9 @@ class FakeResponse:
 
     async def send_message(self, content: str | None = None, *, ephemeral: bool = False, **_: Any) -> None:
         self.events.append(("message", content, ephemeral))
+
+    async def autocomplete(self, choices: list[Any]) -> None:
+        self.events.append(("autocomplete", choices))
 
 
 @dataclass
@@ -329,6 +339,23 @@ async def test_a_plugins_select_menu_fills_its_parameter_with_the_choices(
     await r.handle(interaction)
     (call,) = registry.calls
     assert (call.raw_input, call.actor.via) == ({"loud": True, "tags": ["a", "b"]}, "component")
+
+
+async def test_autocomplete_answers_with_the_actions_suggestions(
+    router: tuple[InteractionRouter, FakeRegistry],
+) -> None:
+    r, registry = router
+    data = {
+        "name": "announcements",
+        "options": [
+            {"type": 1, "name": "ping", "options": [{"name": "loud", "value": "ye", "focused": True}]}
+        ],
+    }
+    interaction = FakeInteraction(discord.InteractionType.autocomplete, data)
+    await r.handle(interaction)
+    assert registry.suggested == [("announcements.ping", "loud", "ye")]
+    ((kind, shown),) = interaction.events
+    assert kind == "autocomplete" and [(c.name, c.value) for c in shown] == [("ye one", "1"), ("ye two", "2")]
 
 
 async def test_a_plan_is_shown_with_a_confirm_button(router: tuple[InteractionRouter, FakeRegistry]) -> None:

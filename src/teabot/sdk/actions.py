@@ -119,6 +119,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     - `plan` returns the diff a destructive action would make, without changing anything.
     - `render` turns the output into the Discord reply; without it the reply lists the output's fields.
     - `reply` is `"private"` for a reply only the member sees, or `"public"` for one the channel sees.
+    - `suggest` maps an input's name to the function that suggests its values as the member types.
     """
 
     name: str
@@ -132,6 +133,9 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     plan: Callable[[ActionContext, I], Awaitable[Diff]] | None = None
     render: Callable[[O], discord.Embed | str] | None = None
     reply: Literal["private", "public"] = "private"
+    suggest: Mapping[str, Callable[[ActionContext, str], Awaitable[list["Choice[Any]"]]]] = field(
+        default_factory=dict[str, Callable[[ActionContext, str], Awaitable[list["Choice[Any]"]]]]
+    )
 
     def __post_init__(self) -> None:
         if not ACTION_NAME_RE.fullmatch(self.name):
@@ -144,3 +148,12 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     def plugin_id(self) -> str:
         """The id of the plugin the action belongs to: its name up to the first dot."""
         return self.name.partition(".")[0]
+
+
+@dataclass(frozen=True)
+class Choice[T: (str, int)]:
+    """One suggestion for an option, as the member types it: `name` is what they see, up to 100 characters, and
+    `value` what the action receives, a `str` or an `int` as the option is."""
+
+    name: str
+    value: T

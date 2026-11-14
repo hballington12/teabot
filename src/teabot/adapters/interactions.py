@@ -14,11 +14,11 @@ from typing import Any, Protocol
 import discord
 from pydantic import BaseModel
 
-from teabot.adapters.schema import fold_lists, slash_fields
+from teabot.adapters.schema import field_of_option, fold_lists, slash_fields
 from teabot.core.plans import Planned, Queued
 from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.pool import Database
-from teabot.sdk import ActionSpec, Actor
+from teabot.sdk import ActionSpec, Actor, Choice
 from teabot.sdk.actions import Via
 from teabot.sdk.components import PREFIX as BUTTON_PREFIX
 from teabot.sdk.components import SELECT_PREFIX, parse_custom_id, parse_select_id
@@ -49,6 +49,10 @@ class Invoker(Protocol):
     def actions(self) -> Mapping[str, ActionSpec[Any, Any]]: ...
 
     async def invoke(self, call: Call) -> BaseModel: ...
+
+    async def suggest(
+        self, action: str, guild_id: int, user_id: int, option: str, typed: str
+    ) -> list[Choice[Any]]: ...
 
 
 def default_embed(spec: ActionSpec[Any, Any], output: BaseModel) -> discord.Embed:
@@ -126,6 +130,8 @@ class InteractionRouter:
     async def handle(self, interaction: Any) -> None:
         if interaction.type is discord.InteractionType.application_command:
             await self._command(interaction)
+        elif interaction.type is discord.InteractionType.autocomplete:
+            await self._autocomplete(interaction)
         elif interaction.type is discord.InteractionType.modal_submit and str(
             interaction.data.get("custom_id", "")
         ).startswith(MODAL_PREFIX):
@@ -172,6 +178,22 @@ class InteractionRouter:
             return
         raw = json.loads(row["input"]) | {"confirm": confirm}
         await self._run(interaction, row["action"], raw, via="component")
+
+    async def _autocomplete(self, interaction: Any) -> None:
+        """Suggestions for the option the member is typing in, from the action's suggester."""
+        sub = interaction.data["options"][0]
+        name = f"{interaction.data['name']}.{sub['name']}"
+        focused = next((o for o in sub.get("options", []) if o.get("focused")), None)
+        spec = self.registry.actions.get(name)
+        choices: list[Choice[Any]] = []
+        if focused is not None and spec is not None and interaction.guild_id is not None:
+            option = field_of_option(spec.input, str(focused["name"]))
+            typed = str(focused.get("value", ""))
+            choices = await self.registry.suggest(
+                name, interaction.guild_id, interaction.user.id, option, typed
+            )
+        shown = [discord.app_commands.Choice(name=c.name[:100], value=c.value) for c in choices[:25]]
+        await interaction.response.autocomplete(shown)
 
     async def _command(self, interaction: Any) -> None:
         if interaction.guild_id is None:

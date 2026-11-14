@@ -23,7 +23,7 @@ from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
 from teabot.lint import check_package
-from teabot.sdk import DESTRUCTIVE, Action, Actor, LoadablePlugin
+from teabot.sdk import DESTRUCTIVE, Action, Actor, Choice, LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
 from teabot.sdk.components import parse_custom_id, parse_select_id
@@ -149,6 +149,13 @@ class PluginHarness:
         """Choose from a select menu on a fake message as the server's first member. Returns the reply they would
         see."""
         return await self.as_member(self.member).choose(select, values)
+
+    async def autocomplete(
+        self, action: Action[Any, ..., Any], option: str, typed: str = ""
+    ) -> list[Choice[Any]]:
+        """The suggestions a member sees for `option` after typing `typed`, through the real path: nothing when
+        the action would be refused, or its suggester fails."""
+        return await self.registry.suggest(action.name, self.guild.id, self.member.id, option, typed)
 
     def as_member(self, member: FakeMember) -> "MemberCalls":
         """Calls made as `member` rather than the first member."""

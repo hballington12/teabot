@@ -29,13 +29,23 @@ class SlashFields:
     modal: tuple[str, ...]
 
 
-def _options(field: InputField) -> list[dict[str, Any]]:
+def _options(field: InputField, suggested: bool) -> list[dict[str, Any]]:
     """A field's slash options: one, or for a list one per item, the first `min_count` of them required, and at
     least the first when the list is."""
     if field.count is None:
-        return [_option(field, field.name, field.required)]
+        return [_option(field, field.name, field.required, suggested)]
     needed = max(field.min_count, 1 if field.required else 0)
-    return [_option(field, name, n <= needed) for n, name in enumerate(field.option_names(), start=1)]
+    return [
+        _option(field, name, n <= needed, suggested) for n, name in enumerate(field.option_names(), start=1)
+    ]
+
+
+def field_of_option(model: type[BaseModel], option: str) -> str:
+    """The input a slash option belongs to: itself, or for `roles_2` the list `roles`."""
+    for field in input_fields(model):
+        if option in field.option_names():
+            return field.name
+    return option
 
 
 def fold_lists(model: type[BaseModel], raw: dict[str, Any]) -> dict[str, Any]:
@@ -51,13 +61,15 @@ def fold_lists(model: type[BaseModel], raw: dict[str, Any]) -> dict[str, Any]:
     return folded
 
 
-def _option(field: InputField, name: str, required: bool) -> dict[str, Any]:
+def _option(field: InputField, name: str, required: bool, suggested: bool = False) -> dict[str, Any]:
     option: dict[str, Any] = {
         "type": OPTION_TYPES[field.kind],
         "name": name,
         "description": field.description,
         "required": required,
     }
+    if suggested:
+        option["autocomplete"] = True
     if field.choices is not None:
         option["choices"] = [{"name": str(value), "value": value} for value in field.choices]
     if field.max_length is not None:
@@ -69,9 +81,10 @@ def _option(field: InputField, name: str, required: bool) -> dict[str, Any]:
     return option
 
 
-def slash_fields(model: type[BaseModel]) -> SlashFields:
+def slash_fields(model: type[BaseModel], suggested: Iterable[str] = ()) -> SlashFields:
     fields = input_fields(model)
-    options = [option for f in fields if f.kind != "long" for option in _options(f)]
+    names = set(suggested)
+    options = [option for f in fields if f.kind != "long" for option in _options(f, f.name in names)]
     options.sort(key=lambda o: not o["required"])
     return SlashFields(options, tuple(f.name for f in fields if f.kind == "long"))
 
@@ -81,7 +94,7 @@ def _subcommand(spec: ActionSpec[Any, Any]) -> dict[str, Any]:
         "type": SUB_COMMAND,
         "name": spec.name.partition(".")[2],
         "description": spec.summary[:100],
-        "options": slash_fields(spec.input).options,
+        "options": slash_fields(spec.input, spec.suggest).options,
     }
 
 
