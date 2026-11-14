@@ -1,7 +1,8 @@
 """Testing helpers for plugins and the core (D45).
 
 - Fakes for a server, its members, roles and channels, and the client: `FakeGuild`, `FakeMember`, `FakeRole`,
-  `FakeChannel`, `FakeVoiceChannel`, `FakeClient`. They are shaped like discord.py's objects.
+  `FakeChannel`, `FakeVoiceChannel`, `FakeClient`. They are shaped like discord.py's objects. A `FakeChannel`
+  keeps each `FakeMessage` it was sent, with its `FakeButton`s, which `harness.press` presses.
 - `PluginHarness`: a plugin loaded through the real loader and migrations, invoked through the real call path,
   as a member (`invoke`) or with a token (`invoke_with_token`).
 - What `invoke` raises and returns besides an action's output: `Refused` (with its `code`) before the action
@@ -15,6 +16,7 @@
 from teabot.core.plans import Planned, Queued
 from teabot.core.registry import ActionFailed, Refused
 from teabot.testing.fakes import (
+    FakeButton,
     FakeCategory,
     FakeChannel,
     FakeClient,
@@ -37,6 +39,7 @@ from teabot.testing.snapshot import SnapshotCheck, plugin_snapshot
 __all__ = [
     "ActionFailed",
     "CheckFailed",
+    "FakeButton",
     "FakeCategory",
     "FakeChannel",
     "FakeClient",

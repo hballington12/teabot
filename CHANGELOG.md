@@ -15,6 +15,8 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 - Plugins can manage a server as its admins do. A `Member` can be given and lose roles, renamed, timed out, kicked and sent a direct message, and shows its roles, top role, join date, avatar and timeout. A `Role` shows its position, permissions, colour and whether Discord manages it. The `Guild` shows its icon, owner, member count, roles and every `Channel`, finds members by name, and bans, unbans and lists bans. Each acts as the bot, and refuses with a plain reason what Discord would refuse, such as a role above the bot's own.
 - Every change a plugin makes carries a reason to Discord's audit log, "via teabot: <action>, for member <id>", unless the plugin gives its own.
 - `send` attaches files with `File`.
+- Posts carry buttons: `Button(action.bind(...), label=, emoji=, style=)` runs that action as the member who presses it, through the same checks and audit log as a slash command. The call is held in the button itself, so it keeps working after a restart. The bot can fetch its own posts with `channel.get_message`, and edit or delete them.
+- `harness.press(button)` presses a button on a fake message, and returns the reply the member would see.
 - The test fakes do all of it, record what was done, and refuse as Discord would.
 - The test fixtures' cleanup of killed runs works on Windows, where `os.kill(pid, 0)` raised an error for a dead process, and sent Ctrl+C to a live one, instead of probing it.
 

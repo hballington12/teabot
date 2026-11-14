@@ -26,8 +26,9 @@ from teabot.lint import check_package
 from teabot.sdk import DESTRUCTIVE, Action, Actor, LoadablePlugin
 from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
+from teabot.sdk.components import parse_custom_id
 from teabot.sdk.db import Bound
-from teabot.testing.fakes import FakeClient, FakeGuild, FakeMember
+from teabot.testing.fakes import FakeButton, FakeClient, FakeGuild, FakeMember
 
 ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
@@ -139,6 +140,11 @@ class PluginHarness:
         )
         await self.run_jobs()
 
+    async def press(self, button: FakeButton, /) -> str:
+        """Press a button on a fake message as the server's first member, through the real call path, as Discord
+        would on a click. Returns the reply they would see."""
+        return await self.as_member(self.member).press(button)
+
     def as_member(self, member: FakeMember) -> "MemberCalls":
         """Calls made as `member` rather than the first member."""
         return MemberCalls(self, member.id)
@@ -213,6 +219,18 @@ class MemberCalls:
             raise TypeError(f"{action.name} is not destructive, so it has no plan: use harness.call")
         self.harness._plans[out.confirm] = (action.name, raw, self.user)  # pyright: ignore[reportPrivateUsage]
         return out
+
+    async def press(self, button: FakeButton, /) -> str:
+        """Press a button on a fake message as this member, through the real call path. Returns the reply they
+        would see. A refusal raises `Refused`, and an `ActionError` raises `ActionFailed`."""
+        bound = parse_custom_id(button.custom_id)
+        if bound is None:
+            raise ValueError(f"{button.custom_id!r} is not one of teabot's buttons")
+        call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), dict(bound.input))
+        out = await self.harness.registry.invoke(call)
+        spec = self.harness.registry.actions[bound.action]
+        shown = spec.render(out) if spec.render is not None else out.model_dump_json()
+        return shown if isinstance(shown, str) else str(shown.description or shown.title or "")
 
     async def _invoke(self, action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> BaseModel:
         call = Call(action.name, self.harness.guild.id, Actor(self.user, "slash"), _raw(action, kwargs))

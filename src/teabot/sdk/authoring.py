@@ -45,6 +45,7 @@ from teabot.sdk._signature import (
 )
 from teabot.sdk._views import guild_view
 from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk
+from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
 from teabot.sdk.guild import Guild
 from teabot.sdk.permissions import Permission
@@ -163,6 +164,16 @@ class Action[C: BaseModel, **P, R]:
             render=self.output.render,
             reply=self.reply,
         )
+
+    def bind(self, *args: P.args, **kwargs: P.kwargs) -> BoundAction:
+        """The action with its arguments fixed, for a `Button`. A `Role`, `TextChannel` or `Member` argument is kept
+        as its ID, and found again when the button is pressed."""
+        if args:
+            raise TypeError(f"{self.name}.bind takes its arguments by name")
+        refs = {r.name for r in self.inputs.resolved}
+        raw = {k: str(getattr(v, "id", v)) if k in refs and v is not None else v for k, v in kwargs.items()}
+        payload = self.inputs.model.model_validate(raw).model_dump(mode="json", exclude_defaults=True)
+        return BoundAction(self.name, payload)
 
     async def _run(self, ctx: ActionContext, data: BaseModel) -> BaseModel:
         context = _context_of(ctx, self.name)

@@ -28,6 +28,8 @@ The server (D45):
   returns a `Message`, and mentions nobody unless asked. Members can be given roles, renamed, timed out, kicked and
   sent a direct message, as the bot. `File` attaches a file; `Ban` is one of the server's bans. `ChannelKind` is what
   sort of channel a `Channel` is.
+- `Button`: a button on a post, which runs an action as the member who presses it; `action.bind(...)` makes its
+  `BoundAction`, and `ButtonStyle` is its colour. A `Message` the bot sent can be edited or deleted.
 
 Field types (D23, D29):
 - `ChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
@@ -45,6 +47,7 @@ The database (D9, D30):
 
 from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
 from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Plugin
+from teabot.sdk.components import BoundAction, Button, ButtonStyle
 from teabot.sdk.db import Bound, Db, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel
@@ -66,6 +69,9 @@ __all__ = [
     "Actor",
     "Ban",
     "Bound",
+    "BoundAction",
+    "Button",
+    "ButtonStyle",
     "Channel",
     "ChannelKind",
     "ChannelRef",

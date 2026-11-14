@@ -17,6 +17,7 @@ from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
 from teabot.sdk import ActionSpec, Actor, ChannelRef, LongText, Risk, UntrustedText
+from teabot.sdk.components import BoundAction
 
 GUILD, USER, CHANNEL = 1001, 2001, 3001
 
@@ -297,6 +298,23 @@ async def test_a_plan_entry_shows_its_detail(router: tuple[InteractionRouter, Fa
     await handler.handle(interaction)
     embed = next(e for e in interaction.events if e[0] == "followup")[1]
     assert {f.name: f.value for f in embed.fields}["First entries"] == "cancel Discord Nitro: 4 entrants"
+
+
+async def test_a_plugins_button_runs_its_action_as_the_member_who_pressed_it(
+    router: tuple[InteractionRouter, FakeRegistry],
+) -> None:
+    r, registry = router
+    registry.result = Pong(ok=True)
+    interaction = press(BoundAction("announcements.ping", {"loud": True}).custom_id())
+    await r.handle(interaction)
+    (call,) = registry.calls
+    assert (call.action, call.raw_input, call.actor.user_id, call.actor.via) == (
+        "announcements.ping",
+        {"loud": True},
+        USER,
+        "component",
+    )
+    assert interaction.events == [("defer", True, True), ("followup", "pong True", True)]
 
 
 async def test_a_plan_is_shown_with_a_confirm_button(router: tuple[InteractionRouter, FakeRegistry]) -> None:

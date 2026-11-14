@@ -18,6 +18,7 @@ from typing import Literal, Protocol
 
 import discord
 
+from teabot.sdk.components import Button
 from teabot.sdk.permissions import Permission
 
 type ChannelKind = Literal["text", "voice", "category", "forum", "stage", "thread", "announcement", "other"]
@@ -210,6 +211,21 @@ class Message(Protocol):
         """A link to the message."""
         ...
 
+    async def edit(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        buttons: Sequence[Button] = (),
+        files: Sequence[File] = (),
+    ) -> None:
+        """Replace the message's text, embed, buttons and files with these: what is given is what it shows."""
+        ...
+
+    async def delete(self) -> None:
+        """Delete the message. Deleting one already gone does nothing."""
+        ...
+
 
 class Channel(Protocol):
     """Any channel in the server, to read. Post through `TextChannel`, from `Guild.get_text_channel`."""
@@ -265,9 +281,16 @@ class TextChannel(Protocol):
         embed: discord.Embed | None = None,
         ping: Iterable[int] = (),
         files: Sequence[File] = (),
+        buttons: Sequence[Button] = (),
     ) -> Message:
         """Post a message. Nobody is mentioned, whatever the text says, except the members whose IDs are in
-        `ping`. Raises `ActionError` when the bot may not post here."""
+        `ping`. Up to 25 `buttons` go under it, five to a row. Raises `ActionError` when the bot may not post
+        here."""
+        ...
+
+    async def get_message(self, message_id: int, /) -> Message | None:
+        """One of the bot's own messages in this channel, to edit or delete, or None when it is gone or is not
+        the bot's."""
         ...
 
 

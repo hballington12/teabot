@@ -20,6 +20,8 @@ from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.pool import Database
 from teabot.sdk import ActionSpec, Actor
 from teabot.sdk.actions import Via
+from teabot.sdk.components import PREFIX as BUTTON_PREFIX
+from teabot.sdk.components import parse_custom_id
 from teabot.sdk.fields import LONG_TEXT_MAX
 from teabot.sdk.inputs import input_fields
 
@@ -81,6 +83,7 @@ def _modal_values(data: Mapping[str, Any]) -> dict[str, str]:
 
 CONFIRM_PREFIX = "teabot:core:confirm:"
 PLAN_GONE = "That plan no longer exists. Run the command again for a new one."
+BUTTON_GONE = "That button no longer works."
 PLAN_SHOWN = 10
 PLANNED = "SELECT action, input FROM core.audit_log WHERE confirm = $1 AND outcome = 'planned'"
 
@@ -131,6 +134,19 @@ class InteractionRouter:
             interaction.data.get("custom_id", "")
         ).startswith(CONFIRM_PREFIX):
             await self._confirm(interaction)
+        elif interaction.type is discord.InteractionType.component and str(
+            interaction.data.get("custom_id", "")
+        ).startswith(BUTTON_PREFIX):
+            await self._press(interaction)
+
+    async def _press(self, interaction: Any) -> None:
+        """A plugin's button: the action and input its custom id holds, run as the member who pressed it,
+        through the same call path as a slash command."""
+        bound = parse_custom_id(str(interaction.data["custom_id"]))
+        if bound is None or interaction.guild_id is None:
+            await interaction.response.send_message(BUTTON_GONE, ephemeral=True)
+            return
+        await self._run(interaction, bound.action, dict(bound.input), via="component")
 
     async def _confirm(self, interaction: Any) -> None:
         """A Confirm press calls the action again with its plan's input and confirm value, through the same

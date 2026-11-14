@@ -49,17 +49,77 @@ class FakeAttachment:
 
 
 @dataclass
+class FakeButton:
+    """A button on a fake message, as Discord shows it. `harness.press` presses it."""
+
+    label: str | None
+    emoji: str | None
+    style: str
+    custom_id: str
+
+
+def _buttons(view: Any = None, buttons: Sequence[Any] = ()) -> list[FakeButton]:
+    """discord.py's view, as the SDK's views send it, or the SDK's `Button`s, when a test uses a fake directly."""
+    if view is not None:
+        return [
+            FakeButton(
+                item.label, str(item.emoji) if item.emoji else None, item.style.name, str(item.custom_id)
+            )
+            for item in view.children
+        ]
+    return [FakeButton(b.label, b.emoji, b.style, b.bound.custom_id()) for b in buttons]
+
+
+@dataclass
+class _Author:
+    id: int
+
+
+@dataclass
 class FakeMessage:
+    """A message a fake channel was sent: what it shows now, and whether it has been `deleted`."""
+
     id: int
     channel_id: int
     content: str | None
     embed: discord.Embed | None
     allowed_mentions: discord.AllowedMentions | None = None
     attachments: list[FakeAttachment] = field(default_factory=list[FakeAttachment])
+    buttons: list[FakeButton] = field(default_factory=list[FakeButton])
+    author_id: int = 0
+    deleted: bool = False
+    edits: int = 0
 
     @property
     def jump_url(self) -> str:
         return f"https://discord.com/channels/0/{self.channel_id}/{self.id}"
+
+    @property
+    def author(self) -> _Author:
+        return _Author(self.author_id)
+
+    async def edit(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        view: Any = None,
+        attachments: Sequence[Any] | None = None,
+        allowed_mentions: discord.AllowedMentions | None = None,
+        buttons: Sequence[Any] = (),
+        files: Sequence[Any] = (),
+    ) -> None:
+        if self.deleted:
+            raise not_found("Unknown Message")
+        self.content, self.embed = content, embed
+        self.buttons = _buttons(view, buttons)
+        self.attachments = _attachments(attachments or files)
+        self.edits += 1
+
+    async def delete(self) -> None:
+        if self.deleted:
+            raise not_found("Unknown Message")
+        self.deleted = True
 
 
 def _attachments(files: Sequence[Any] | None) -> list[FakeAttachment]:
@@ -82,6 +142,7 @@ class _GuildChannel:
     name: str = "channel"
     hidden_from: set[int] = field(default_factory=set[int])
     category: "FakeCategory | None" = None
+    guild: "FakeGuild | None" = None
 
     @property
     def category_id(self) -> int | None:
@@ -111,17 +172,39 @@ class FakeChannel(_GuildChannel):
         embed: discord.Embed | None = None,
         allowed_mentions: discord.AllowedMentions | None = None,
         files: Sequence[Any] | None = None,
+        view: Any = None,
         ping: Iterable[int] = (),
+        buttons: Sequence[Any] = (),
     ) -> FakeMessage:
-        """Record the message. `allowed_mentions` is discord.py's form, which the core uses; `ping` is the SDK's,
-        so a fake channel can stand where an action takes a `TextChannel`."""
+        """Record the message. `allowed_mentions` and `view` are discord.py's forms, which the core uses; `ping`
+        and `buttons` are the SDK's, so a fake channel can stand where an action takes a `TextChannel`."""
         if ping and allowed_mentions is None:
             allowed_mentions = discord.AllowedMentions(users=[discord.Object(id=i) for i in ping])
         if self.forbidden:
             raise forbidden()
-        message = FakeMessage(next_id(), self.id, content, embed, allowed_mentions, _attachments(files))
+        author = self.guild.me.id if self.guild is not None else 0
+        message = FakeMessage(
+            next_id(),
+            self.id,
+            content,
+            embed,
+            allowed_mentions,
+            _attachments(files),
+            _buttons(view, buttons),
+            author,
+        )
         self.sent.append(message)
         return message
+
+    async def fetch_message(self, message_id: int, /) -> FakeMessage:
+        found = next((m for m in self.sent if m.id == message_id and not m.deleted), None)
+        if found is None:
+            raise not_found("Unknown Message")
+        return found
+
+    async def get_message(self, message_id: int, /) -> FakeMessage | None:
+        """The SDK's name, for a test that uses a fake channel directly."""
+        return next((m for m in self.sent if m.id == message_id and not m.deleted), None)
 
 
 @dataclass
@@ -358,6 +441,7 @@ class FakeGuild:
         return member
 
     def add_channel[C: AnyFakeChannel](self, channel: C) -> C:
+        channel.guild = self
         self.channel_map[channel.id] = channel
         return channel
 

@@ -110,6 +110,8 @@ max-line-length = 120
 "src/teabot/plugins/**" = ["PLR0913", "PLR0917"]
 "plugins/*/src/**" = ["PLR0913", "PLR0917"]
 "examples/*/src/**" = ["PLR0913", "PLR0917"]
+# The fakes take discord.py's own keyword arguments, so each stands in for the real method.
+"src/teabot/testing/fakes.py" = ["PLR0913"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

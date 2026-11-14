@@ -16,6 +16,7 @@ from typing import Any, cast
 import discord
 
 from teabot.sdk.actions import ActionError
+from teabot.sdk.components import BUTTONS_MAX, Button
 from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel
 from teabot.sdk.permissions import Permission
 
@@ -54,6 +55,35 @@ def _require(guild: Any, permission: str, doing: str) -> None:
 
 def _files(files: Sequence[File]) -> list[discord.File]:
     return [discord.File(io.BytesIO(f.data), filename=f.name) for f in files]
+
+
+STYLES = {
+    "primary": discord.ButtonStyle.primary,
+    "secondary": discord.ButtonStyle.secondary,
+    "success": discord.ButtonStyle.success,
+    "danger": discord.ButtonStyle.danger,
+}
+
+
+def _components(buttons: Sequence[Button]) -> discord.ui.View | None:
+    """discord.py's form of the buttons, five to a row. A press reaches the interaction router by its custom id,
+    so the view is only ever a carrier and never waits for presses itself."""
+    if not buttons:
+        return None
+    if len(buttons) > BUTTONS_MAX:
+        raise ValueError(f"A post holds at most {BUTTONS_MAX} buttons, not {len(buttons)}.")
+    view = discord.ui.View(timeout=None)
+    for button in buttons:
+        view.add_item(
+            discord.ui.Button(
+                label=button.label,
+                emoji=button.emoji,
+                style=STYLES[button.style],
+                custom_id=button.bound.custom_id(),
+            )
+        )
+    view.stop()
+    return view
 
 
 @dataclass(frozen=True)
@@ -250,6 +280,35 @@ class MessageView:
     def jump_url(self) -> str:
         return str(self.raw.jump_url)
 
+    async def edit(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        buttons: Sequence[Button] = (),
+        files: Sequence[File] = (),
+    ) -> None:
+        try:
+            await self.raw.edit(
+                content=content,
+                embed=embed,
+                view=_components(buttons),
+                attachments=_files(files),
+                allowed_mentions=allowed_mentions(()),
+            )
+        except discord.NotFound:
+            raise ActionError("That message has been deleted.") from None
+        except discord.Forbidden:
+            raise ActionError("Discord would not let me edit that message.") from None
+
+    async def delete(self) -> None:
+        try:
+            await self.raw.delete()
+        except discord.NotFound:
+            return
+        except discord.Forbidden:
+            raise ActionError("Discord would not let me delete that message.") from None
+
 
 def allowed_mentions(ping: Iterable[int]) -> discord.AllowedMentions:
     """Nobody is mentioned except the members named, whatever the text says."""
@@ -260,6 +319,7 @@ def allowed_mentions(ping: Iterable[int]) -> discord.AllowedMentions:
 @dataclass(frozen=True)
 class TextChannelView:
     raw: Any
+    guild: Any = None
 
     @property
     def id(self) -> int:
@@ -280,14 +340,29 @@ class TextChannelView:
         embed: discord.Embed | None = None,
         ping: Iterable[int] = (),
         files: Sequence[File] = (),
+        buttons: Sequence[Button] = (),
     ) -> Message:
+        extra: dict[str, Any] = {}
+        view = _components(buttons)
+        if view is not None:
+            extra["view"] = view
         try:
             sent = await self.raw.send(
-                content, embed=embed, allowed_mentions=allowed_mentions(ping), files=_files(files)
+                content, embed=embed, allowed_mentions=allowed_mentions(ping), files=_files(files), **extra
             )
         except discord.Forbidden:
             raise ActionError(FORBIDDEN) from None
         return MessageView(sent)
+
+    async def get_message(self, message_id: int, /) -> Message | None:
+        try:
+            found = await self.raw.fetch_message(message_id)
+        except (discord.NotFound, discord.Forbidden):
+            return None
+        me = getattr(self.guild, "me", None)
+        if me is not None and int(found.author.id) != int(me.id):
+            return None
+        return MessageView(found)
 
 
 def _kind(channel: Any) -> str:
@@ -363,7 +438,7 @@ class GuildView:
 
     def get_text_channel(self, channel_id: int, /) -> TextChannel | None:
         channel = self.raw.get_channel(channel_id)
-        return TextChannelView(channel) if takes_messages(channel) else None
+        return TextChannelView(channel, self.raw) if takes_messages(channel) else None
 
     def get_channel(self, channel_id: int, /) -> Channel | None:
         channel = self.raw.get_channel(channel_id)
