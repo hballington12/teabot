@@ -7,7 +7,7 @@ plugins keep working.
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 import discord
 from pydantic import BaseModel
@@ -82,6 +82,10 @@ type JobHandler = Callable[[JobContext], Awaitable[None]]
 """Runs one job. Raising fails the attempt, and the queue retries it with back-off, five attempts in all (D31)."""
 
 
+type EventName = Literal["member_join", "member_leave"]
+"""The Discord events a plugin can handle."""
+
+
 class Registrar(Protocol):
     """What `setup` registers the plugin's offerings with."""
 
@@ -91,6 +95,11 @@ class Registrar(Protocol):
 
     def job(self, name: str, handler: JobHandler) -> None:
         """Handle the plugin's jobs called `name`, which its actions queue with `ctx.queue.schedule`."""
+        ...
+
+    def event(self, name: "EventName", handler: JobHandler) -> None:
+        """Handle a Discord event in the servers where the plugin is enabled. It runs as a job, `on_<name>`, with
+        the member's ID as `user_id` in its payload."""
         ...
 
 

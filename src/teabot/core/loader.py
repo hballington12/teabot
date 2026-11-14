@@ -17,6 +17,7 @@ from typing import Any, Literal, Protocol
 
 from teabot.db.migrate import MigrationReport, PluginMigrations
 from teabot.sdk import ActionSpec, JobHandler, LoadablePlugin
+from teabot.sdk.plugin import EventName
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class Loaded:
     plugin: LoadablePlugin
     actions: dict[str, ActionSpec[Any, Any]] = field(default_factory=dict[str, ActionSpec[Any, Any]])
     jobs: dict[str, JobHandler] = field(default_factory=dict[str, JobHandler])
+    events: frozenset[EventName] = frozenset()
 
 
 @dataclass
@@ -160,6 +162,7 @@ class _Registrar:
         self.plugin_id = plugin_id
         self.actions: dict[str, ActionSpec[Any, Any]] = {}
         self.jobs: dict[str, JobHandler] = {}
+        self.events: set[EventName] = set()
 
     def action(self, spec: ActionSpec[Any, Any]) -> None:
         if spec.plugin_id != self.plugin_id:
@@ -172,6 +175,12 @@ class _Registrar:
         if name in self.jobs:
             raise ValueError(f"job {name} registered twice")
         self.jobs[name] = handler
+
+    def event(self, name: EventName, handler: JobHandler) -> None:
+        if name in self.events:
+            raise ValueError(f"event {name} registered twice")
+        self.events.add(name)
+        self.job(f"on_{name}", handler)
 
 
 def _unique(candidates: Sequence[Candidate], report: LoadReport) -> dict[str, LoadablePlugin]:
@@ -214,7 +223,7 @@ def _setup(plugin_id: str, plugin: LoadablePlugin, report: LoadReport) -> bool:
     except Exception as exc:
         report.fail(plugin_id, "failed", f"setup failed: {exc!r}")
         return False
-    report.loaded[plugin_id] = Loaded(plugin, registrar.actions, registrar.jobs)
+    report.loaded[plugin_id] = Loaded(plugin, registrar.actions, registrar.jobs, frozenset(registrar.events))
     report.statuses[plugin_id] = LOADED
     return True
 

@@ -47,10 +47,10 @@ from teabot.sdk._views import guild_view
 from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Choice, Risk
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
-from teabot.sdk.guild import Guild
+from teabot.sdk.guild import Guild, Member
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
-from teabot.sdk.plugin import EmptyConfig, JobContext, Manifest, Registrar
+from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
 
 READ = Risk.READ
 WRITE = Risk.WRITE
@@ -298,6 +298,7 @@ class Plugin(Generic[Cfg]):
         self.home = _caller_module()
         self.actions: dict[str, Action[Cfg, ..., Any]] = {}
         self.jobs: dict[str, Job[Cfg, ...]] = {}
+        self.listeners: dict[EventName, Callable[..., Awaitable[None]]] = {}
 
     def action[**P, R](
         self,
@@ -393,6 +394,51 @@ class Plugin(Generic[Cfg]):
             registrar.action(action.spec())
         for job in self.jobs.values():
             registrar.job(job.name, job._handle)  # pyright: ignore[reportPrivateUsage]
+        for event, func in self.listeners.items():
+            registrar.event(event, self._listener(event, func))
+
+    def on_member_join(
+        self, func: Callable[[Context[Cfg], Member], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], Member], Awaitable[None]]:
+        """Run `func` when a member joins a server where the plugin is enabled, with the member. It runs as a job,
+        so a failure is retried, and a member who has left again by then is skipped."""
+        return self._listen("member_join", func)
+
+    def on_member_leave(
+        self, func: Callable[[Context[Cfg], int], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], int], Awaitable[None]]:
+        """Run `func` when a member leaves, or is kicked or banned from, a server where the plugin is enabled, with
+        their user ID, since they are no longer a member. It runs as a job."""
+        return self._listen("member_leave", func)
+
+    def _listen[F: Callable[..., Awaitable[None]]](self, event: EventName, func: F) -> F:
+        if event in self.listeners:
+            raise SignatureError(f"{where(func)}: {self.id} already handles {event}")
+        self._check_context(func, f"{self.id}.on_{event}")
+        self.listeners[event] = func
+        self._module = self._module or func.__module__
+        return func
+
+    def _listener(self, event: EventName, func: Callable[..., Awaitable[None]]) -> JobHandler:
+        name = f"{self.id}.on_{event}"
+
+        async def handle(job: JobContext) -> None:
+            guild = job.client.get_guild(job.guild_id) if job.guild_id is not None else None
+            if guild is None:
+                return
+            actor = Actor(SYSTEM, "event")
+            context = _Context(
+                guild_view(guild, _reason(name, actor)), actor, job.config, lambda: job.db, job.report
+            )
+            user_id = int(job.payload["user_id"])
+            if event == "member_leave":
+                await func(context, user_id)
+                return
+            member = await context.guild.get_member(user_id)
+            if member is not None:
+                await func(context, member)
+
+        return handle
 
 
 @dataclass(frozen=True)

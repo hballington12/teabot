@@ -16,6 +16,7 @@ from teabot.builtin.lookups import Lookups
 from teabot.builtin.tokens import TokenCommands
 from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
 from teabot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
+from teabot.core.events import Events
 from teabot.core.loader import LoadReport
 from teabot.core.plans import Plans
 from teabot.core.plugin_jobs import register_plugin_jobs
@@ -37,6 +38,7 @@ class Core:
     sync: CommandSync
     tokens: Tokens
     queue: Queue
+    events: Events
 
 
 def assemble(
@@ -71,4 +73,6 @@ def assemble(
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     queue.register("core", APPLY_HANDLER, apply)
     register_plugin_jobs(queue, report.loaded, pools, client)
-    return Core(registry, sources, statuses, sync, tokens, queue)
+    listeners = {plugin_id: loaded.events for plugin_id, loaded in report.loaded.items() if loaded.events}
+    events = Events(pools.core_db(), queue, listeners)
+    return Core(registry, sources, statuses, sync, tokens, queue, events)

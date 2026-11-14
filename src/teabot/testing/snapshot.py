@@ -15,6 +15,7 @@ import pytest
 
 from teabot.adapters.schema import command_group, mcp_input_schema, tool_name
 from teabot.sdk import ActionSpec, JobHandler, LoadablePlugin, Surface
+from teabot.sdk.plugin import EventName
 
 ACCEPT = "--teabot-accept"
 
@@ -23,12 +24,16 @@ class _Collector:
     def __init__(self) -> None:
         self.actions: list[ActionSpec[Any, Any]] = []
         self.jobs: dict[str, JobHandler] = {}
+        self.events: list[EventName] = []
 
     def action(self, spec: ActionSpec[Any, Any]) -> None:
         self.actions.append(spec)
 
     def job(self, name: str, handler: JobHandler) -> None:
         self.jobs[name] = handler
+
+    def event(self, name: EventName, handler: JobHandler) -> None:
+        self.events.append(name)
 
 
 def plugin_snapshot(plugin: LoadablePlugin) -> dict[str, Any]:
@@ -38,7 +43,14 @@ def plugin_snapshot(plugin: LoadablePlugin) -> dict[str, Any]:
     specs = sorted(collected.actions, key=lambda s: s.name)
     tools = {tool_name(s): mcp_input_schema(s) for s in specs if Surface.MCP in s.surfaces}
     jobs = {name: _payload_schema(handler) for name, handler in sorted(collected.jobs.items())}
-    return {"commands": command_group(plugin.manifest.id, specs), "tools": tools, "jobs": jobs}
+    found: dict[str, Any] = {
+        "commands": command_group(plugin.manifest.id, specs),
+        "tools": tools,
+        "jobs": jobs,
+    }
+    if collected.events:
+        found["events"] = sorted(collected.events)
+    return found
 
 
 def _payload_schema(handler: JobHandler) -> Any:

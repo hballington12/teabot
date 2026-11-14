@@ -23,6 +23,7 @@ from teabot.adapters.interactions import InteractionRouter, prune_drafts
 from teabot.adapters.mcp import McpAdapter
 from teabot.assembly import assemble
 from teabot.core.audit import AuditMaintenance, ensure_read_partitions
+from teabot.core.events import Events
 from teabot.core.lifecycle import PURGE_GUILD, Guilds
 from teabot.core.loader import LoadReport, discover, load
 from teabot.core.maintenance import Maintenance
@@ -85,6 +86,7 @@ class TeabotClient(discord.AutoShardedClient):
         self.lock = lock
         self.router: InteractionRouter | None = None
         self.lifecycle: Guilds | None = None
+        self.events: Events | None = None
         self._shards: asyncio.Future[int] = asyncio.get_running_loop().create_future()
 
     async def setup_hook(self) -> None:
@@ -111,6 +113,15 @@ class TeabotClient(discord.AutoShardedClient):
     async def on_interaction(self, interaction: discord.Interaction) -> None:
         if self.router is not None:
             await self.router.handle(interaction)
+
+    async def on_member_join(self, member: discord.Member) -> None:
+        if self.events is not None:
+            await self.events.fire(member.guild.id, "member_join", member.id)
+
+    async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent) -> None:
+        """Raw, so a member who left while not cached is still heard."""
+        if self.events is not None:
+            await self.events.fire(payload.guild_id, "member_leave", payload.user.id)
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         if self.lifecycle is not None:
@@ -194,6 +205,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     client = TeabotClient(lock)
     core = assemble(report, pools, queue, client, settings.public_url)
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
+    client.events = core.events
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await core.sync.startup()})
     client.router = InteractionRouter(core.registry, pools.core_db())

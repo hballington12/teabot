@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from teabot.assembly import assemble
 from teabot.auth.tokens import Tokens
+from teabot.core.events import Events
 from teabot.core.loader import from_plugins, load
 from teabot.core.plans import Planned
 from teabot.core.queue import Queue
@@ -83,6 +84,7 @@ class PluginHarness:
     tokens: Tokens
     workers: Workers
     plugin_id: str = ""
+    events: Events | None = None
     failures: list[JobFailed] = field(default_factory=list[JobFailed])
     _plans: dict[str, tuple[str, dict[str, Any], int]] = field(
         default_factory=dict[str, tuple[str, dict[str, Any], int]]
@@ -149,6 +151,21 @@ class PluginHarness:
         """Choose from a select menu on a fake message as the server's first member. Returns the reply they would
         see."""
         return await self.as_member(self.member).choose(select, values)
+
+    async def join(self, member: FakeMember) -> None:
+        """Fire a member joining the server, as Discord would, and run the jobs it queues. Add the member to
+        `harness.guild` first."""
+        assert self.events is not None
+        await self.events.fire(self.guild.id, "member_join", member.id)
+        await self.run_jobs()
+
+    async def leave(self, member: FakeMember) -> None:
+        """Take the member out of the server, fire them leaving, as Discord would, and run the jobs it queues."""
+        assert self.events is not None
+        self.guild.members.pop(member.id, None)
+        self.guild.fetchable.pop(member.id, None)
+        await self.events.fire(self.guild.id, "member_leave", member.id)
+        await self.run_jobs()
 
     async def autocomplete(
         self, action: Action[Any, ..., Any], option: str, typed: str = ""
@@ -297,7 +314,17 @@ async def build_harness(
     core = assemble(report, pools, Queue(pools.core_db()), client)
     workers = Workers(core.queue, lambda: ["core", plugin_id])
     harness = PluginHarness(
-        core.registry, core.statuses, client, guild, member, admin, pools, core.tokens, workers, plugin_id
+        core.registry,
+        core.statuses,
+        client,
+        guild,
+        member,
+        admin,
+        pools,
+        core.tokens,
+        workers,
+        plugin_id,
+        core.events,
     )
     await install_clock(admin, naming, plugin_id, CLOCK.offset)
     for key, handler in list(core.queue.handlers.items()):
