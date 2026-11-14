@@ -3,7 +3,8 @@
 The registry serves the loaded plugins and the admin plugin's built-in groups (`/plugins`, `/audit`,
 `/tokens`, `/admin`). Enabling or disabling a plugin queues a command sync, `/tokens create` checks
 allow-lists against every action the registry knows, and destructive actions plan then apply (D21). The
-core's own job handlers are registered here: command syncs, audit posts and plan applies.
+core's own job handlers are registered here (command syncs, audit posts, plan applies), and every loaded
+plugin's.
 """
 
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from teapot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
 from teapot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
 from teapot.core.loader import LoadReport
 from teapot.core.plans import Plans
+from teapot.core.plugin_jobs import register_plugin_jobs
 from teapot.core.queue import APPLY_HANDLER, JobContext, Queue
 from teapot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
 from teapot.db.pool import Pools
@@ -60,4 +62,5 @@ def assemble(report: LoadReport, pools: Pools, queue: Queue, client: Client) -> 
     queue.register("core", SYNC_HANDLER, sync)
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     queue.register("core", APPLY_HANDLER, apply)
+    register_plugin_jobs(queue, report.loaded, pools, client)
     return Core(registry, sources, statuses, sync, tokens, queue)

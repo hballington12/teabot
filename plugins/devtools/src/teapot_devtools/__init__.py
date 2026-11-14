@@ -2,16 +2,18 @@
 
 - `devtools.note` writes to the plugin's own table in a transaction.
 - `devtools.peek_core` tries to read the core schema and reports the refusal the plugin role gets (D9).
+- `devtools.clear_notes` is destructive: it plans, then clears notes one at a time and reports progress (D21).
 - Setting `TEAPOT_DEVTOOLS_FAIL_SETUP=1` makes `setup` fail, to see a failed plugin reported (D14).
 """
 
+import asyncio
 import os
 from pathlib import Path
 
 import discord
 from pydantic import BaseModel, Field
 
-from teapot.sdk import ActionContext, ActionError, ActionSpec, Manifest, Registrar, Risk
+from teapot.sdk import ActionContext, ActionError, ActionSpec, Diff, DiffEntry, Manifest, Registrar, Risk
 
 FAIL_SETUP = "TEAPOT_DEVTOOLS_FAIL_SETUP"
 MANAGE_SERVER = discord.Permissions(manage_guild=True)
@@ -49,6 +51,39 @@ async def peek_core(ctx: ActionContext, _data: Peek) -> Peeked:
     raise ActionError("the plugin role could read the core schema: role isolation (D9) is broken")
 
 
+class ClearNotes(BaseModel):
+    containing: str = Field(
+        default="", max_length=200, description="Only notes containing this; empty for all"
+    )
+    seconds_each: int = Field(default=0, ge=0, le=5, description="A pause after each note, to watch progress")
+
+
+class Cleared(BaseModel):
+    cleared: int
+
+
+MATCHING = """
+SELECT ctid::text AS row, text FROM notes WHERE guild_id = $1 AND strpos(text, $2) > 0 ORDER BY created_at, text
+"""
+
+
+async def plan_clear(ctx: ActionContext, data: ClearNotes) -> Diff:
+    rows = await ctx.db.fetch(MATCHING, ctx.guild.id, data.containing)
+    return Diff(entries=[DiffEntry(change="remove", target=r["text"]) for r in rows])
+
+
+async def clear_notes(ctx: ActionContext, data: ClearNotes) -> Cleared:
+    """A bulk change in steps, so a plan's apply has progress to report (D21)."""
+    rows = await ctx.db.fetch(MATCHING, ctx.guild.id, data.containing)
+    for done, row in enumerate(rows, start=1):
+        await ctx.db.execute(
+            "DELETE FROM notes WHERE guild_id = $1 AND ctid = $2::text::tid", ctx.guild.id, row["row"]
+        )
+        await ctx.report({"done": done, "total": len(rows)})
+        await asyncio.sleep(data.seconds_each)
+    return Cleared(cleared=len(rows))
+
+
 class Devtools:
     manifest = Manifest("devtools", "0.1.0", migrations=Path(__file__).parent / "migrations")
 
@@ -64,6 +99,18 @@ class Devtools:
                 Peeked,
                 Risk.READ,
                 peek_core,
+                default_permissions=MANAGE_SERVER,
+            )
+        )
+        registrar.action(
+            ActionSpec(
+                "devtools.clear_notes",
+                "Clear notes, after showing which",
+                ClearNotes,
+                Cleared,
+                Risk.DESTRUCTIVE,
+                clear_notes,
+                plan=plan_clear,
                 default_permissions=MANAGE_SERVER,
             )
         )

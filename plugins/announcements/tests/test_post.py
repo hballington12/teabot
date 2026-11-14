@@ -71,7 +71,7 @@ async def test_a_body_over_discords_limit_is_refused(teapot_harness: Any) -> Non
 
 
 def test_the_reply_links_to_the_post() -> None:
-    spec = next(iter(_actions().values()))
+    spec = _actions()["announcements.post"]
     assert spec.render is not None
     assert spec.render(Posted(message_id=1, url="https://discord.com/x")) == "Posted: https://discord.com/x"
 
@@ -84,7 +84,7 @@ def _actions() -> dict[str, Any]:
             collected[spec.name] = spec
 
         def job(self, name: str, handler: Any) -> None:
-            raise AssertionError("announcements has no jobs yet")
+            collected[f"job:{name}"] = handler
 
     plugin.setup(Collect())
     return collected

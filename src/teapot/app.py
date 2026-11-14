@@ -26,7 +26,6 @@ from teapot.core.audit import AuditMaintenance, ensure_read_partitions
 from teapot.core.lifecycle import PURGE_GUILD, Guilds
 from teapot.core.loader import LoadReport, discover, load
 from teapot.core.maintenance import Maintenance
-from teapot.core.plugin_jobs import register_plugin_jobs
 from teapot.core.processes import LockConnection, open_lock_connection
 from teapot.core.queue import NOTIFY_CHANNEL, Queue, ShardFilter
 from teapot.core.worker import Workers
@@ -197,7 +196,6 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await core.sync.startup()})
-    register_plugin_jobs(queue, report.loaded, pools, client)
     client.router = InteractionRouter(core.registry, pools.core_db())
     health = Health(
         teapot.__version__,
