@@ -1,7 +1,8 @@
 """pytest fixtures against a real Postgres (D34, D45). Enable with `pytest_plugins = ["teapot.testing.fixtures"]`.
 
 The server's address comes from the TEAPOT_TEST_PG_* variables, defaulting to the instance template's Compose
-Postgres. The password falls back to TEAPOT_DB_OWNER_PASSWORD, so `uv run --env-file .env` finds it.
+Postgres. The port and password fall back to Compose's TEAPOT_DB_PORT and TEAPOT_DB_OWNER_PASSWORD, so
+`uv run --env-file .env` finds them.
 
 Each test that asks gets a fresh database and a role prefix nobody else uses, because roles live across the
 whole server; names carry the test process's pid, and what killed runs left behind is dropped.
@@ -30,7 +31,7 @@ PLUGINS_PASSWORD = "plugins-test"
 
 teapot_pg_server = factories.postgresql_noproc(  # pyright: ignore[reportUnknownMemberType]
     host=os.environ.get("TEAPOT_TEST_PG_HOST", "127.0.0.1"),
-    port=int(os.environ.get("TEAPOT_TEST_PG_PORT", "55432")),
+    port=int(os.environ.get("TEAPOT_TEST_PG_PORT") or os.environ.get("TEAPOT_DB_PORT") or "55432"),
     user=os.environ.get("TEAPOT_TEST_PG_USER", "teapot_owner"),
     password=os.environ.get("TEAPOT_TEST_PG_PASSWORD")
     or os.environ.get("TEAPOT_DB_OWNER_PASSWORD")
