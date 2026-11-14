@@ -65,7 +65,7 @@ checkout() {
     if [ ! -d "$APP_DIR/.git" ]; then
         as_teapot git clone -q "$REPO" "$APP_DIR"
     fi
-    as_teapot sh -c "cd '$APP_DIR' && uv sync --frozen --no-dev -q"
+    as_teapot sh -c "cd '$APP_DIR' && uv sync --frozen --no-dev --all-packages -q"
 }
 
 setup_postgres() {

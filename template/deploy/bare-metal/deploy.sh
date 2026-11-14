@@ -10,7 +10,7 @@ TARGET=${1:?usage: deploy.sh <user@host>}
 ssh "$TARGET" 'set -euo pipefail
     run() { sudo -u teapot -H env UV_CACHE_DIR=/var/lib/teapot/.cache/uv "$@"; }
     run git -C /opt/teapot pull -q --ff-only
-    run sh -c "cd /opt/teapot && uv sync --frozen --no-dev -q"
+    run sh -c "cd /opt/teapot && uv sync --frozen --no-dev --all-packages -q"
     systemctl restart teapot
     if curl -sf --retry 90 --retry-delay 1 --retry-connrefused --retry-all-errors -o /dev/null http://127.0.0.1:8780/healthz; then
         echo "deployed $(run git -C /opt/teapot log --oneline -1)"

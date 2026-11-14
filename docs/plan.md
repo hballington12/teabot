@@ -60,14 +60,14 @@ template/                       the instance template (D43)
     plugins/                    where an operator's own plugins live as workspace members (D44)
     teapot.env.example          names of every setting, no values
     compose.yaml                the bot and Postgres, for the quick setup
-    Dockerfile                  builds the instance with `uv sync --frozen --no-dev`
+    Dockerfile                  builds the instance with `uv sync --frozen --no-dev --all-packages`
     deploy/bare-metal/          the Tea droplet's files as the careful example (D37)
         teapot.service          hardened systemd unit, `ExecStart` runs `uv run teapot run`
         teapot.caddy            Caddy site block, forwarding `/mcp` and `/api` only
         postgresql.conf.d/teapot.conf   memory settings, WAL archiving through pgBackRest
         pgbackrest.conf         the Spaces repository, schedules and retention
         setup-host.sh           one-time install: Postgres, pgBackRest, Caddy, then `teapot init`
-        deploy.sh               pull, `uv sync --frozen --no-dev`, restart, health check on localhost
+        deploy.sh               pull, `uv sync --frozen --no-dev --all-packages`, restart, health check on localhost
     README.md                   creating the Discord application, intents, one teapot per server, both setups
 tests/                          core tests
 docs/
