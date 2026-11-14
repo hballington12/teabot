@@ -2,6 +2,6 @@
 
 - `/$id hello`: says hello, and counts how often the member has. A starting point to replace with your own actions.
 - Its table is `greetings`, created by `migrations/0001_greetings.sql`. Add a new numbered file for each change.
-- Tests: `uv run --package teapot-$id pytest plugins/$id`, against the Postgres of the instance's Compose file.
+- Tests: `uv run --env-file .env --package teapot-$id pytest plugins/$id`, against the Postgres of the instance's Compose file. Run them on a development machine, since they create and drop databases.
 - Writing actions, jobs, config and plans: `docs/plugin-authoring.md` in the teapot repository.
 - External connections: none (D12). List every host the plugin contacts here.

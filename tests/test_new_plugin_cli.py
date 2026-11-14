@@ -48,7 +48,7 @@ def test_it_writes_the_package(tmp_path: Path) -> None:
     assert sorted(str(p.relative_to(root)) for p in root.rglob("*") if p.is_file()) == FILES
     assert 'scaffolded = "teapot_scaffolded:plugin"' in (root / "pyproject.toml").read_text()
     assert "External connections: none" in (root / "README.md").read_text()
-    assert f"uv run --package teapot-scaffolded pytest {root}" in result.output
+    assert f"uv run --env-file .env --package teapot-scaffolded pytest {root}" in result.output
 
 
 async def test_the_scaffolded_plugin_loads_migrates_and_runs(

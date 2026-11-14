@@ -5,7 +5,7 @@ A plugin is a Python package that adds actions to teapot. Anyone running an inst
 ## Starting a plugin
 
 - In your instance, `uv run teapot new-plugin raffles` writes `plugins/raffles/`: the package with its entry point, a manifest with one example action, a first migration, a README and tests.
-- Then `uv lock`, and run its tests with `uv run --package teapot-raffles pytest plugins/raffles`.
+- Then `uv lock`, and run its tests against the Compose Postgres with `uv run --env-file .env --package teapot-raffles pytest plugins/raffles`.
 - Restart teapot, and `/plugins enable raffles` in a server.
 
 ## The package

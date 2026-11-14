@@ -58,5 +58,7 @@ def new_plugin(
         raise typer.Exit(1)
     write_package(root, plugin_id)
     typer.echo(f"created {root}")
-    typer.echo(f"next: uv lock, then uv run --package teapot-{plugin_id} pytest {into / plugin_id}")
+    typer.echo(
+        f"next: uv lock, then uv run --env-file .env --package teapot-{plugin_id} pytest {into / plugin_id}"
+    )
     typer.echo(f"then restart teapot, and enable it in a server with /plugins enable {plugin_id}")

@@ -27,7 +27,12 @@ teapot itself stays in its own repository, and your instance depends on it.
 ## Quick setup: Docker Compose
 
 For a working bot in minutes, on one machine.
-1. Set `TEAPOT_DISCORD_TOKEN` and `TEAPOT_DB_OWNER_PASSWORD` in `teapot.env`. Export the same owner password as `TEAPOT_DB_OWNER_PASSWORD` for Compose.
+1. Set `TEAPOT_DISCORD_TOKEN` in `teapot.env`.
+    - Then write `.env` for Compose, with a generated owner password and your user and group ids:
+      ```
+      printf 'TEAPOT_DB_OWNER_PASSWORD=%s\nTEAPOT_UID=%s\nTEAPOT_GID=%s\n' "$(openssl rand -hex 24)" "$(id -u)" "$(id -g)" > .env
+      ```
+    - Compose reads `.env` on every command and passes the password to Postgres and the bot, so `teapot.env` leaves it blank.
 2. `ssh-add`, so the image build can read teapot from GitHub.
 3. `docker compose build`.
 4. `docker compose up -d --wait postgres`.

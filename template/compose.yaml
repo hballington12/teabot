@@ -1,5 +1,7 @@
 name: teapot
 # The instance template's quick setup (D43): the bot and Postgres 16 on one machine.
+# Compose reads `.env` next to this file: TEAPOT_DB_OWNER_PASSWORD, and TEAPOT_UID and TEAPOT_GID. The owner
+# password goes to both services from there, so it is written once.
 # teapot's own development uses only the postgres service: `docker compose -f template/compose.yaml up -d postgres`.
 services:
   postgres:
@@ -30,6 +32,7 @@ services:
     environment:
       TEAPOT_DB_HOST: postgres
       TEAPOT_DB_PORT: "5432"
+      TEAPOT_DB_OWNER_PASSWORD: ${TEAPOT_DB_OWNER_PASSWORD:-teapot}
       TEAPOT_HTTP_HOST: 0.0.0.0
     ports:
       - "127.0.0.1:${TEAPOT_HTTP_PORT:-8780}:8780"
