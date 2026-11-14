@@ -1,4 +1,4 @@
-"""Guild removal (WP3.4, D49): a grace period, a return within it, and the purge of every row after it."""
+"""Guild removal (D49): a grace period, a return within it, and the purge of every row after it."""
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path

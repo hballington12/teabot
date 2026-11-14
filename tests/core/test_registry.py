@@ -1,4 +1,4 @@
-"""The action registry and its call path (WP2.3, D1, D2, D18, D19, D24)."""
+"""The action registry and its call path (D1, D2, D18, D19, D24)."""
 
 import json
 from dataclasses import dataclass, field

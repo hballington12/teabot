@@ -2,9 +2,7 @@
 
 - `self-hosting.md`: running your own teabot with Docker Compose, from nothing to a plugin of your own.
 - `plugin-authoring.md`: writing a plugin against `teabot.sdk`, and testing it with `teabot.testing`.
-- `plan.md`: the build plan that turns the design in the top-level README into code.
-- `implementation.md`: the milestones and work packages, with each exit check and its result.
+- `design.md`: the numbered design decisions, such as (D21), with their reasons.
+- `architecture.md`: how teabot is built: the plugin lifecycle, data, processes, the queue, tokens, the front doors, and the deferred work.
 - `spikes.md`: the experiments that settled open technical questions, with their evidence.
 - `glossary.md`: the terms the design and the code use.
-- `worklog.md`: a dated log of the work.
-- `explainer/`: an animated walkthrough of how teabot works, with its own README.

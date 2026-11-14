@@ -2,7 +2,7 @@
 
 ## Before you start
 
-- The design is in the [README](README.md), as numbered decisions such as (D21). A change that goes against a decision starts as an issue proposing to change it.
+- The design is in [docs/design.md](docs/design.md), as numbered decisions such as (D21). A change that goes against a decision starts as an issue proposing to change it.
 - Report a bug as an issue with the steps that show it. Report a security problem as [SECURITY.md](SECURITY.md) describes.
 - A plugin for your own instance needs nobody's approval (D44); [docs/plugin-authoring.md](docs/plugin-authoring.md) covers writing one. First-party plugins in this repository follow its review checklist.
 

@@ -15,4 +15,4 @@
 - `sdk/`: the public plugin API (D45). Plugins import only from here.
 - `py.typed`: marks the package as typed for plugin authors.
 
-The rest of the layout in `docs/plan.md` arrives work package by work package.
+`docs/architecture.md` describes how the pieces fit together.

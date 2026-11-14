@@ -1,4 +1,4 @@
-"""The migration runner (WP1.4)."""
+"""The migration runner."""
 
 import asyncio
 from pathlib import Path

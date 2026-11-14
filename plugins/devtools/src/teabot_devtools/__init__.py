@@ -1,4 +1,4 @@
-"""teabot-devtools: a development-only plugin that exercises the core (WP2.9). Never installed in production.
+"""teabot-devtools: a development-only plugin that exercises the core. Never installed in production.
 
 - `devtools.note` writes to the plugin's own table in a transaction.
 - `devtools.peek_core` tries to read the core schema and reports the refusal the plugin role gets (D9).

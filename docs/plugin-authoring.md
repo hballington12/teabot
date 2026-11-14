@@ -1,6 +1,6 @@
 # Writing a teabot plugin
 
-A plugin is a Python package that adds actions to teabot. Anyone running an instance can write one and install it without asking anyone (D44). This guide covers SDK 0.x; it becomes 1.0 at milestone 7, after which breaking changes need a major version (D45). Decision numbers point at the [README](../README.md).
+A plugin is a Python package that adds actions to teabot. Anyone running an instance can write one and install it without asking anyone (D44). It covers `teabot.sdk` 1.x, which follows semantic versioning: breaking changes need a major version (D45). Decision numbers point at [design.md](design.md).
 
 ## Starting a plugin
 

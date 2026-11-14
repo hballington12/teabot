@@ -1,4 +1,4 @@
-"""What a release checks and makes (WP7.5): the scripts beside this file run these, and tests/release tests them.
+"""What a release checks and makes: the scripts beside this file run these, and tests/release tests them.
 
 A release is a tag `v<version>`. `teabot` and `teabot-announcements` carry that version, the changelog has a
 section for it, and the template's dependencies accept it. The plugin is pinned to the exact core it was

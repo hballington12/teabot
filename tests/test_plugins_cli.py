@@ -1,4 +1,4 @@
-"""`teabot plugins list` (WP1.7): plugins, their migration versions, and whether any process has them loaded."""
+"""`teabot plugins list`: plugins, their migration versions, and whether any process has them loaded."""
 
 import asyncio
 from pathlib import Path

@@ -1,4 +1,4 @@
-"""Plugin purge (WP3.3, D7): the operator's last lifecycle step, needing no plugin code."""
+"""Plugin purge (D7): the operator's last lifecycle step, needing no plugin code."""
 
 import json
 from pathlib import Path

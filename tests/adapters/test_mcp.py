@@ -1,4 +1,4 @@
-"""The MCP adapter (WP4.3, D22, D23, D28), over HTTP as a client sees it, behind the bearer check."""
+"""The MCP adapter (D22, D23, D28), over HTTP as a client sees it, behind the bearer check."""
 
 import asyncio
 import json

@@ -3,7 +3,7 @@
 Every front door calls `Registry.invoke`. In order: resolve the server, check the plugin is enabled there,
 validate the input, check the member's live permissions, audit, run, and record the outcome. A refusal after
 the action is known is audited once with the outcome `refused`. Token checks (D17, D20) and destructive plans
-(D21) slot in here in milestones 4 and 6.
+(D21) slot in here.
 """
 
 import logging

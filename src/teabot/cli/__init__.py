@@ -1,4 +1,4 @@
-"""The `teabot` command line (D34). Subcommands arrive with their work packages."""
+"""The `teabot` command line (D34)."""
 
 from typing import Annotated
 

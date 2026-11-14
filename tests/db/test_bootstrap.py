@@ -1,4 +1,4 @@
-"""The database bootstrap behind `teabot init` (WP1.3)."""
+"""The database bootstrap behind `teabot init`."""
 
 from typing import Any
 

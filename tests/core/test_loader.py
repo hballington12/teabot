@@ -1,4 +1,4 @@
-"""The plugin loader (WP2.2): what loads, and why the rest does not (D13, D14, D46)."""
+"""The plugin loader: what loads, and why the rest does not (D13, D14, D46)."""
 
 import logging
 from collections.abc import Sequence

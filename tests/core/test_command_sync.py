@@ -1,4 +1,4 @@
-"""Per-server command sync (WP3.2, D32): global admin commands, a plugin's group only where it is enabled."""
+"""Per-server command sync (D32): global admin commands, a plugin's group only where it is enabled."""
 
 from typing import Any
 

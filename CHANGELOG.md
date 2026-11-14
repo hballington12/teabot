@@ -4,6 +4,9 @@ Every release of `teabot`, `teabot-announcements` and the instance template, new
 
 ## Unreleased
 
+- A new README with the teabot icon and badges. The design decisions and the architecture moved to `docs/design.md` and `docs/architecture.md`.
+- PyPI shows the project's links, keywords and classifiers.
+
 ## 1.0.0 - 2026-11-14
 
 The first release.

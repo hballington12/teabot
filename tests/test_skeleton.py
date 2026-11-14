@@ -1,4 +1,4 @@
-"""Checks that the workspace, the CLI and the test database are wired up (WP1.1)."""
+"""Checks that the workspace, the CLI and the test database are wired up."""
 
 from typing import Any
 

@@ -1,4 +1,4 @@
-"""The work queue and its workers, used the way the core and plugins use them (WP1.6)."""
+"""The work queue and its workers, used the way the core and plugins use them."""
 
 import asyncio
 import json

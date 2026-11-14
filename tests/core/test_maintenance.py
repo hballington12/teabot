@@ -1,4 +1,4 @@
-"""The core's maintenance job (WP1.7): prune finished jobs and stale process rows, then come back tomorrow."""
+"""The core's maintenance job: prune finished jobs and stale process rows, then come back tomorrow."""
 
 from datetime import UTC, date, datetime
 

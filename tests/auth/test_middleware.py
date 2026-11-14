@@ -1,4 +1,4 @@
-"""The bearer check on `/mcp` and `/api` (WP4.1, D16): refuse without a good token, else hand on the grant."""
+"""The bearer check on `/mcp` and `/api` (D16): refuse without a good token, else hand on the grant."""
 
 import httpx
 import pytest

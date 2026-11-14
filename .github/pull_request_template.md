@@ -1,6 +1,6 @@
 ## What and why
 
-<!-- What changes, and why. Name the decision (D-number) or work package it serves. -->
+<!-- What changes, and why. Name the decision (D-number) it serves, if any. -->
 
 ## How it was checked
 

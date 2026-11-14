@@ -1,4 +1,4 @@
-"""Per-server plugin config (WP2.5, D8, D10): validated through the plugin's current model where it enters."""
+"""Per-server plugin config (D8, D10): validated through the plugin's current model where it enters."""
 
 import json
 

@@ -1,5 +1,5 @@
-"""Pieces of the app runner that do not need Discord (WP1.7). The whole runner is checked live against the
-test server in the milestone 1 exit check."""
+"""Pieces of the app runner that do not need Discord. The whole runner is checked live against a
+test server."""
 
 import math
 from dataclasses import dataclass

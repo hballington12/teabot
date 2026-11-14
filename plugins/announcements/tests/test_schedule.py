@@ -1,4 +1,4 @@
-"""announcements.schedule (WP6.3): an announcement posted later, by a job on the queue (D31)."""
+"""announcements.schedule: an announcement posted later, by a job on the queue (D31)."""
 
 from datetime import UTC, datetime, timedelta
 from typing import Any

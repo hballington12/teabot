@@ -1,4 +1,4 @@
-"""The interaction router (WP2.7, D29, D32): slash commands, LongText modals, replies and refusals."""
+"""The interaction router (D29, D32): slash commands, LongText modals, replies and refusals."""
 
 import json
 from dataclasses import dataclass, field

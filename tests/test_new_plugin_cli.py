@@ -1,4 +1,4 @@
-"""`teabot new-plugin` (WP7.2, D45): a package that loads, migrates and runs as it is written."""
+"""`teabot new-plugin` (D45): a package that loads, migrates and runs as it is written."""
 
 import importlib
 import subprocess

@@ -1,6 +1,6 @@
-# Build plan
+# Architecture
 
-The concrete plan behind the decisions in the [README](../README.md). Numbers in brackets, such as (D16), point at those decisions.
+How teabot is built: the concrete shape behind the decisions in [design.md](design.md). Numbers in brackets, such as (D16), point at those decisions.
 
 ## Repositories
 
@@ -71,11 +71,12 @@ template/                       the instance template (D43)
     README.md                   creating the Discord application, intents, one teabot per server, both setups
 tests/                          core tests
 docs/
-    plan.md                     this file
-    implementation.md           work packages, spikes and their order
-    spikes.md                   findings from the spikes, added as they run
-    plugin-authoring.md         written in milestone 2, published with the SDK
-    self-hosting.md             written in milestone 7
+    design.md                   the numbered design decisions
+    architecture.md             this file
+    spikes.md                   the experiments that settled open technical questions
+    plugin-authoring.md         writing and testing a plugin
+    self-hosting.md             running an instance, from nothing to a plugin of your own
+    glossary.md                 the terms the design and the code use
 ```
 
 ## Plugin lifecycle
@@ -170,7 +171,7 @@ async def run(ctx: ActionContext, data: EnterInput) -> EnterOutput:
 
 ## The plugin SDK (D45)
 
-Everything below is importable from `teabot.sdk`, and nothing else in `teabot` is part of the plugin API. An `import-linter` contract in CI fails any first-party plugin that imports from elsewhere in `teabot`, and `teabot new-plugin` sets up the same contract for new plugins. Names and fields will move during milestone 2, and the shape should stay. Later additions arrive as fields with defaults and optional protocols (D6).
+Everything below is importable from `teabot.sdk`, and nothing else in `teabot` is part of the plugin API. An `import-linter` contract in CI fails any first-party plugin that imports from elsewhere in `teabot`. Later additions arrive as fields with defaults and optional protocols (D6).
 
 ```python
 class Risk(IntEnum):
@@ -229,7 +230,7 @@ class Plugin(Protocol):
     def setup(self, registrar: Registrar) -> None: ...
 ```
 
-- **Versioning.** `teabot.sdk` follows semantic versioning from 1.0, which milestone 7 releases. A removal or an incompatible change needs a major version, after at least one minor release in which the old form works and warns. Additions under D6 are minor releases.
+- **Versioning.** `teabot.sdk` follows semantic versioning from 1.0. A removal or an incompatible change needs a major version, after at least one minor release in which the old form works and warns. Additions under D6 are minor releases.
 - **Testing helpers.** `teabot.testing` provides fake guilds, members and channels, a `plugin_db` fixture that creates a throwaway Postgres schema and role and runs the plugin's migrations, and `invoke(plugin, action, input, actor=...)`, which runs the real call path against the fakes.
 - **One call path.** Every adapter builds an `ActionContext` and calls `registry.invoke(name, guild_id, actor, raw_input)`. Slash calls take the guild from the interaction, and token calls take it from the token (D20). Its steps:
     1. Resolve the guild. Refuse when the bot is not in it.
@@ -331,7 +332,7 @@ All in the schema `core`. Plugin roles and `teabot_plugins` have no rights on it
         1. On enable, disable, purge, a plugin version change or startup, the core computes each affected guild's command-set hash and compares it with `core.command_sync`.
         2. For each guild whose hash changed, it queues a `sync_commands` job. The job sends one bulk overwrite for the guild, and saves the new hash only when Discord accepts it.
         3. Startup costs nothing for unchanged guilds. An upgrade that changes a command in thousands of guilds runs as thousands of paced jobs, which discord.py keeps inside the global rate limit.
-        4. Milestone 2 checks whether an overwrite of a command with an unchanged name counts against the 200 command creates per guild per day.
+        4. Whether an overwrite of a command with an unchanged name counts against Discord's 200 command creates per guild per day is unconfirmed. The hash check keeps overwrites to real changes either way.
 - **MCP** (D28):
     - Served at `/mcp` over streamable HTTP, through the SDK's low-level server.
     - One tool per action with the `MCP` surface, named `announcements_post`. Its input schema comes from the schema builder. No tool takes a guild id, because the token decides the server (D20). The adapter has no tools of its own, since the core's lookups are admin plugin actions.
@@ -368,63 +369,6 @@ Always enabled. Its management actions are slash only and need Manage Server by 
 - `plugins purge <id>` (D7, steps in the lifecycle section), which writes an audit row with the operator's system user.
 - Blocking is a setting: add the plugin id to `TEABOT_DISABLED_PLUGINS` in the env file and restart (D13).
 
-## Milestones
-
-Each milestone ends with something you can try in the dev server.
-
-1. **Skeleton.**
-    - The uv workspace with its `dev` group, settings and logging, `LICENSE`, and CI with tests, ruff, pyright and import-linter.
-    - Postgres from the template's Compose file, `teabot init`, the migration runner with plugin schemas, roles, the `guild_id` check and the advisory lock, and the core's first migrations.
-    - The asyncpg pool with role switching on acquire, transaction handles and the open-block check.
-    - The lock connection with shard and plugin locks and `LISTEN`, and the work queue with `SKIP LOCKED` claims, `NOTIFY` wake-ups and the poll fallback.
-    - `AutoShardedClient` with lazy member caching, uvicorn and the workers in one loop, plus `/healthz` on localhost. Dev mode turns on asyncio debug, slow-callback logging (D33) and slow-transaction logging (D30).
-    - `teabot run` and `teabot plugins list`.
-    - `uv run teabot run` connects to the dev server, and a second `teabot run` with the same token refuses to start. pytest, ruff, pyright and import-linter pass.
-2. **Actions and the interaction router.**
-    - `teabot.sdk` as the only module plugins import, and `teabot.testing` with the fakes and `plugin_db`.
-    - The schema builder for MCP JSON schema and Discord command JSON, with snapshot tests for every supported field type.
-    - The registry, `ActionContext`, the permission check, and the audit log with `started` rows, single `READ` rows and queued log-channel posts.
-    - The loader with entry points or a given list, the id rules, `TEABOT_DISABLED_PLUGINS` and failure isolation.
-    - Config.
-    - The interaction router with deferral, `LongText` modals and default output rendering, and the announcements plugin with `post` (title, `LongText` body, colour, channel).
-    - Done when `/announcements post` opens a modal for the body, posts an embed, writes an audit row whose log-channel post arrives through the queue, and refuses a member without permission. A devtools plugin that raises in `setup` is reported as not loaded while announcements keeps working, a devtools query against `core` fails with a permission error, and a second package declaring the id `devtools` stops both from loading.
-    - Write `docs/plugin-authoring.md` and the PR template.
-3. **Guild settings and the lifecycles.**
-    - The core admin plugin: enablement, config and the log channel.
-    - Per-guild command sync through queued jobs and stored hashes.
-    - `plugins purge` in the operator CLI, and guild removal with its grace period.
-    - Done when:
-        - disabling announcements in the dev server removes its commands there, and a member without Manage Server cannot enable it again
-        - listing devtools in `TEABOT_DISABLED_PLUGINS` and restarting removes its commands everywhere and keeps its data
-        - `plugins purge devtools` refuses while a process has it loaded, and drops its schema, role and rows once it is blocked
-        - removing the bot from a test server and adding it back within the grace period keeps its config, and with the grace period set to zero its rows are deleted from every table
-4. **Tokens, MCP and the service API.** Built and tested locally.
-    - `core.tokens`, the middleware and the `/tokens` commands.
-    - The MCP adapter on the low-level server, the admin plugin's `READ` actions, tool annotations, the per-token tool list and the `UntrustedText` wrapping.
-    - The service API route.
-    - Done when:
-        - Claude Code connects with a token, finds a channel with `describe_guild` and posts an announcement there, and only the post reaches the log channel
-        - a token with maximum risk `read` cannot post, and removing the member's role cuts access on the next call
-        - a token allowed only `announcements.post` posts with `curl` and is refused every other action
-        - a token for one server cannot act in another
-5. **The Tea clan's instance.**
-    - The instance template's bare-metal files, and the Tea clan's instance repo made from the template.
-    - A subdomain, the Caddy block, Postgres on the droplet, the systemd unit and pgBackRest to Spaces.
-    - Done when milestones 2 to 4 work against the droplet over HTTPS, `/healthz` is unreachable from outside, and a pgBackRest restore into a scratch cluster on another machine starts cleanly.
-6. **Plan then apply.**
-    - Canonical diffs, plan rows, confirm checks with the age limit, the stale-plan refusal, queued applies with progress on all three doors, and the Confirm button.
-    - The announcements plugin gains `schedule` (post later) on the queue from milestone 1.
-    - A `DESTRUCTIVE` action in devtools exercises plans.
-    - Done when a plan applied after its target changed is refused with a fresh plan, a confirm value used by another member or after 15 minutes is refused, a Confirm button still works after a restart, and a bulk apply reports progress through `job_status`.
-7. **Open-source release.**
-    - `teabot.sdk` 1.0, with every public name documented and the import-linter contract holding for all first-party plugins.
-    - `teabot new-plugin`, the template's Compose setup and README, and `docs/self-hosting.md`.
-    - `CONTRIBUTING.md`, `SECURITY.md`, the code of conduct and the changelog.
-    - Releases of `teabot`, `teabot-announcements` and the template to PyPI and GitHub through trusted publishing.
-    - Done when someone who has not worked on teabot follows the self-hosting guide on a clean machine, gets a running bot with Compose, writes a plugin with `teabot new-plugin` and enables it, without help.
-
-After milestone 7 the core is complete enough for the real plugins: channels, roles, polls, giveaways, moderation logging and event support.
-
 ## Testing
 
 - Tests run against a real Postgres started by `pytest-postgresql`, one database per session, with the core schema migrated once and plugin schemas reset per test.
@@ -440,7 +384,7 @@ After milestone 7 the core is complete enough for the real plugins: channels, ro
 - Plan tests check that the diff hash is stable for equal state and changes when a target changes, and that a confirm value is refused for another actor, other input or an expired plan.
 - The schema builder has snapshot tests from each supported field type to MCP JSON schema and to Discord command JSON, and the renderer has snapshot tests for default embeds.
 - Each plugin keeps its own tests in `plugins/<id>/tests/`, including the stored config samples of D10.
-- End-to-end checks are manual in the dev server, listed per milestone above.
+- End-to-end checks run by hand against a test server before a release.
 
 ## Deferred work
 
@@ -485,6 +429,5 @@ Each of these solved a problem teabot has, and the decisions above borrow from t
 
 ## Open decisions
 
-1. **The licence (D41).** Settled on 2026-11-14: MIT.
-2. **When OAuth lands (D16).** Claude Code works with a bearer token from milestone 4. If staff need claude.ai or the desktop app early, the OAuth issuer moves into milestone 4.
-3. **The plugin hub catalogue.** Its format, and how it reserves ids across listings (D46), can wait until a second plugin author exists.
+1. **When OAuth lands (D16).** Claude Code works with a bearer token. An OAuth issuer is added once someone needs claude.ai or the desktop app.
+2. **The plugin hub catalogue.** Its format, and how it reserves ids across listings (D46), can wait until a second plugin author exists.

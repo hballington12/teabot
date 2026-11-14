@@ -1,4 +1,4 @@
-"""Shard and plugin locks, and the process row (WP1.5)."""
+"""Shard and plugin locks, and the process row."""
 
 import asyncio
 from typing import Any

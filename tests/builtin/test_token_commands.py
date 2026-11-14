@@ -1,4 +1,4 @@
-"""`/tokens create | list | revoke` (WP4.1, D16, D17, D20): any member for their own, Manage Server for others'."""
+"""`/tokens create | list | revoke` (D16, D17, D20): any member for their own, Manage Server for others'."""
 
 from datetime import UTC, datetime
 from typing import Any

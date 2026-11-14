@@ -1,4 +1,4 @@
-"""teabot-devtools (WP2.9): its own table, the core refusing it, and a setup that can be made to fail."""
+"""teabot-devtools: its own table, the core refusing it, and a setup that can be made to fail."""
 
 from typing import Any
 

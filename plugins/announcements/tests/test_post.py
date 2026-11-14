@@ -1,4 +1,4 @@
-"""announcements.post (WP2.9, D41): an embed in a channel, posted by a member who may manage messages."""
+"""announcements.post (D41): an embed in a channel, posted by a member who may manage messages."""
 
 from typing import Any
 

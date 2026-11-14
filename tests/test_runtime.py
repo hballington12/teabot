@@ -1,4 +1,4 @@
-"""The runner's orchestration (WP1.7), with real pools, lock connection and workers, and fake Discord and HTTP."""
+"""The runner's orchestration, with real pools, lock connection and workers, and fake Discord and HTTP."""
 
 import asyncio
 import json

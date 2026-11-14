@@ -1,4 +1,4 @@
-"""The pools, role switching and the escapes spike S1 found (WP1.3)."""
+"""The pools, role switching and the escapes spike S1 found."""
 
 import asyncio
 import logging

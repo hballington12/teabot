@@ -1,4 +1,4 @@
-"""Settings and logging (WP1.2)."""
+"""Settings and logging."""
 
 import json
 import logging

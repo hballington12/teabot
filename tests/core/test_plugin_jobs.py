@@ -1,4 +1,4 @@
-"""Plugin jobs and the command set of loaded plugins (WP2.7)."""
+"""Plugin jobs and the command set of loaded plugins."""
 
 from pathlib import Path
 from typing import Any

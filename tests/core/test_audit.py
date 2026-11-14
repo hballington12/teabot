@@ -1,4 +1,4 @@
-"""The audit log (WP2.4, D24): every call recorded, changes posted, retention by partition."""
+"""The audit log (D24): every call recorded, changes posted, retention by partition."""
 
 import json
 from dataclasses import dataclass, field

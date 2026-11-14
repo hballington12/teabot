@@ -1,7 +1,7 @@
 name: Release
 
 # A tag v<major>.<minor>.<patch> releases teabot and teabot-announcements to PyPI through trusted publishing,
-# then attaches the instance template, locked against them, to a GitHub release (WP7.5, D42, D48).
+# then attaches the instance template, locked against them, to a GitHub release (D42, D48).
 on:
   push:
     tags: ["v*"]

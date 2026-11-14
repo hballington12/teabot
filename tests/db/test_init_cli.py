@@ -1,4 +1,4 @@
-"""`teabot init` against a real database (WP1.3)."""
+"""`teabot init` against a real database."""
 
 import asyncio
 import base64

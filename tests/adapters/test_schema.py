@@ -1,4 +1,4 @@
-"""The schema builder (WP2.6, D29): one input model, Discord's command JSON and the MCP tool schema."""
+"""The schema builder (D29): one input model, Discord's command JSON and the MCP tool schema."""
 
 from typing import Any, Literal
 

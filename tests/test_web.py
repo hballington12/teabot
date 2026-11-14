@@ -1,4 +1,4 @@
-"""`/healthz` (WP1.7): 200 when the gateway and database are fine, 503 otherwise, with the details either way."""
+"""`/healthz`: 200 when the gateway and database are fine, 503 otherwise, with the details either way."""
 
 from typing import Any
 

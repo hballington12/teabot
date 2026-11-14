@@ -1,4 +1,4 @@
-"""Plan then apply (WP6.1, D21): a destructive action shows its diff, and applies only on a fresh, matching
+"""Plan then apply (D21): a destructive action shows its diff, and applies only on a fresh, matching
 plan confirmed by the same member within 15 minutes, as a job that reports progress."""
 
 import json

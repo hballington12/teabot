@@ -1,6 +1,6 @@
 # Spike findings
 
-Findings from the spikes in [`implementation.md`](implementation.md#spikes). The spike scripts are throwaway and live in the uncommitted `tmp/spikes/`, so this file is the record. Each section ends with what changed in the design.
+Findings from the spikes: short experiments that settled open technical questions before the code was written. The spike scripts were throwaway and live in the uncommitted `tmp/spikes/`, so this file is the record. Each section ends with what changed in the design.
 
 ## S1 asyncpg roles and protocol
 
@@ -97,7 +97,7 @@ Run on 2026-11-13 with discord.py 2.7.1 against the dev bot and the test server.
 
 - An overwrite that keeps a command's name updates it in place. Discord's limit of 200 command creates per guild per day counts new commands, so syncing an unchanged or edited command set does not use it up. Adding or renaming a command does. The per-guild sync of D32 therefore costs nothing against that limit for ordinary plugin upgrades.
 - discord.py's `ConnectionState.parse_interaction_create` hands application commands to a `CommandTree` only when one is attached, and components and modals to its view store, which finds nothing when no views are registered. It then dispatches the `interaction` event for every interaction. A client with no tree and no views receives every interaction in `on_interaction`, and nothing answers before the core does.
-- A bot cannot invoke its own slash commands, so receiving a live interaction is confirmed in WP2.7's exit check, with a person running the command in the test server.
+- A bot cannot invoke its own slash commands, so receiving a live interaction was confirmed by a person running the command in the test server.
 
 ### Design changes from S3
 
@@ -150,4 +150,4 @@ Run on 2026-11-13 with `mcp` 2.3.0 in process, through `httpx.ASGITransport` (`t
 
 - A `WRITE` tool sends `destructiveHint: false` explicitly, because the spec treats a tool without the hint as destructive (D22).
 - The adapter runs in stateless mode with JSON responses, and returns refusals and action errors as `isError` results.
-- The reverse proxy must keep the original `Host` header. The instance template's proxy config says so (M5).
+- The reverse proxy must keep the original `Host` header. The instance template's proxy config says so.

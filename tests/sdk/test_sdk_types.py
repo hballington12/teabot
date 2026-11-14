@@ -1,4 +1,4 @@
-"""The plugin SDK's types (WP2.1): illegal values are refused where they enter (D29, D45, D46)."""
+"""The plugin SDK's types: illegal values are refused where they enter (D29, D45, D46)."""
 
 from typing import Any
 

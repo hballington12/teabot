@@ -1,6 +1,6 @@
 # Glossary
 
-Domain terms as teabot's code and docs use them. Decision numbers point at the [README](../README.md).
+Domain terms as teabot's code and docs use them. Decision numbers point at [design.md](design.md).
 
 - **Action.** One operation a plugin offers, with a typed input, a risk and a required permission. Slash commands, MCP tools and service routes are front doors onto actions (D1).
 - **Action source.** What the registry knows of one command group: its actions, its config model, and whether it is built in. A built-in source is always enabled and has no schema; the admin plugin has two, `plugins` and `audit`.

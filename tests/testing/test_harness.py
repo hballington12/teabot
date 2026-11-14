@@ -1,4 +1,4 @@
-"""`teabot.testing` (WP2.8, D45): plugin authors test through the real loader, migrations and call path."""
+"""`teabot.testing` (D45): plugin authors test through the real loader, migrations and call path."""
 
 from pathlib import Path
 from typing import Any, cast

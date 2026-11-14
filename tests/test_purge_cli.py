@@ -1,4 +1,4 @@
-"""`teabot plugins purge` (WP3.3, D7): the prompt, the outcome, and the refusal while loaded."""
+"""`teabot plugins purge` (D7): the prompt, the outcome, and the refusal while loaded."""
 
 import asyncio
 from datetime import UTC, datetime

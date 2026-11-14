@@ -1,4 +1,4 @@
-"""A second package declaring the plugin id `devtools`, for the milestone 2 exit check (D46).
+"""A second package declaring the plugin id `devtools`: two packages claiming one id both fail (D46).
 
 Installed only with `uv sync --group duplicate-check`. With it installed, neither devtools package loads, and
 the bot reports both packages by name.

@@ -1,4 +1,4 @@
-"""The service API (WP4.4, D20): `POST /api/v1/actions/<name>` for event backends, with a token."""
+"""The service API (D20): `POST /api/v1/actions/<name>` for event backends, with a token."""
 
 import json
 from collections.abc import AsyncIterator

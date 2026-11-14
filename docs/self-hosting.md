@@ -1,6 +1,6 @@
 # Self-hosting teabot
 
-This guide takes you from nothing to your own teabot bot in a Discord server, running a plugin you wrote. It uses the quick setup: Docker Compose on one machine. Plan on half an hour. Decision numbers such as (D26) point at the design in the [README](../README.md).
+This guide takes you from nothing to your own teabot bot in a Discord server, running a plugin you wrote. It uses the quick setup: Docker Compose on one machine. Plan on half an hour. Decision numbers such as (D26) point at [design.md](design.md).
 
 ## What you need
 

@@ -1,4 +1,4 @@
-"""The admin plugin's lookups (WP4.2, D25): `READ` actions on every surface, for finding ids and progress."""
+"""The admin plugin's lookups (D25): `READ` actions on every surface, for finding ids and progress."""
 
 from typing import Any
 

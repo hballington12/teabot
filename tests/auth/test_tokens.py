@@ -1,4 +1,4 @@
-"""Tokens (WP4.1, D16, D17, D20): issued once, stored hashed, checked in constant time, throttled `last used`."""
+"""Tokens (D16, D17, D20): issued once, stored hashed, checked in constant time, throttled `last used`."""
 
 from collections.abc import Callable
 from datetime import timedelta

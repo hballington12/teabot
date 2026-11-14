@@ -1,4 +1,4 @@
-"""The release checks and steps (WP7.5), against a small copy of the repository's release files."""
+"""The release checks and steps, against a small copy of the repository's release files."""
 
 import tarfile
 from pathlib import Path

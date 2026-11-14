@@ -1,4 +1,4 @@
-"""The core admin plugin (WP3.1, D3, D10, D24): always enabled, Manage Server by default."""
+"""The core admin plugin (D3, D10, D24): always enabled, Manage Server by default."""
 
 import json
 from typing import Any
