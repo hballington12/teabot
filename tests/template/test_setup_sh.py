@@ -4,9 +4,13 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+# setup.sh is a bash script; on Windows it runs in WSL, as the quick start says, so this runs where it does.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="setup.sh runs in WSL on Windows")
 
 TEMPLATE = Path(__file__).parents[2] / "template"
 INVITE = "https://discord.com/oauth2/authorize?client_id=1&scope=bot+applications.commands&permissions=8"

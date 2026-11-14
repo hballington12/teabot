@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -93,6 +94,7 @@ def test_the_log_channel_names_the_operator() -> None:
     assert (member.name, member.value) == ("Member", "the operator")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows has no uids")
 def test_an_operator_without_a_user_name_is_named_by_id(monkeypatch: pytest.MonkeyPatch) -> None:
     """A container's user often has no passwd entry, which makes getpass.getuser() raise."""
 
@@ -101,4 +103,5 @@ def test_an_operator_without_a_user_name_is_named_by_id(monkeypatch: pytest.Monk
 
     monkeypatch.setattr("teabot.cli.plugins.getpass.getuser", nameless)
     monkeypatch.delenv("USER", raising=False)
+    monkeypatch.delenv("USERNAME", raising=False)
     assert operator_name() == f"uid {os.getuid()}"

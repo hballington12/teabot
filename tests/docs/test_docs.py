@@ -1,6 +1,5 @@
 """The documentation site stays true to the code: the commands, the plugins, the settings and the scaffold."""
 
-import filecmp
 from pathlib import Path
 from typing import Any
 
@@ -53,7 +52,6 @@ def test_the_first_plugin_page_shows_what_new_plugin_writes(tmp_path: Path) -> N
         p.relative_to(committed) for p in committed.rglob("*") if p.is_file() and "__pycache__" not in p.parts
     )
     assert rendered == on_disk
-    _, mismatch, errors = filecmp.cmpfiles(
-        tmp_path / "polls", committed, [str(p) for p in rendered], shallow=False
-    )
-    assert (mismatch, errors) == ([], []), "re-render it: see tests/docs/README.md"
+    # Text, not bytes, so the line endings a platform writes make no difference.
+    differ = [p for p in rendered if (tmp_path / "polls" / p).read_text() != (committed / p).read_text()]
+    assert differ == [], "re-render it: see tests/docs/README.md"

@@ -60,7 +60,8 @@ def operator_name() -> str:
     try:
         return getpass.getuser()
     except (KeyError, OSError):
-        return os.environ.get("USER") or f"uid {os.getuid()}"
+        uid = getattr(os, "getuid", None)  # Windows has no uids
+        return os.environ.get("USER") or os.environ.get("USERNAME") or (f"uid {uid()}" if uid else "unknown")
 
 
 def describe(plan: PurgePlan) -> list[str]:

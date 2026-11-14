@@ -33,6 +33,7 @@ def role_prefix(pid: int, token: str) -> str:
 
 def _alive_on_windows(pid: int) -> bool:
     """`os.kill(pid, 0)` sends CTRL_C_EVENT on Windows rather than probing, so ask the kernel instead."""
+    assert sys.platform == "win32"  # so type checkers on other platforms skip the Windows-only ctypes calls
     import ctypes  # noqa: PLC0415
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -48,6 +49,7 @@ def _alive_on_windows(pid: int) -> bool:
 def _still_active(kernel32: Any, handle: int) -> bool:
     """An open process handle can belong to a process that has already exited, so read its exit code.
     Split from `_alive_on_windows` so each stays simple enough to pass CRAP where it never runs."""
+    assert sys.platform == "win32"
     import ctypes  # noqa: PLC0415
 
     code = ctypes.c_ulong()
