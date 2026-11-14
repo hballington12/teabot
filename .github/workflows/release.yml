@@ -78,3 +78,11 @@ jobs:
         run: |
           gh release upload "$GITHUB_REF_NAME" teabot-template.tar.gz --clobber
           gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+
+  docs:
+    needs: github-release
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml

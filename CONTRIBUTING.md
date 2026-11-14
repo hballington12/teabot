@@ -39,7 +39,7 @@ For the maintainers. A release publishes one package, `teabot`, with the first-p
 1. In one commit on `main`, set that version in `pyproject.toml`, and rename the changelog's **Unreleased** heading to `## <version> - <date>`.
 2. Tag it and push the tag: `git tag v<version>` and `git push origin v<version>`.
 3. The release workflow checks the version, the changelog and the template against the tag, publishes the package to PyPI, and attaches the locked template to a GitHub release with the changelog section as its notes.
-4. Publishing the release also publishes the documentation site from the tag, through `docs.yml`.
+4. The release workflow's last job publishes the documentation site from the tag, through `docs.yml`.
 5. Set the version to the next `.dev0`, and add a new **Unreleased** heading below the `releases` marker.
 
 The site describes the latest release, so a docs fix ships in a patch release. `uv run --group docs zensical serve` previews it, and CI builds it with `--strict`, which fails on a broken link, anchor or included file.

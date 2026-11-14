@@ -1,11 +1,11 @@
 name: Docs
 
-# Builds the documentation site from a release tag and publishes it to GitHub Pages: the new tag when a release
-# is published, or the latest tag when run by hand. The site therefore describes the latest release, never
-# unreleased work on main. A docs fix ships in a patch release.
+# Builds the documentation site from the latest release tag and publishes it to GitHub Pages. The release workflow
+# calls it as its last job, since a release published with GitHub's own token starts no other workflow; it also
+# runs by hand. The site therefore describes the latest release, never unreleased work on main. A docs fix ships
+# in a patch release.
 on:
-  release:
-    types: [published]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -22,11 +22,9 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-      - name: Check out the release tag
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+      - name: Check out the latest release tag
         run: |
-          tag="${RELEASE_TAG:-$(git tag --list 'v*' --sort=-v:refname | head -n 1)}"
+          tag="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
           echo "building the docs of $tag"
           git checkout --quiet "$tag"
       - uses: astral-sh/setup-uv@v10.3.3
