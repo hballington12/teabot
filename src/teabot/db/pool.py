@@ -19,6 +19,7 @@ from datetime import datetime
 from typing import Any
 
 import asyncpg
+from pydantic import BaseModel, TypeAdapter
 
 from teabot.db.naming import Naming
 from teabot.db.types import AnyConn, Conn, Pool, Record
@@ -53,17 +54,50 @@ class Queries:
         async with self._connection() as conn:
             return await _execute(conn, query, args)
 
-    async def fetch(self, query: str, *args: Any) -> list[Record]:
+    async def fetch(self, query: Any, *args: Any) -> list[Any]:
+        """Every row; with a result type first, each row checked into it (`fetch(Model, sql, ...)`)."""
+        kind, query, args = _typed(query, args)
         async with self._connection() as conn:
-            return await conn.fetch(query, *args)
+            rows = await conn.fetch(query, *args)
+        return rows if kind is None else [_row_as(kind, row) for row in rows]
 
-    async def fetchrow(self, query: str, *args: Any) -> Record | None:
+    async def fetchrow(self, query: Any, *args: Any) -> Any:
+        """The first row or None; with a result type first, checked into it."""
+        kind, query, args = _typed(query, args)
         async with self._connection() as conn:
-            return await conn.fetchrow(query, *args)
+            row = await conn.fetchrow(query, *args)
+        return row if kind is None or row is None else _row_as(kind, row)
 
-    async def fetchval(self, query: str, *args: Any) -> Any:
+    async def fetchval(self, query: Any, *args: Any) -> Any:
+        """The first column of the first row; with a result type first, checked into it."""
+        kind, query, args = _typed(query, args)
         async with self._connection() as conn:
-            return await conn.fetchval(query, *args)
+            value = await conn.fetchval(query, *args)
+        return value if kind is None else _adapter(kind).validate_python(value)
+
+
+def _typed(first: Any, args: tuple[Any, ...]) -> tuple[Any, str, tuple[Any, ...]]:
+    """`(sql, *args)` or `(result type, sql, *args)`: the type, if any, then the query and its arguments."""
+    if isinstance(first, str):
+        return None, first, args
+    if not args or not isinstance(args[0], str):
+        raise TypeError("a typed query is fetch(ResultType, sql, *args)")
+    return first, args[0], args[1:]
+
+
+def _row_as(kind: Any, row: Record) -> Any:
+    """A row as `kind`: a model gets the row's columns; any other type gets the row's only column."""
+    if isinstance(kind, type) and issubclass(kind, BaseModel):
+        return kind.model_validate(dict(row))
+    if len(row) != 1:
+        raise TypeError(
+            f"a row of {len(row)} columns cannot be one {kind!r}; give a model for several columns"
+        )
+    return _adapter(kind).validate_python(row[0])
+
+
+def _adapter(kind: Any) -> TypeAdapter[Any]:
+    return TypeAdapter(kind)
 
 
 class Transaction(Queries):

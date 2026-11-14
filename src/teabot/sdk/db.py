@@ -6,7 +6,7 @@ The core implements these protocols; plugins never import its classes.
 from collections.abc import Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, overload
 
 
 class Row(Protocol):
@@ -16,22 +16,39 @@ class Row(Protocol):
 
 
 class Queries(Protocol):
-    """Running SQL. Arguments are passed as `$1`, `$2` and so on, never formatted into the query."""
+    """Running SQL. Arguments are passed as `$1`, `$2` and so on, never formatted into the query.
+
+    Give a result type first and each row is checked into it: `fetch(Running, sql, gid)` returns `list[Running]`,
+    and `fetchval(int, sql, gid)` an `int`. A model takes a row's columns by name; any other type, such as `int`,
+    takes a row's only column.
+    """
 
     async def execute(self, query: str, *args: Any) -> str:
         """Run one statement and return its status, such as `INSERT 0 1`."""
         ...
 
-    async def fetch(self, query: str, *args: Any) -> Sequence[Row]:
+    @overload
+    async def fetch(self, query: str, /, *args: Any) -> Sequence[Row]: ...
+    @overload
+    async def fetch[T](self, result: type[T], query: str, /, *args: Any) -> list[T]: ...
+    async def fetch(self, *args: Any) -> Any:
         """Every row the query returns."""
         ...
 
-    async def fetchrow(self, query: str, *args: Any) -> Row | None:
+    @overload
+    async def fetchrow(self, query: str, /, *args: Any) -> Row | None: ...
+    @overload
+    async def fetchrow[T](self, result: type[T], query: str, /, *args: Any) -> T | None: ...
+    async def fetchrow(self, *args: Any) -> Any:
         """The first row, or None when there is none."""
         ...
 
-    async def fetchval(self, query: str, *args: Any) -> Any:
-        """The first column of the first row, or None when there is none."""
+    @overload
+    async def fetchval(self, query: str, /, *args: Any) -> Any: ...
+    @overload
+    async def fetchval[T](self, result: type[T], query: str, /, *args: Any) -> T: ...
+    async def fetchval(self, *args: Any) -> Any:
+        """The first column of the first row."""
         ...
 
 
