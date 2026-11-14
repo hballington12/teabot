@@ -107,7 +107,11 @@ name = "The plugin SDK does not depend on the core's internals (D45)"
 type = "forbidden"
 source_modules = ["teapot.sdk"]
 forbidden_modules = [
+    "teapot.adapters",
     "teapot.app",
+    "teapot.assembly",
+    "teapot.auth",
+    "teapot.builtin",
     "teapot.cli",
     "teapot.core",
     "teapot.db",
@@ -116,6 +120,7 @@ forbidden_modules = [
     "teapot.logs",
     "teapot.runtime",
     "teapot.settings",
+    "teapot.testing",
     "teapot.web",
 ]
 
@@ -124,7 +129,11 @@ name = "First-party plugins import only the SDK (D45)"
 type = "forbidden"
 source_modules = ["teapot_announcements", "teapot_devtools"]
 forbidden_modules = [
+    "teapot.adapters",
     "teapot.app",
+    "teapot.assembly",
+    "teapot.auth",
+    "teapot.builtin",
     "teapot.cli",
     "teapot.core",
     "teapot.db",
@@ -133,6 +142,6 @@ forbidden_modules = [
     "teapot.logs",
     "teapot.runtime",
     "teapot.settings",
-    "teapot.web",
     "teapot.testing",
+    "teapot.web",
 ]
