@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
 
 import discord
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from teabot.assembly import assemble
 from teabot.auth.tokens import Tokens
 from teabot.core.loader import from_plugins, load
+from teabot.core.plans import Planned
 from teabot.core.queue import Queue
 from teabot.core.registry import Call, Registry
 from teabot.core.worker import Workers
@@ -17,7 +19,8 @@ from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
-from teabot.sdk import Actor, LoadablePlugin
+from teabot.sdk import DESTRUCTIVE, Action, Actor, LoadablePlugin
+from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
 from teabot.testing.fakes import FakeClient, FakeGuild, FakeMember
 
@@ -30,6 +33,10 @@ ON CONFLICT (guild_id, plugin_id) DO UPDATE SET enabled = true
 class JobFailed(Exception):
     """A job failed while `run_jobs` ran it. The job's own exception is chained as the cause, so its traceback
     shows in the test's output."""
+
+
+type HarnessFactory = Callable[[LoadablePlugin], Awaitable["PluginHarness"]]
+"""The `teabot_harness` fixture: `await teabot_harness(plugin)` gives a `PluginHarness`."""
 
 
 @dataclass
@@ -45,7 +52,11 @@ class PluginHarness:
     pools: Pools
     tokens: Tokens
     workers: Workers
+    plugin_id: str = ""
     failures: list[JobFailed] = field(default_factory=list[JobFailed])
+    _plans: dict[str, tuple[str, dict[str, Any], int]] = field(
+        default_factory=dict[str, tuple[str, dict[str, Any], int]]
+    )
 
     async def invoke(
         self, action: str, raw_input: Mapping[str, Any] | None = None, *, user: int | None = None
@@ -70,6 +81,47 @@ class PluginHarness:
             raise self.failures[0]
         return ran
 
+    async def call[**P, R](self, action: Action[Any, P, R], /, *args: P.args, **kwargs: P.kwargs) -> R:
+        """Run a decorated action as the server's first member, who has Administrator, through the real call path.
+        Returns what the action's function returned. A refusal raises `Refused`, and an `ActionError` raises
+        `ActionFailed`. A destructive action goes through `plan` and `confirm` instead."""
+        return await self.as_member(self.member).call(action, *args, **kwargs)
+
+    async def plan[**P](self, action: Action[Any, P, Any], /, *args: P.args, **kwargs: P.kwargs) -> Planned:
+        """Ask a destructive action for its plan, as the server's first member."""
+        return await self.as_member(self.member).plan(action, *args, **kwargs)
+
+    async def confirm(self, plan: Planned) -> None:
+        """Confirm a plan as the member who asked for it, and run the apply. A failed apply raises `JobFailed`."""
+        action, raw, user = self._plans[plan.confirm]
+        outcome = await self.registry.invoke(
+            Call(action, self.guild.id, Actor(user, "component"), raw | {"confirm": plan.confirm})
+        )
+        if isinstance(outcome, Planned):
+            raise RuntimeError(f"the plan was stale; the fresh plan has confirm value {outcome.confirm}")
+        await self.run_jobs()
+
+    def as_member(self, member: FakeMember) -> "MemberCalls":
+        """Calls made as `member` rather than the first member."""
+        return MemberCalls(self, member.id)
+
+    async def configure(self, config: BaseModel) -> None:
+        """Store this server's config for the plugin, as an admin's `/plugins config` would."""
+        await self.admin.execute(CONFIGURE, self.guild.id, self.plugin_id, config.model_dump_json())
+
+    async def advance(self, *, days: int = 0, hours: int = 0, minutes: int = 0, seconds: int = 0) -> None:
+        """Move time forward: `ctx.now`, `now()` in the plugin's SQL, when scheduled jobs fall due, and how old
+        plans are. Then run the jobs that are due."""
+        step = timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+        CLOCK.offset += step
+        await self.admin.execute(
+            "UPDATE core.jobs SET run_at = run_at - $1::interval WHERE state = 'pending'", step
+        )
+        await self.admin.execute(
+            "UPDATE core.audit_log SET time = time - $1::interval WHERE outcome = 'planned'", step
+        )
+        await install_clock(self.admin, self.pools.naming, self.plugin_id, CLOCK.offset)
+
     async def invoke_with_token(
         self, token: str, action: str, raw_input: Mapping[str, Any] | None = None, *, via: Via = "mcp"
     ) -> BaseModel:
@@ -78,6 +130,64 @@ class PluginHarness:
         grant = await self.tokens.check(token)
         actor = Actor(grant.user_id, via, grant.token_id)
         return await self.registry.invoke(Call(action, grant.guild_id, actor, raw_input or {}, grant.limits))
+
+
+CONFIGURE = "UPDATE core.guild_plugins SET config = $3::jsonb WHERE guild_id = $1 AND plugin_id = $2"
+
+
+async def install_clock(admin: Conn, naming: Naming, plugin_id: str, offset: timedelta) -> None:
+    """A `now()` in the plugin's schema, ahead of Postgres's own on its search path, moved by the test clock.
+    Only test databases get it."""
+    schema = naming.plugin_schema(plugin_id)
+    seconds = int(offset.total_seconds())
+    await admin.execute(
+        f'CREATE OR REPLACE FUNCTION "{schema}".now() RETURNS timestamptz LANGUAGE sql STABLE '
+        f"AS $$ SELECT pg_catalog.now() + make_interval(secs => {seconds}) $$"
+    )
+    await admin.execute(f'GRANT EXECUTE ON FUNCTION "{schema}".now() TO "{naming.plugin_role(plugin_id)}"')
+
+
+@dataclass(frozen=True)
+class MemberCalls:
+    """A harness's calls, made as one member."""
+
+    harness: PluginHarness
+    user: int
+
+    async def call[**P, R](self, action: Action[Any, P, R], /, *args: P.args, **kwargs: P.kwargs) -> R:
+        """Run a decorated action as this member. See `PluginHarness.call`."""
+        if args:
+            raise TypeError("harness.call takes an action's inputs by name")
+        if action.risk is DESTRUCTIVE:
+            raise TypeError(f"{action.name} is destructive: use harness.plan, then harness.confirm")
+        out = await self._invoke(action, kwargs)
+        return action.output.unwrap(out)
+
+    async def plan[**P](self, action: Action[Any, P, Any], /, *args: P.args, **kwargs: P.kwargs) -> Planned:
+        """Ask a destructive action for its plan as this member."""
+        if args:
+            raise TypeError("harness.plan takes an action's inputs by name")
+        raw = _raw(action, kwargs)
+        out = await self.harness.registry.invoke(
+            Call(action.name, self.harness.guild.id, Actor(self.user, "slash"), raw)
+        )
+        if not isinstance(out, Planned):
+            raise TypeError(f"{action.name} is not destructive, so it has no plan: use harness.call")
+        self.harness._plans[out.confirm] = (action.name, raw, self.user)  # pyright: ignore[reportPrivateUsage]
+        return out
+
+    async def _invoke(self, action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> BaseModel:
+        call = Call(action.name, self.harness.guild.id, Actor(self.user, "slash"), _raw(action, kwargs))
+        return await self.harness.registry.invoke(call)
+
+
+def _raw(action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    """An action's inputs as a member would send them: Discord objects as their IDs."""
+    resolved = {r.name for r in action.inputs.resolved}
+    return {
+        name: (value.id if name in resolved and value is not None else value)
+        for name, value in kwargs.items()
+    }
 
 
 async def build_harness(
@@ -100,8 +210,9 @@ async def build_harness(
     core = assemble(report, pools, Queue(pools.core_db()), client)
     workers = Workers(core.queue, lambda: ["core", plugin_id])
     harness = PluginHarness(
-        core.registry, core.statuses, client, guild, member, admin, pools, core.tokens, workers
+        core.registry, core.statuses, client, guild, member, admin, pools, core.tokens, workers, plugin_id
     )
+    await install_clock(admin, naming, plugin_id, CLOCK.offset)
     for key, handler in list(core.queue.handlers.items()):
         core.queue.handlers[key] = _recording(f"{key[0]}.{key[1]}", handler, harness.failures)
     return harness

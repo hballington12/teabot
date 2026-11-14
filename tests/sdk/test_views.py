@@ -5,7 +5,7 @@ from typing import Any
 import discord
 import pytest
 
-from teabot.sdk import ActionError, Guild
+from teabot.sdk import ActionError, Guild, Member, Role, TextChannel
 from teabot.sdk._views import guild_view
 from teabot.testing import FakeChannel, FakeGuild, FakeVoiceChannel
 
@@ -73,3 +73,15 @@ async def test_a_forbidden_send_says_so_in_the_members_words() -> None:
     assert found is not None
     with pytest.raises(ActionError, match="not allowed to post"):
         await found.send("hi")
+
+
+def test_the_fakes_stand_where_an_action_takes_the_sdks_types() -> None:
+    fake = FakeGuild()
+    channel: TextChannel = fake.add_channel(FakeChannel())
+    member: Member = fake.add_member(discord.Permissions.none())
+    role: Role = fake.add_role("staff")
+    assert (channel.mention, member.mention, role.mention) == (
+        f"<#{channel.id}>",
+        f"<@{member.id}>",
+        f"<@&{role.id}>",
+    )

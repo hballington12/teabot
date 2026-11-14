@@ -10,7 +10,8 @@ whole server; names carry the test process's pid, and what killed runs left behi
 
 import os
 import secrets
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Iterator
+from datetime import timedelta
 from typing import Any
 
 import asyncpg
@@ -23,8 +24,9 @@ from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, create_pools
 from teabot.db.types import Conn
 from teabot.sdk import LoadablePlugin
+from teabot.sdk._clock import CLOCK
 from teabot.testing.cleanup import cleanup, role_prefix, run_db_name
-from teabot.testing.harness import PluginHarness, build_harness
+from teabot.testing.harness import HarnessFactory, PluginHarness, build_harness
 
 APP_PASSWORD = "app-test"
 PLUGINS_PASSWORD = "plugins-test"
@@ -137,12 +139,13 @@ async def pools(admin: Conn, naming: Naming, info: ConnectionInfo) -> AsyncItera
 
 
 @pytest.fixture
-def teabot_harness(
-    admin: Conn, naming: Naming, pools: Pools
-) -> Callable[[LoadablePlugin], Awaitable[PluginHarness]]:
-    """`await teabot_harness(plugin)` loads the plugin into a fresh instance and returns its harness."""
+def teabot_harness(admin: Conn, naming: Naming, pools: Pools) -> Iterator[HarnessFactory]:
+    """`await teabot_harness(plugin)` loads the plugin into a fresh instance and returns its harness. The test
+    clock starts at real time, and goes back to it after the test."""
 
     async def make(plugin: LoadablePlugin) -> PluginHarness:
         return await build_harness(plugin, admin=admin, naming=naming, pools=pools)
 
-    return make
+    CLOCK.offset = timedelta()
+    yield make
+    CLOCK.offset = timedelta()

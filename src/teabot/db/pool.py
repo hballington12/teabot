@@ -169,7 +169,8 @@ class PluginDatabase(Database):
     @asynccontextmanager
     async def _connection(self) -> AsyncGenerator[AnyConn]:
         async with super()._connection() as conn:
-            await conn.execute(f'SET ROLE "{self.role}"; SET search_path TO "{self.schema}"')
+            # pg_catalog comes after the schema, so a test database's clock function there is found first.
+            await conn.execute(f'SET ROLE "{self.role}"; SET search_path TO "{self.schema}", pg_catalog')
             try:
                 yield conn
             finally:

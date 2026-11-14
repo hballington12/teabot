@@ -24,7 +24,7 @@ from teabot.testing.fakes import (
     FakeRole,
     FakeVoiceChannel,
 )
-from teabot.testing.harness import JobFailed, PluginHarness, build_harness
+from teabot.testing.harness import HarnessFactory, JobFailed, MemberCalls, PluginHarness, build_harness
 
 __all__ = [
     "ActionFailed",
@@ -36,7 +36,9 @@ __all__ = [
     "FakeMessage",
     "FakeRole",
     "FakeVoiceChannel",
+    "HarnessFactory",
     "JobFailed",
+    "MemberCalls",
     "Planned",
     "PluginHarness",
     "Queued",

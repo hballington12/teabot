@@ -24,7 +24,7 @@ import json
 import sys
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Concatenate, Generic, Literal, Protocol, get_args
 
@@ -32,6 +32,7 @@ import discord
 from pydantic import BaseModel
 from typing_extensions import TypeVar
 
+from teabot.sdk import _clock as clock
 from teabot.sdk._signature import (
     Inputs,
     Output,
@@ -119,7 +120,7 @@ class _Context:
     open_db: Callable[[], Db]
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]]
     diff: Diff = field(default_factory=Diff)
-    now: datetime = field(default_factory=lambda: datetime.now(UTC))
+    now: datetime = field(default_factory=clock.now)
 
     @property
     def db(self) -> Db:

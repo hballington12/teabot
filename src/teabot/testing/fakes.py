@@ -1,6 +1,7 @@
 """Discord fakes for plugin and core tests (D45): just enough of a guild, its members and channels."""
 
 import itertools
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -49,13 +50,22 @@ class FakeChannel(_GuildChannel):
     forbidden: bool = False
     type: str = "text"
 
+    @property
+    def mention(self) -> str:
+        return f"<#{self.id}>"
+
     async def send(
         self,
         content: str | None = None,
         *,
         embed: discord.Embed | None = None,
         allowed_mentions: discord.AllowedMentions | None = None,
+        ping: Iterable[int] = (),
     ) -> FakeMessage:
+        """Record the message. `allowed_mentions` is discord.py's form, which the core uses; `ping` is the SDK's,
+        so a fake channel can stand where an action takes a `TextChannel`."""
+        if ping and allowed_mentions is None:
+            allowed_mentions = discord.AllowedMentions(users=[discord.Object(id=i) for i in ping])
         if self.forbidden:
             raise discord.Forbidden(cast(Any, _ForbiddenResponse()), "Missing Permissions")
         message = FakeMessage(next_id(), self.id, content, embed, allowed_mentions)
@@ -85,6 +95,10 @@ class FakeRole:
     id: int = field(default_factory=next_id)
     name: str = "role"
 
+    @property
+    def mention(self) -> str:
+        return f"<@&{self.id}>"
+
 
 @dataclass
 class FakeMember:
@@ -97,6 +111,14 @@ class FakeMember:
     @property
     def display_name(self) -> str:
         return self.nick or self.name
+
+    @property
+    def mention(self) -> str:
+        return f"<@{self.id}>"
+
+    @property
+    def role_ids(self) -> frozenset[int]:
+        return frozenset(role.id for role in self.roles)
 
 
 class _ForbiddenResponse:

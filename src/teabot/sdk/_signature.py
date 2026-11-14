@@ -186,24 +186,33 @@ class Output:
     model: type[BaseModel]
     wrap: Callable[[Any], BaseModel]
     render: Callable[[Any], str] | None
+    unwrap: Callable[[BaseModel], Any] = lambda out: out
 
 
 def read_output(func: Callable[..., Any], name: str) -> Output:
     returned = get_type_hints(func).get("return")
     if returned is str:
-        return Output(Text, lambda value: Text(text=value), lambda out: out.text)
+        return Output(Text, lambda value: Text(text=value), _text, _text)
     if origin_of(returned) is list:
         (item,) = get_args(unalias(returned))
         if isinstance(item, type) and issubclass(item, BaseModel):
             items_type: Any = cast(Any, list)[item]
             model = create_model(_model_name(name).removesuffix("Input") + "Items", items=(items_type, ...))
-            return Output(model, lambda value: model(items=value), _render_items)
+            return Output(model, lambda value: model(items=value), _render_items, _items)
     if isinstance(returned, type) and issubclass(returned, BaseModel):
         render = getattr(returned, "render", None)
         return Output(returned, lambda value: value, (lambda out: out.render()) if callable(render) else None)
     raise SignatureError(
         f"{where(func)}: {name} must return a pydantic model, a list of models, or str, not {returned!r}"
     )
+
+
+def _text(out: Any) -> Any:
+    return out.text
+
+
+def _items(out: Any) -> Any:
+    return out.items
 
 
 def _render_items(out: Any) -> str:
