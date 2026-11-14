@@ -23,7 +23,7 @@ Teabot is a scalable, open-source, plugin-based bot for Discord. People use it t
 - **Easy to use.** Connect it to any MCP client, such as Claude Code, in a few minutes, and let it handle your Discord management the modern way.
 - **Freely customisable.** Make Teabot work for you. Pick the plugins your server needs, and leave paywalled bot features behind.
 - **Endless possibilities.** The plugin SDK wires your own plugins straight into Teabot, so you skip the boring parts and get straight to making your server what you want it to be.
-- **Safe by design.** Every call checks the member's current Discord permissions. An LLM acts only as the member who gave it a token, and that token can be limited to reading, or to named actions. Destructive changes show a plan and wait for a confirmation, and everything lands in an audit log.
+- **Safe by design.** Set the permissions and Teabot enforces them. You choose who does what, and destructive changes always await confirmation.
 
 ## Quick start
 
