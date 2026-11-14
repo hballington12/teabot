@@ -151,3 +151,29 @@ Run on 2026-11-13 with `mcp` 2.3.0 in process, through `httpx.ASGITransport` (`t
 - A `WRITE` tool sends `destructiveHint: false` explicitly, because the spec treats a tool without the hint as destructive (D22).
 - The adapter runs in stateless mode with JSON responses, and returns refusals and action errors as `isError` results.
 - The reverse proxy must keep the original `Host` header. The instance template's proxy config says so.
+
+## S6 row-level security for plugin tables
+
+Run on 2026-11-14 with Postgres 16, before building server scoping (D9, D47). It mirrors production: a non-superuser instance owner, a login role for the plugin pool, and for each plugin an owner role, which owns the schema and runs migrations, and a runtime role, which plugin code uses. Each table gets a policy for the runtime role, `guild_id = nullif(current_setting('teabot.guild_id', true), '')::bigint`, and the same expression as `guild_id`'s default. The core sets `teabot.guild_id` with `SET ROLE` when it hands out a connection, and resets both on release. All 28 checks passed.
+
+- **Scoping works.** A scoped read sees only its server's rows, an insert without `guild_id` fills it from the scope, and an insert or update naming another server is refused by the policy.
+- **The `nullif` is needed.** After a reset, a pooled connection reads the setting back as `''`, not NULL, and `''::bigint` raises. With `nullif`, an unscoped read returns no rows on fresh and reused connections alike.
+- **An unscoped insert is refused by the policy, not by `NOT NULL`.** Postgres checks the policy first, so the error names row-level security rather than `guild_id`.
+- **The owner role is exempt,** since the tables are not set to `FORCE`, so migrations see every server's rows. The runtime role cannot turn the policy off or create tables.
+- **Plugin code can widen its own scope with a plain `SET`,** since any role may set a custom setting. An injected fragment inside one statement cannot, because `set_config` is revoked. Accepted: plugins are chosen by the operator and public ones vetted (D44), and a lint flags `SET` in plugin SQL.
+- **Constraints the policy does not cover:**
+    - A single-column foreign key accepts another server's id, revealing that the row exists. A row in one server referencing another server's row also blocks that server's purge (D49).
+    - A unique index without `guild_id` collides across servers, and its error tells one server what another holds.
+    - A composite foreign key, `(guild_id, giveaway_id) REFERENCES giveaways (guild_id, id)`, refuses another server's parent.
+- **Objects that get round the policy:** a plain view (it runs with its owner's rights), a materialized view (it has no row-level security), and a `SECURITY DEFINER` function owned by the plugin each returned every server's rows. A view created `WITH (security_invoker = true)` stayed scoped.
+- **Catalog queries find exactly these.** One query flags foreign keys without `guild_id`; one flags unique indexes holding neither `guild_id` nor an identity column; one flags plain views, materialized views and `SECURITY DEFINER` functions. The last must exempt functions the instance owner owns, such as `schedule_job`, which is `SECURITY DEFINER` by design.
+- **`schedule_job` can read the server from the scope** inside its `SECURITY DEFINER` body, so it needs no server argument.
+- **A purge scoped to a server** deletes that server's rows and no others.
+- **The cost is small.** With 50,000 rows over 500 servers, the policy's filter used the `guild_id` index.
+
+### Design changes from S6
+
+- The pool never hands out an unscoped plugin connection, so the policy's refusal of an unscoped insert is a backstop, not a message an author meets.
+- The load-time check for bypassing objects exempts functions owned by the instance owner.
+- Foreign keys without `guild_id` are refused for two reasons, the existence leak and blocked purges.
+- The spike script is `tmp/spikes/s6_rls.py`.
