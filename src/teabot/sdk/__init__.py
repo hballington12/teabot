@@ -24,8 +24,10 @@ Actions:
 - `InputError`: what `ActionSpec` raises for an input field type D29 does not allow.
 
 The server (D45):
-- `Guild`: the server, to find a `TextChannel`, a `Role` or a `Member`. A channel's `send` returns a `Message`, and
-  mentions nobody unless asked.
+- `Guild`: the server, to find a `TextChannel`, any `Channel`, a `Role` or a `Member`, and to ban. A channel's `send`
+  returns a `Message`, and mentions nobody unless asked. Members can be given roles, renamed, timed out, kicked and
+  sent a direct message, as the bot. `File` attaches a file; `Ban` is one of the server's bans. `ChannelKind` is what
+  sort of channel a `Channel` is.
 
 Field types (D23, D29):
 - `ChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
@@ -42,12 +44,13 @@ The database (D9, D30):
 """
 
 from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk, Surface, Via
-from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Permission, Plugin
+from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Plugin
 from teabot.sdk.db import Bound, Db, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
-from teabot.sdk.guild import Guild, Member, Message, Role, TextChannel
+from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
+from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff, DiffEntry
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
 
@@ -61,13 +64,17 @@ __all__ = [
     "ActionError",
     "ActionSpec",
     "Actor",
+    "Ban",
     "Bound",
+    "Channel",
+    "ChannelKind",
     "ChannelRef",
     "Context",
     "Db",
     "Diff",
     "DiffEntry",
     "EmptyConfig",
+    "File",
     "Guild",
     "InputError",
     "InvalidPluginId",

@@ -1,18 +1,51 @@
-"""Discord fakes for plugin and core tests (D45): just enough of a guild, its members and channels."""
+"""Discord fakes for plugin and core tests (D45): a guild, its roles, members and channels, and the bot itself.
+
+They carry discord.py's own attribute and method names, which the SDK's views call, and record what was done to
+them, so a test checks the outcome. Like Discord, they refuse what the bot may not do: a role at or above the
+bot's own, a managed role, or a member who outranks the bot.
+"""
 
 import itertools
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import discord
 
+from teabot.sdk.permissions import Permission
+
 _ids = itertools.count(900_000_000_000_000_000)
+BOT_POSITION = 100
 
 
 def next_id() -> int:
     """A fresh snowflake-sized id."""
     return next(_ids)
+
+
+class _ForbiddenResponse:
+    status = 403
+    reason = "Forbidden"
+
+
+class _NotFoundResponse:
+    status = 404
+    reason = "Not Found"
+
+
+def forbidden(text: str = "Missing Permissions") -> discord.Forbidden:
+    return discord.Forbidden(cast(Any, _ForbiddenResponse()), text)
+
+
+def not_found(text: str) -> discord.NotFound:
+    return discord.NotFound(cast(Any, _NotFoundResponse()), text)
+
+
+@dataclass
+class FakeAttachment:
+    filename: str
+    data: bytes
 
 
 @dataclass
@@ -22,20 +55,41 @@ class FakeMessage:
     content: str | None
     embed: discord.Embed | None
     allowed_mentions: discord.AllowedMentions | None = None
+    attachments: list[FakeAttachment] = field(default_factory=list[FakeAttachment])
 
     @property
     def jump_url(self) -> str:
         return f"https://discord.com/channels/0/{self.channel_id}/{self.id}"
 
 
+def _attachments(files: Sequence[Any] | None) -> list[FakeAttachment]:
+    """discord.py's `File`s, as the views send them, or the SDK's, when a test sends to a fake directly."""
+    out: list[FakeAttachment] = []
+    for f in files or ():
+        if isinstance(f, discord.File):
+            buffer: Any = f.fp
+            out.append(FakeAttachment(f.filename or "file", buffer.read()))
+        else:
+            out.append(FakeAttachment(str(f.name), bytes(f.data)))
+    return out
+
+
 @dataclass
 class _GuildChannel:
-    """What every channel has: an id, a name, and the members who cannot see it."""
+    """What every channel has: an id, a name, its category, and the members who cannot see it."""
 
     id: int = field(default_factory=next_id)
     name: str = "channel"
     hidden_from: set[int] = field(default_factory=set[int])
     category: "FakeCategory | None" = None
+
+    @property
+    def category_id(self) -> int | None:
+        return self.category.id if self.category is not None else None
+
+    @property
+    def mention(self) -> str:
+        return f"<#{self.id}>"
 
     def permissions_for(self, member: "FakeMember", /) -> discord.Permissions:
         return discord.Permissions(view_channel=member.id not in self.hidden_from)
@@ -50,16 +104,13 @@ class FakeChannel(_GuildChannel):
     forbidden: bool = False
     type: str = "text"
 
-    @property
-    def mention(self) -> str:
-        return f"<#{self.id}>"
-
     async def send(
         self,
         content: str | None = None,
         *,
         embed: discord.Embed | None = None,
         allowed_mentions: discord.AllowedMentions | None = None,
+        files: Sequence[Any] | None = None,
         ping: Iterable[int] = (),
     ) -> FakeMessage:
         """Record the message. `allowed_mentions` is discord.py's form, which the core uses; `ping` is the SDK's,
@@ -67,8 +118,8 @@ class FakeChannel(_GuildChannel):
         if ping and allowed_mentions is None:
             allowed_mentions = discord.AllowedMentions(users=[discord.Object(id=i) for i in ping])
         if self.forbidden:
-            raise discord.Forbidden(cast(Any, _ForbiddenResponse()), "Missing Permissions")
-        message = FakeMessage(next_id(), self.id, content, embed, allowed_mentions)
+            raise forbidden()
+        message = FakeMessage(next_id(), self.id, content, embed, allowed_mentions, _attachments(files))
         self.sent.append(message)
         return message
 
@@ -92,25 +143,61 @@ type AnyFakeChannel = FakeChannel | FakeVoiceChannel | FakeCategory
 
 @dataclass
 class FakeRole:
+    """A role. `grants` is what it allows, as discord.py's `Permissions`; `permissions` gives the SDK's names."""
+
     id: int = field(default_factory=next_id)
     name: str = "role"
+    position: int = 1
+    grants: discord.Permissions = field(default_factory=discord.Permissions.none)
+    colour: int = 0
+    managed: bool = False
+    mentionable: bool = False
+    hoist: bool = False
 
     @property
     def mention(self) -> str:
         return f"<@&{self.id}>"
 
+    @property
+    def permissions(self) -> frozenset[Permission]:
+        return frozenset(cast(Permission, name) for name, on in self.grants if on)
+
+    @property
+    def hoisted(self) -> bool:
+        return self.hoist
+
+
+@dataclass
+class _FakeAsset:
+    url: str
+
 
 @dataclass
 class FakeMember:
+    """A member. What the bot does to them is recorded: `roles` changes, `nick`, `timed_out_until`, `kicked`
+    and `dms`, and every reason given, in `reasons`."""
+
     id: int
     guild_permissions: discord.Permissions
     name: str = "member"
     nick: str | None = None
     roles: list[FakeRole] = field(default_factory=list[FakeRole])
+    bot: bool = False
+    joined_at: datetime | None = field(default_factory=lambda: datetime(2026, 1, 1, tzinfo=UTC))
+    timed_out_until: datetime | None = None
+    dms_closed: bool = False
+    dms: list[FakeMessage] = field(default_factory=list[FakeMessage])
+    reasons: list[str | None] = field(default_factory=list[str | None])
+    kicked: bool = False
+    guild: "FakeGuild | None" = None
 
     @property
     def display_name(self) -> str:
         return self.nick or self.name
+
+    @property
+    def display_avatar(self) -> _FakeAsset:
+        return _FakeAsset(f"https://cdn.discordapp.com/embed/avatars/{self.id % 6}.png")
 
     @property
     def mention(self) -> str:
@@ -120,31 +207,123 @@ class FakeMember:
     def role_ids(self) -> frozenset[int]:
         return frozenset(role.id for role in self.roles)
 
+    @property
+    def avatar_url(self) -> str:
+        return self.display_avatar.url
 
-class _ForbiddenResponse:
-    status = 403
-    reason = "Forbidden"
+    @property
+    def top_role(self) -> FakeRole | None:
+        return max(self.roles, key=lambda r: r.position, default=None)
+
+    # The SDK's names, so a test can hand a fake member wherever plugin code takes a `Member`. They act at once,
+    # without the checks the views make.
+    async def add_role(self, role: Any, /, *, reason: str | None = None) -> None:
+        await self.add_roles(role, reason=reason)
+
+    async def remove_role(self, role: Any, /, *, reason: str | None = None) -> None:
+        await self.remove_roles(role, reason=reason)
+
+    async def set_nickname(self, nickname: str | None, /, *, reason: str | None = None) -> None:
+        await self.edit(nick=nickname, reason=reason)
+
+    async def remove_timeout(self, *, reason: str | None = None) -> None:
+        await self.timeout(None, reason=reason)
+
+    def _resolve(self, role: Any) -> FakeRole:
+        found = self.guild.get_role(int(role.id)) if self.guild is not None else None
+        if found is None:
+            raise not_found("Unknown Role")
+        return found
+
+    async def add_roles(self, *roles: Any, reason: str | None = None) -> None:
+        for role in roles:
+            found = self._resolve(role)
+            if found not in self.roles:
+                self.roles.append(found)
+        self.reasons.append(reason)
+
+    async def remove_roles(self, *roles: Any, reason: str | None = None) -> None:
+        ids = {int(role.id) for role in roles}
+        self.roles = [r for r in self.roles if r.id not in ids]
+        self.reasons.append(reason)
+
+    async def edit(self, *, nick: str | None = None, reason: str | None = None) -> None:
+        self.nick = nick
+        self.reasons.append(reason)
+
+    async def timeout(self, until: timedelta | None, /, *, reason: str | None = None) -> None:
+        self.timed_out_until = None if until is None else datetime.now(UTC) + until
+        self.reasons.append(reason)
+
+    async def kick(self, *, reason: str | None = None) -> None:
+        self.kicked = True
+        self.reasons.append(reason)
+        if self.guild is not None:
+            self.guild.members.pop(self.id, None)
+            self.guild.fetchable.pop(self.id, None)
+
+    async def send(
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        files: Sequence[Any] | None = None,
+        allowed_mentions: discord.AllowedMentions | None = None,
+    ) -> FakeMessage:
+        if self.dms_closed:
+            raise forbidden("Cannot send messages to this user")
+        message = FakeMessage(next_id(), 0, content, embed, allowed_mentions, _attachments(files))
+        self.dms.append(message)
+        return message
 
 
-class _NotFoundResponse:
-    status = 404
-    reason = "Not Found"
+@dataclass
+class FakeUser:
+    id: int
+    name: str
+
+
+@dataclass
+class FakeBan:
+    user: FakeUser
+    reason: str | None
 
 
 @dataclass
 class FakeGuild:
-    """A server. Members in `members` are cached; those in `fetchable` are only found over REST (D18)."""
+    """A server. Members in `members` are cached; those in `fetchable` are only found over REST (D18).
+
+    `me` is the bot, holding Administrator and a role at position 100, so roles a test adds sit below it unless
+    it says otherwise. `owner_id` is nobody the tests add, unless one sets it.
+    """
 
     id: int = field(default_factory=next_id)
     members: dict[int, FakeMember] = field(default_factory=dict[int, FakeMember])
     fetchable: dict[int, FakeMember] = field(default_factory=dict[int, FakeMember])
     channel_map: dict[int, AnyFakeChannel] = field(default_factory=dict[int, AnyFakeChannel])
     roles: list[FakeRole] = field(default_factory=list[FakeRole])
+    name: str = "guild"
+    owner_id: int = field(default_factory=next_id)
+    icon: _FakeAsset | None = None
+    banned: dict[int, FakeBan] = field(default_factory=dict[int, FakeBan])
+    ban_reasons: list[str | None] = field(default_factory=list[str | None])
+    me: FakeMember = field(init=False)
+
+    def __post_init__(self) -> None:
+        bot_role = FakeRole(name="teabot", position=BOT_POSITION, managed=True)
+        self.me = FakeMember(
+            next_id(), discord.Permissions(administrator=True), "teabot", roles=[bot_role], bot=True
+        )
+        self.me.guild = self
 
     @property
     def channels(self) -> list[AnyFakeChannel]:
         """Every channel, as discord.py's `Guild.channels` lists them."""
         return list(self.channel_map.values())
+
+    @property
+    def member_count(self) -> int:
+        return len(self.members) + len(self.fetchable)
 
     async def query_members(self, query: str, *, limit: int = 5) -> list[FakeMember]:
         """Gateway member search: members whose name or nickname starts with `query`, cached or not."""
@@ -158,7 +337,7 @@ class FakeGuild:
 
     async def fetch_member(self, user_id: int, /) -> FakeMember:
         if user_id not in self.fetchable:
-            raise discord.NotFound(cast(Any, _NotFoundResponse()), "Unknown Member")
+            raise not_found("Unknown Member")
         return self.fetchable[user_id]
 
     def get_channel(self, channel_id: int, /) -> AnyFakeChannel | None:
@@ -174,6 +353,7 @@ class FakeGuild:
         roles: list[FakeRole] | None = None,
     ) -> FakeMember:
         member = FakeMember(next_id(), permissions, name, nick, list(roles or []))
+        member.guild = self
         (self.members if cached else self.fetchable)[member.id] = member
         return member
 
@@ -184,10 +364,36 @@ class FakeGuild:
     def get_role(self, role_id: int, /) -> FakeRole | None:
         return next((role for role in self.roles if role.id == role_id), None)
 
-    def add_role(self, name: str) -> FakeRole:
-        role = FakeRole(name=name)
+    def add_role(
+        self,
+        name: str,
+        *,
+        position: int | None = None,
+        permissions: discord.Permissions | None = None,
+        managed: bool = False,
+    ) -> FakeRole:
+        """A role, placed above the others the test added, and below the bot's unless `position` says."""
+        place = position if position is not None else max((r.position for r in self.roles), default=0) + 1
+        role = FakeRole(
+            name=name, position=place, grants=permissions or discord.Permissions.none(), managed=managed
+        )
         self.roles.append(role)
         return role
+
+    async def ban(self, user: Any, *, reason: str | None = None, delete_message_seconds: int = 0) -> None:
+        member = self.members.pop(int(user.id), None) or self.fetchable.pop(int(user.id), None)
+        name = member.name if member is not None else "user"
+        self.banned[int(user.id)] = FakeBan(FakeUser(int(user.id), name), reason)
+        self.ban_reasons.append(reason)
+
+    async def unban(self, user: Any, *, reason: str | None = None) -> None:
+        if self.banned.pop(int(user.id), None) is None:
+            raise not_found("Unknown Ban")
+        self.ban_reasons.append(reason)
+
+    async def bans(self, *, limit: int | None = 1000) -> AsyncIterator[FakeBan]:
+        for entry in list(self.banned.values())[:limit]:
+            yield entry
 
 
 @dataclass

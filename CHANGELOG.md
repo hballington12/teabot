@@ -12,6 +12,10 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Writing plugins
 
+- Plugins can manage a server as its admins do. A `Member` can be given and lose roles, renamed, timed out, kicked and sent a direct message, and shows its roles, top role, join date, avatar and timeout. A `Role` shows its position, permissions, colour and whether Discord manages it. The `Guild` shows its icon, owner, member count, roles and every `Channel`, finds members by name, and bans, unbans and lists bans. Each acts as the bot, and refuses with a plain reason what Discord would refuse, such as a role above the bot's own.
+- Every change a plugin makes carries a reason to Discord's audit log, "via teabot: <action>, for member <id>", unless the plugin gives its own.
+- `send` attaches files with `File`.
+- The test fakes do all of it, record what was done, and refuse as Discord would.
 - The test fixtures' cleanup of killed runs works on Windows, where `os.kill(pid, 0)` raised an error for a dead process, and sent Ctrl+C to a live one, instead of probing it.
 
 ## 1.2.0 - 2026-11-14

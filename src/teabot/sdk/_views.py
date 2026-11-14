@@ -1,19 +1,59 @@
 """The SDK's Discord types (`teabot.sdk.guild`) over discord.py's objects. Internal to the SDK.
 
-The views read only discord.py's own attributes, which `teabot.testing`'s fakes share, so one implementation
-serves Discord and tests alike. They are the only Discord objects plugin code receives.
+The views read and call only discord.py's own attributes and methods, which `teabot.testing`'s fakes share, so one
+implementation serves Discord and tests alike. They are the only Discord objects plugin code receives.
+
+Each operation acts as the bot. It first checks what Discord would refuse, from the bot's highest role and its
+permissions, and raises `ActionError` with the reason; a refusal Discord gives anyway becomes one too.
 """
 
-from collections.abc import Iterable
+import io
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Any
+from datetime import datetime, timedelta
+from typing import Any, cast
 
 import discord
 
 from teabot.sdk.actions import ActionError
-from teabot.sdk.guild import Guild, Member, Message, Role, TextChannel
+from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel
+from teabot.sdk.permissions import Permission
 
 FORBIDDEN = "I am not allowed to post in that channel."
+DEFAULT_REASON = "via teabot"
+MAX_TIMEOUT = timedelta(days=28)
+KINDS: dict[str, ChannelKind] = {
+    "text": "text",
+    "voice": "voice",
+    "category": "category",
+    "forum": "forum",
+    "stage_voice": "stage",
+    "news": "announcement",
+    "public_thread": "thread",
+    "private_thread": "thread",
+    "news_thread": "thread",
+}
+
+
+def _words(permission: str) -> str:
+    """`manage_roles` as Discord writes it: Manage Roles."""
+    return permission.replace("_", " ").title()
+
+
+def _top_position(member: Any, guild: Any) -> int:
+    positions = [int(r.position) for r in getattr(member, "roles", ()) if int(r.id) != int(guild.id)]
+    return max(positions, default=0)
+
+
+def _require(guild: Any, permission: str, doing: str) -> None:
+    """Refuse unless the bot holds `permission` in the server."""
+    held = guild.me.guild_permissions
+    if not (held.administrator or getattr(held, permission)):
+        raise ActionError(f"I need the {_words(permission)} permission to {doing}.")
+
+
+def _files(files: Sequence[File]) -> list[discord.File]:
+    return [discord.File(io.BytesIO(f.data), filename=f.name) for f in files]
 
 
 @dataclass(frozen=True)
@@ -32,14 +72,54 @@ class RoleView:
     def mention(self) -> str:
         return f"<@&{self.id}>"
 
+    @property
+    def position(self) -> int:
+        return int(self.raw.position)
+
+    @property
+    def permissions(self) -> frozenset[Permission]:
+        granted = self.raw.permissions
+        if isinstance(granted, discord.Permissions):
+            return frozenset(cast(Permission, name) for name, on in granted if on)
+        return frozenset(granted)
+
+    @property
+    def colour(self) -> int:
+        colour = self.raw.colour
+        return int(getattr(colour, "value", colour))
+
+    @property
+    def managed(self) -> bool:
+        return bool(self.raw.managed)
+
+    @property
+    def mentionable(self) -> bool:
+        return bool(self.raw.mentionable)
+
+    @property
+    def hoisted(self) -> bool:
+        return bool(self.raw.hoist)
+
+
+def _roles(raw_roles: Iterable[Any], guild: Any) -> list[Role]:
+    """Highest first, without @everyone, whose ID is the server's."""
+    kept = [r for r in raw_roles if int(r.id) != int(guild.id)]
+    return [RoleView(r) for r in sorted(kept, key=lambda r: int(r.position), reverse=True)]
+
 
 @dataclass(frozen=True)
 class MemberView:
     raw: Any
+    guild: Any
+    reason: str = DEFAULT_REASON
 
     @property
     def id(self) -> int:
         return int(self.raw.id)
+
+    @property
+    def name(self) -> str:
+        return str(self.raw.name)
 
     @property
     def display_name(self) -> str:
@@ -52,6 +132,105 @@ class MemberView:
     @property
     def role_ids(self) -> frozenset[int]:
         return frozenset(int(role.id) for role in getattr(self.raw, "roles", ()))
+
+    @property
+    def roles(self) -> Sequence[Role]:
+        return _roles(getattr(self.raw, "roles", ()), self.guild)
+
+    @property
+    def top_role(self) -> Role | None:
+        roles = self.roles
+        return roles[0] if roles else None
+
+    @property
+    def joined_at(self) -> datetime | None:
+        return self.raw.joined_at
+
+    @property
+    def avatar_url(self) -> str:
+        return str(self.raw.display_avatar.url)
+
+    @property
+    def bot(self) -> bool:
+        return bool(self.raw.bot)
+
+    @property
+    def timed_out_until(self) -> datetime | None:
+        return self.raw.timed_out_until
+
+    def _role_to_change(self, role: Role) -> Any:
+        found = self.guild.get_role(role.id)
+        if found is None:
+            raise ActionError("That role is not in this server.")
+        if int(found.id) == int(self.guild.id):
+            raise ActionError("Everyone has @everyone; it cannot be given or taken.")
+        if found.managed:
+            raise ActionError(
+                f"{found.name} is managed by Discord or an integration, so nobody can give or take it."
+            )
+        if int(found.position) >= _top_position(self.guild.me, self.guild):
+            raise ActionError(
+                f"{found.name} is at or above my highest role, so I cannot give or take it. "
+                "Move my role above it in Server Settings, then Roles."
+            )
+        _require(self.guild, "manage_roles", f"give or take {found.name}")
+        return found
+
+    def check_outranked(self, doing: str, permission: str) -> None:
+        if self.id == int(self.guild.owner_id):
+            raise ActionError(f"I cannot {doing} the server's owner.")
+        if _top_position(self.raw, self.guild) >= _top_position(self.guild.me, self.guild):
+            raise ActionError(
+                f"{self.display_name}'s highest role is at or above mine, so I cannot {doing} them."
+            )
+        _require(self.guild, permission, f"{doing} members")
+
+    async def _call(self, doing: str, call: Any) -> None:
+        try:
+            await call
+        except discord.Forbidden:
+            raise ActionError(f"Discord would not let me {doing}.") from None
+
+    async def add_role(self, role: Role, /, *, reason: str | None = None) -> None:
+        found = self._role_to_change(role)
+        await self._call(f"give {found.name}", self.raw.add_roles(found, reason=reason or self.reason))
+
+    async def remove_role(self, role: Role, /, *, reason: str | None = None) -> None:
+        found = self._role_to_change(role)
+        await self._call(f"take {found.name}", self.raw.remove_roles(found, reason=reason or self.reason))
+
+    async def set_nickname(self, nickname: str | None, /, *, reason: str | None = None) -> None:
+        if nickname is not None and not 1 <= len(nickname) <= 32:
+            raise ActionError("A nickname is 1 to 32 characters.")
+        self.check_outranked("rename", "manage_nicknames")
+        await self._call("rename them", self.raw.edit(nick=nickname, reason=reason or self.reason))
+
+    async def timeout(self, length: timedelta, /, *, reason: str | None = None) -> None:
+        if not timedelta(0) < length <= MAX_TIMEOUT:
+            raise ActionError("A timeout lasts more than no time, and at most 28 days.")
+        self.check_outranked("time out", "moderate_members")
+        await self._call("time them out", self.raw.timeout(length, reason=reason or self.reason))
+
+    async def remove_timeout(self, *, reason: str | None = None) -> None:
+        self.check_outranked("end the timeout of", "moderate_members")
+        await self._call("end their timeout", self.raw.timeout(None, reason=reason or self.reason))
+
+    async def kick(self, *, reason: str | None = None) -> None:
+        self.check_outranked("kick", "kick_members")
+        await self._call("kick them", self.raw.kick(reason=reason or self.reason))
+
+    async def send(
+        self, content: str | None = None, *, embed: discord.Embed | None = None, files: Sequence[File] = ()
+    ) -> Message:
+        try:
+            sent = await self.raw.send(
+                content, embed=embed, files=_files(files), allowed_mentions=allowed_mentions(())
+            )
+        except discord.Forbidden:
+            raise ActionError(
+                f"{self.display_name} does not take direct messages from this server."
+            ) from None
+        return MessageView(sent)
 
 
 @dataclass(frozen=True)
@@ -95,13 +274,26 @@ class TextChannelView:
         return f"<#{self.id}>"
 
     async def send(
-        self, content: str | None = None, *, embed: discord.Embed | None = None, ping: Iterable[int] = ()
+        self,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        ping: Iterable[int] = (),
+        files: Sequence[File] = (),
     ) -> Message:
         try:
-            sent = await self.raw.send(content, embed=embed, allowed_mentions=allowed_mentions(ping))
+            sent = await self.raw.send(
+                content, embed=embed, allowed_mentions=allowed_mentions(ping), files=_files(files)
+            )
         except discord.Forbidden:
             raise ActionError(FORBIDDEN) from None
         return MessageView(sent)
+
+
+def _kind(channel: Any) -> str:
+    """The fakes name their kind; discord.py gives a `ChannelType`."""
+    kind = getattr(channel, "type", None)
+    return str(getattr(kind, "name", kind))
 
 
 def takes_messages(channel: Any) -> bool:
@@ -109,15 +301,36 @@ def takes_messages(channel: Any) -> bool:
     return channel is not None and callable(getattr(channel, "send", None)) and _kind(channel) != "voice"
 
 
-def _kind(channel: Any) -> str:
-    """The fakes name their kind; discord.py's voice channels can take messages, but plugins mean text."""
-    kind = getattr(channel, "type", None)
-    return str(getattr(kind, "name", kind))
+@dataclass(frozen=True)
+class ChannelView:
+    raw: Any
+
+    @property
+    def id(self) -> int:
+        return int(self.raw.id)
+
+    @property
+    def name(self) -> str:
+        return str(self.raw.name)
+
+    @property
+    def mention(self) -> str:
+        return f"<#{self.id}>"
+
+    @property
+    def kind(self) -> ChannelKind:
+        return KINDS.get(_kind(self.raw), "other")
+
+    @property
+    def parent_id(self) -> int | None:
+        parent = getattr(self.raw, "parent_id", None) or getattr(self.raw, "category_id", None)
+        return int(parent) if parent is not None else None
 
 
 @dataclass(frozen=True)
 class GuildView:
     raw: Any
+    reason: str = DEFAULT_REASON
 
     @property
     def id(self) -> int:
@@ -127,13 +340,41 @@ class GuildView:
     def name(self) -> str:
         return str(getattr(self.raw, "name", ""))
 
+    @property
+    def icon_url(self) -> str | None:
+        icon = getattr(self.raw, "icon", None)
+        return str(icon.url) if icon is not None else None
+
+    @property
+    def owner_id(self) -> int:
+        return int(self.raw.owner_id)
+
+    @property
+    def member_count(self) -> int:
+        return int(self.raw.member_count or 0)
+
+    @property
+    def roles(self) -> Sequence[Role]:
+        return _roles(self.raw.roles, self.raw)
+
+    @property
+    def channels(self) -> Sequence[Channel]:
+        return [ChannelView(c) for c in self.raw.channels]
+
     def get_text_channel(self, channel_id: int, /) -> TextChannel | None:
         channel = self.raw.get_channel(channel_id)
         return TextChannelView(channel) if takes_messages(channel) else None
 
+    def get_channel(self, channel_id: int, /) -> Channel | None:
+        channel = self.raw.get_channel(channel_id)
+        return ChannelView(channel) if channel is not None else None
+
     def get_role(self, role_id: int, /) -> Role | None:
         role = self.raw.get_role(role_id)
         return RoleView(role) if role is not None else None
+
+    def _member(self, raw: Any) -> Member:
+        return MemberView(raw, self.raw, self.reason)
 
     async def get_member(self, user_id: int, /) -> Member | None:
         member = self.raw.get_member(user_id)
@@ -142,9 +383,46 @@ class GuildView:
                 member = await self.raw.fetch_member(user_id)
             except discord.NotFound:
                 return None
-        return MemberView(member)
+        return self._member(member)
+
+    async def find_members(self, prefix: str, /, *, limit: int = 10) -> list[Member]:
+        found = await self.raw.query_members(prefix, limit=max(1, min(limit, 100)))
+        return [self._member(m) for m in found]
+
+    async def ban(self, user_id: int, /, *, reason: str | None = None, delete_message_days: int = 0) -> None:
+        if not 0 <= delete_message_days <= 7:
+            raise ActionError("A ban deletes messages from up to the last 7 days.")
+        member = self.raw.get_member(user_id)
+        if member is not None:
+            MemberView(member, self.raw).check_outranked("ban", "ban_members")
+        elif user_id == int(self.raw.owner_id):
+            raise ActionError("I cannot ban the server's owner.")
+        else:
+            _require(self.raw, "ban_members", "ban members")
+        try:
+            await self.raw.ban(
+                discord.Object(id=user_id),
+                reason=reason or self.reason,
+                delete_message_seconds=delete_message_days * 86400,
+            )
+        except discord.NotFound:
+            raise ActionError("There is no Discord user with that ID.") from None
+        except discord.Forbidden:
+            raise ActionError("Discord would not let me ban them.") from None
+
+    async def unban(self, user_id: int, /, *, reason: str | None = None) -> None:
+        _require(self.raw, "ban_members", "lift bans")
+        try:
+            await self.raw.unban(discord.Object(id=user_id), reason=reason or self.reason)
+        except discord.NotFound:
+            raise ActionError("That user is not banned here.") from None
+
+    async def bans(self, *, limit: int = 100) -> list[Ban]:
+        _require(self.raw, "ban_members", "see the bans")
+        return [Ban(int(e.user.id), str(e.user.name), e.reason) async for e in self.raw.bans(limit=limit)]
 
 
-def guild_view(guild: discord.Guild) -> Guild:
-    """The SDK's view of a server, for plugin code."""
-    return GuildView(guild)
+def guild_view(guild: Any, reason: str = DEFAULT_REASON) -> Guild:
+    """The SDK's view of a server, for plugin code: discord.py's `Guild`, or a `teabot.testing` fake. `reason` goes
+    to Discord's audit log with every change the plugin makes without its own."""
+    return GuildView(guild, reason)

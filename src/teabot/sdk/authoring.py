@@ -47,6 +47,7 @@ from teabot.sdk._views import guild_view
 from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Risk
 from teabot.sdk.db import Bound, Db
 from teabot.sdk.guild import Guild
+from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, JobContext, Manifest, Registrar
 
@@ -54,21 +55,6 @@ READ = Risk.READ
 WRITE = Risk.WRITE
 DESTRUCTIVE = Risk.DESTRUCTIVE
 
-type Permission = Literal[
-    "add_reactions", "administrator", "attach_files", "ban_members", "bypass_slowmode", "change_nickname",
-    "connect", "create_events", "create_expressions", "create_instant_invite", "create_polls",
-    "create_private_threads", "create_public_threads", "deafen_members", "embed_links", "external_emojis",
-    "external_stickers", "kick_members", "manage_channels", "manage_emojis", "manage_emojis_and_stickers",
-    "manage_events", "manage_expressions", "manage_guild", "manage_messages", "manage_nicknames",
-    "manage_permissions", "manage_roles", "manage_threads", "manage_webhooks", "mention_everyone",
-    "moderate_members", "move_members", "mute_members", "pin_messages", "priority_speaker",
-    "read_message_history", "read_messages", "request_to_speak", "send_messages", "send_messages_in_threads",
-    "send_polls", "send_tts_messages", "send_voice_messages", "set_voice_channel_status", "speak", "stream",
-    "use_application_commands", "use_embedded_activities", "use_external_apps", "use_external_emojis",
-    "use_external_sounds", "use_external_stickers", "use_soundboard", "use_voice_activation", "view_audit_log",
-    "view_channel", "view_creator_monetization_analytics", "view_guild_insights",
-]  # fmt: skip
-"""A Discord permission a member needs for an action, by discord.py's name for it."""
 
 Cfg = TypeVar("Cfg", bound=BaseModel, default=EmptyConfig)
 
@@ -179,19 +165,26 @@ class Action[C: BaseModel, **P, R]:
         )
 
     async def _run(self, ctx: ActionContext, data: BaseModel) -> BaseModel:
-        context = _context_of(ctx)
+        context = _context_of(ctx, self.name)
         arguments = await _arguments(self.inputs, context, data)
         func: Callable[..., Awaitable[Any]] = self.func
         return self.output.wrap(await func(**arguments))
 
     async def _plan(self, ctx: ActionContext, data: BaseModel) -> Diff:
         assert self.planner is not None
-        return await self.planner(**await _arguments(self.inputs, _context_of(ctx), data))
+        return await self.planner(**await _arguments(self.inputs, _context_of(ctx, self.name), data))
 
 
-def _context_of(ctx: ActionContext) -> _Context:
+def _reason(action: str, actor: Actor) -> str:
+    """What Discord's audit log shows for a change a plugin makes without its own reason."""
+    who = "teabot" if actor.user_id == SYSTEM else f"member {actor.user_id}"
+    return f"via teabot: {action}, for {who}"
+
+
+def _context_of(ctx: ActionContext, action: str) -> _Context:
     diff = getattr(ctx, "diff", None) or Diff()
-    return _Context(guild_view(ctx.guild), ctx.actor, ctx.config, lambda: ctx.db, ctx.report, diff)
+    guild = guild_view(ctx.guild, _reason(action, ctx.actor))
+    return _Context(guild, ctx.actor, ctx.config, lambda: ctx.db, ctx.report, diff)
 
 
 async def _arguments(inputs: Inputs, context: _Context, data: BaseModel) -> dict[str, Any]:
@@ -226,7 +219,9 @@ class Job[C: BaseModel, **P]:
         if guild is None:
             raise ActionError("The bot is no longer in this job's server.")
         actor = Actor(job.started_by or SYSTEM, "job")
-        context = _Context(guild_view(guild), actor, job.config, lambda: job.db, job.report)
+        context = _Context(
+            guild_view(guild, _reason(self.name, actor)), actor, job.config, lambda: job.db, job.report
+        )
         data = self.inputs.model.model_validate(dict(job.payload))
         func: Callable[..., Awaitable[None]] = self.func
         await func(**await _arguments(self.inputs, context, data))
