@@ -1885,7 +1885,7 @@ wheels = [
 
 [[package]]
 name = "teabot"
-version = "1.0.2"
+version = "1.1.0.dev0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
@@ -1961,7 +1961,7 @@ duplicate-check = [{ name = "teabot-devtools-twin", editable = "plugins/devtools
 
 [[package]]
 name = "teabot-announcements"
-version = "1.0.2"
+version = "1.1.0.dev0"
 source = { editable = "plugins/announcements" }
 dependencies = [
     { name = "teabot" },

@@ -4,6 +4,8 @@ Every release of `teabot`, `teabot-announcements` and the instance template, new
 
 ## Unreleased
 
+- The release workflow publishes the GitHub release as a draft until its template is attached, and waits up to an hour for PyPI's index.
+
 ## 1.0.2 - 2026-11-14
 
 Fixes from the first plugin authoring trial.

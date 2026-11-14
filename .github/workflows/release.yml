@@ -64,13 +64,24 @@ jobs:
         with:
           name: dist
           path: dist/
-      - name: Build the template, locked against the packages just published
-        run: uv run --no-project python scripts/release/template.py "$GITHUB_REF_NAME" teabot-template.tar.gz
       - name: Write the release notes from the changelog
         run: uv run --no-project python scripts/release/notes.py "$GITHUB_REF_NAME" > notes.md
-      - name: Create the GitHub release
+      # A draft first: "latest" keeps pointing at the previous complete release until the template is attached,
+      # so the self-hosting guide's download link never breaks.
+      - name: Create the GitHub release as a draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME" teabot-template.tar.gz dist/*
-          --title "teabot ${GITHUB_REF_NAME#v}" --notes-file notes.md
+        # A re-run finds the draft already there and carries on.
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" dist/* \
+            --draft --title "teabot ${GITHUB_REF_NAME#v}" --notes-file notes.md
+      # GitHub's runners can see PyPI's index late, over fifteen minutes after an upload, so this waits up to an
+      # hour, trying once a minute.
+      - name: Build the template, locked against the packages just published
+        run: uv run --no-project python scripts/release/template.py "$GITHUB_REF_NAME" teabot-template.tar.gz
+      - name: Attach the template and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" teabot-template.tar.gz --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
