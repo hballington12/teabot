@@ -77,7 +77,7 @@ def test_the_scaffolded_code_passes_ruff(tmp_path: Path) -> None:
 def test_an_id_that_breaks_d46_or_is_reserved_is_refused(tmp_path: Path, plugin_id: str) -> None:
     result = new_plugin(tmp_path, plugin_id)
     assert result.exit_code == 1
-    assert "plugin id" in result.output
+    assert "plugin id" in result.stderr
     assert not (tmp_path / "plugins").exists()
 
 
@@ -85,5 +85,5 @@ def test_an_existing_directory_is_left_alone(tmp_path: Path) -> None:
     (tmp_path / "plugins/scaffolded").mkdir(parents=True)
     result = new_plugin(tmp_path)
     assert result.exit_code == 1
-    assert "already exists" in result.output
+    assert "already exists" in result.stderr
     assert list((tmp_path / "plugins/scaffolded").iterdir()) == []

@@ -29,7 +29,8 @@ def application_id(token: str) -> int | None:
     """The bot's ID, which a token's first part encodes in base64, or None when it is not a token."""
     first = token.split(".", maxsplit=1)[0]
     try:
-        decoded = base64.urlsafe_b64decode(first + "=" * (-len(first) % 4)).decode()
+        # Discord strips the padding. Decoding ignores any beyond what is needed, so two always suffice.
+        decoded = base64.urlsafe_b64decode(first + "==").decode()
     except (binascii.Error, UnicodeDecodeError):
         return None
     return int(decoded) if decoded.isdigit() else None
