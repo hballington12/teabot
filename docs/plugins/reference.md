@@ -126,7 +126,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - A destructive action's plan takes the same inputs and returns a `Diff` of what it would change. Without a plan the load fails.
 - The member sees the plan and confirms it within 15 minutes. If what it shows has changed by then, they get a fresh plan, marked stale, instead.
 - The action then runs as a job and reads the confirmed plan as `ctx.diff`. An entry's `key` carries what the apply needs, such as a row id, so it changes exactly what the member saw.
-- A destructive action returns a model, a list or a string like any other, but the member does not see it: they see the plan, then that the change is applying. Report what it did with `await ctx.report({...})`, which `/admin job_status` shows.
+- A destructive action returns a model, a list or a string like any other, but the member does not see it: they see the plan, then a reply that follows the change as it applies, ending with `Done.` Report how far it has got with `await ctx.report({"done": 3, "total": 10})`, which that reply shows as `3 of 10`, and `/admin job_status` too. Other keys show as they are, such as `{"cleared": 3}` as `cleared 3`.
 
 ## The context
 

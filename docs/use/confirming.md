@@ -17,7 +17,7 @@ First entries  cancel Discord Nitro: 4 entrants
 
 1. Read the plan. Nothing has changed yet.
 2. If it is right, choose **Confirm** within 15 minutes. If it is wrong, do nothing, and it expires.
-3. teabot replies `Applying.`, with a command to follow it, such as `/admin job_status job_id:12`. Its **State** goes from `pending` to `running` to `done`, or `failed` with the reason.
+3. teabot replies `Applying`, and the reply updates itself as the change goes, such as `Applying: 3 of 10.`, until it says `Done.` A change still going after 14 minutes points you at `/admin job_status`, which shows its **State**: `pending`, `running`, `done`, or `failed` with the reason.
 
 Only the member who ran the action can confirm its plan, and each plan can be confirmed once. Your permissions are checked again when you confirm.
 

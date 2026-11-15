@@ -5,6 +5,7 @@ holds only the draft id, so any process can finish the submit (D40). Replies are
 asks for a public one; refusals say why, failures point at the audit log without leaking details.
 """
 
+import asyncio
 import json
 import logging
 import uuid
@@ -90,6 +91,42 @@ def _modal_values(data: Mapping[str, Any]) -> dict[str, str]:
 CONFIRM_PREFIX = "teabot:core:confirm:"
 PLAN_GONE = "That plan no longer exists. Run the command again for a new one."
 BUTTON_GONE = "That button no longer works."
+# Discord lets a private reply be edited for 15 minutes; following stops a little before.
+FOLLOW_SECONDS = 14 * 60
+JOB_STATE = "SELECT state, progress FROM core.jobs WHERE id = $1"
+ENDED = frozenset({"done", "failed", "cancelled"})
+
+
+def _progress(row: Any) -> dict[str, Any] | None:
+    if row is None or row["progress"] is None:
+        return None
+    value = row["progress"]
+    return json.loads(value) if isinstance(value, str) else dict(value)
+
+
+def progress_text(state: str, progress: Mapping[str, Any] | None, job_id: int, *, late: bool = False) -> str:
+    """A confirmed change's reply, as its job goes: waiting, how far it has got, and how it ended."""
+    so_far = ""
+    if progress:
+        if {"done", "total"} <= set(progress):
+            so_far = f"{progress['done']} of {progress['total']}"
+        else:
+            so_far = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in progress.items())
+    if state == "done":
+        return f"Done. {so_far}." if so_far else "Done."
+    if state == "failed":
+        return (
+            f"That did not finish. The error is in the audit log, and in `/admin job_status job_id:{job_id}`."
+        )
+    if state == "cancelled":
+        return "Cancelled."
+    if late:
+        return f"Still applying. Follow it with `/admin job_status job_id:{job_id}`."
+    if state == "running":
+        return f"Applying: {so_far}." if so_far else "Applying."
+    return "Applying: about to start."
+
+
 PLAN_SHOWN = 10
 PLANNED = "SELECT action, input FROM core.audit_log WHERE confirm = $1 AND outcome = 'planned'"
 
@@ -125,9 +162,19 @@ def confirm_view(plan: Planned) -> discord.ui.View:
 
 
 class InteractionRouter:
-    def __init__(self, registry: Invoker, db: Database) -> None:
+    def __init__(
+        self,
+        registry: Invoker,
+        db: Database,
+        *,
+        poll_seconds: float = 2.0,
+        follow_seconds: float = FOLLOW_SECONDS,
+    ) -> None:
         self.registry = registry
         self.db = db
+        self.poll_seconds = poll_seconds
+        self.follow_seconds = follow_seconds
+        self.following: set[asyncio.Task[None]] = set()
 
     async def handle(self, interaction: Any) -> None:
         if interaction.type is discord.InteractionType.application_command:
@@ -246,6 +293,28 @@ class InteractionRouter:
             return
         await self._reply(interaction, self.registry.actions[name], output)
 
+    async def _follow(self, message: Any, job_id: int) -> None:
+        """Keep a confirmed change's reply up to date with its job, until it ends or Discord stops letting a
+        private reply be edited."""
+        shown = progress_text("pending", None, job_id)
+        deadline = asyncio.get_running_loop().time() + self.follow_seconds
+        while True:
+            row = await self.db.fetchrow(JOB_STATE, job_id)
+            ended = row is None or row["state"] in ENDED
+            late = asyncio.get_running_loop().time() >= deadline
+            text = progress_text(
+                row["state"] if row else "done", _progress(row), job_id, late=late and not ended
+            )
+            if text != shown:
+                try:
+                    await message.edit(content=text)
+                except discord.HTTPException:
+                    return
+                shown = text
+            if ended or late:
+                return
+            await asyncio.sleep(self.poll_seconds)
+
     async def _reply(self, interaction: Any, spec: ActionSpec[Any, Any], output: BaseModel) -> None:
         if isinstance(output, Planned):
             view = confirm_view(output)
@@ -254,9 +323,12 @@ class InteractionRouter:
             view.stop()
             return
         if isinstance(output, Queued):
-            await interaction.followup.send(
-                f"Applying. Follow it with `/admin job_status job_id:{output.job_id}`.", ephemeral=True
+            message = await interaction.followup.send(
+                progress_text("pending", None, output.job_id), ephemeral=True, wait=True
             )
+            task = asyncio.create_task(self._follow(message, output.job_id))
+            self.following.add(task)
+            task.add_done_callback(self.following.discard)
             return
         rendered = spec.render(output) if spec.render is not None else default_embed(spec, output)
         private = spec.reply != "public"

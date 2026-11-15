@@ -1,5 +1,6 @@
 """The interaction router (D29, D32): slash commands, LongText modals, replies and refusals."""
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -9,7 +10,7 @@ import discord
 import pytest
 from pydantic import BaseModel
 
-from teabot.adapters.interactions import InteractionRouter, default_embed
+from teabot.adapters.interactions import InteractionRouter, default_embed, progress_text
 from teabot.core.plans import Planned, Queued, ShownEntry
 from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.migrate import migrate
@@ -104,10 +105,22 @@ class FakeFollowup:
         embed: discord.Embed | None = None,
         view: discord.ui.View | None = None,
         ephemeral: bool = False,
-    ) -> None:
+        wait: bool = False,
+    ) -> "FakeSent":
         self.events.append(("followup", content if embed is None else embed, ephemeral))
         if view is not None:
             self.events.append(("view", view))
+        return FakeSent(self.events)
+
+
+@dataclass
+class FakeSent:
+    """A follow-up the router sent, which it may edit later."""
+
+    events: list[tuple[Any, ...]]
+
+    async def edit(self, *, content: str | None = None) -> None:
+        self.events.append(("edit", content))
 
 
 @dataclass
@@ -410,10 +423,40 @@ async def test_pressing_confirm_calls_the_action_again_with_the_plans_input(
         Call("announcements.wipe", GUILD, Actor(USER, "component"), {"ok": True, "confirm": CONFIRM})
     ]
     assert interaction.events[0] == ("defer", True, True)
-    assert interaction.events[1] == (
-        "followup",
-        "Applying. Follow it with `/admin job_status job_id:7`.",
-        True,
+    assert interaction.events[1] == ("followup", "Applying: about to start.", True)
+
+
+async def test_a_confirmed_changes_reply_follows_its_job_to_the_end(
+    router: tuple[InteractionRouter, FakeRegistry], admin: Conn
+) -> None:
+    handler, registry = router
+    handler.poll_seconds = 0.01
+    job_id = await admin.fetchval(
+        "INSERT INTO core.jobs (guild_id, plugin_id, handler, state) VALUES ($1, 'core', 'apply', 'running') "
+        "RETURNING id",
+        GUILD,
+    )
+    await planned_row(admin, {"ok": True})
+    registry.result = Queued(job_id=job_id, audit_id=9)
+    interaction = press(f"teabot:core:confirm:{CONFIRM}")
+    await handler.handle(interaction)
+    await admin.execute('UPDATE core.jobs SET progress = \'{"done": 1, "total": 2}\' WHERE id = $1', job_id)
+    await asyncio.sleep(0.1)
+    await admin.execute(
+        "UPDATE core.jobs SET state = 'done', progress = '{\"done\": 2, \"total\": 2}' WHERE id = $1", job_id
+    )
+    await asyncio.gather(*handler.following)
+    edits = [e[1] for e in interaction.events if e[0] == "edit"]
+    assert edits[0] in ("Applying.", "Applying: 1 of 2.")
+    assert edits[-1] == "Done. 2 of 2."
+
+
+def test_progress_reads_plainly_at_each_stage() -> None:
+    assert progress_text("running", {"cleared": 3}, 5) == "Applying: cleared 3."
+    assert progress_text("failed", None, 5).startswith("That did not finish.")
+    assert (
+        progress_text("running", None, 5, late=True)
+        == "Still applying. Follow it with `/admin job_status job_id:5`."
     )
 
 
