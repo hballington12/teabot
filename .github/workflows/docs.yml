@@ -1,11 +1,9 @@
 name: Docs
 
-# Builds the documentation site from the latest release tag and publishes it to GitHub Pages. The release workflow
-# calls it as its last job, since a release published with GitHub's own token starts no other workflow; it also
-# runs by hand. The site therefore describes the latest release, never unreleased work on main. A docs fix ships
-# in a patch release.
+# Builds the documentation site from the latest release tag and publishes it to GitHub Pages. It runs on main, which
+# Pages deploys from: the release workflow starts it as its last job, and it runs by hand too. The site therefore
+# describes the latest release, never unreleased work on main. A docs fix ships in a patch release.
 on:
-  workflow_call:
   workflow_dispatch:
 
 permissions:
