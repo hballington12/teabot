@@ -5,7 +5,7 @@ from typing import Annotated
 import typer
 
 import teabot
-from teabot.cli import plugins
+from teabot.cli import plugins, users
 from teabot.cli.check import check
 from teabot.cli.init import init
 from teabot.cli.new_plugin import new_plugin
@@ -34,3 +34,4 @@ app.command()(run)
 app.command("new-plugin")(new_plugin)
 app.command()(check)
 app.add_typer(plugins.app)
+app.add_typer(users.app)

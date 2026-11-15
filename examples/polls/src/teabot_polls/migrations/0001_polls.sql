@@ -12,7 +12,7 @@ CREATE TABLE polls (
 CREATE TABLE votes (
     guild_id bigint NOT NULL,
     poll_id bigint NOT NULL,
-    member_id bigint NOT NULL,
+    member_id teabot.member_id NOT NULL,
     choice int NOT NULL,
     PRIMARY KEY (guild_id, poll_id, member_id),
     FOREIGN KEY (guild_id, poll_id) REFERENCES polls (guild_id, id) ON DELETE CASCADE

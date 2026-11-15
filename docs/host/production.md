@@ -106,6 +106,27 @@ docker compose exec -T postgres psql -U teabot_owner -d postgres < backups/teabo
 
 The restore reports that the role `teabot_owner` and the database `teabot` already exist. That is expected: Postgres made them when it started, and the restore fills them in.
 
+## Delete a member's data
+
+Discord expects a bot to delete what it keeps about someone who asks. Run, with their Discord ID:
+
+```bash
+docker compose run --rm bot teabot users delete 123456789012345678
+```
+
+teabot asks first, then lists what it changed:
+
+```text
+Deleted or anonymised:
+  giveaways.entries: 2 rows
+  audit log: 14 rows
+```
+
+- Every plugin's rows that hold the member are deleted, such as their giveaway entries.
+- Their tokens are deleted. The audit log keeps what was done, with their ID replaced by `0`.
+- `--server 987654321098765432` limits it to one server.
+- Backups taken earlier still hold the data, until they are rotated out.
+
 ## Growing past 100 servers
 
 Discord must verify a bot before it can join more than 100 servers. Apply in the developer portal before you get close.

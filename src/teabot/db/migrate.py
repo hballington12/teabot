@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS core.migrations (
     applied_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (plugin_id, version)
 );
+-- A member's Discord ID, as a type: deleting a member's data finds every column of it (D11).
+CREATE SCHEMA IF NOT EXISTS teabot;
+GRANT USAGE ON SCHEMA teabot TO PUBLIC;
+DO $$ BEGIN
+    IF to_regtype('teabot.member_id') IS NULL THEN
+        CREATE DOMAIN teabot.member_id AS bigint;
+    END IF;
+END $$;
 """
 
 MISSING_GUILD_ID = """
@@ -89,7 +97,19 @@ BYPASS_FIX = {
 }
 
 
-async def schema_problems(conn: Conn, schema: str) -> list[str]:
+# bigint columns named for a member, such as member_id, winner_ids or user_id, that deleting a member's data would
+# miss (D11).
+UNTYPED_MEMBERS = """
+SELECT c.relname, a.attname, a.atttypid = 'bigint[]'::regtype AS is_array FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = $1 AND c.relkind IN ('r', 'p') AND NOT c.relispartition AND a.attnum > 0 AND NOT a.attisdropped
+AND a.atttypid IN ('bigint'::regtype, 'bigint[]'::regtype) AND a.attname ~ '(^|_)(member|user|winner)s?(_ids?)?$'
+AND a.attname NOT IN ('members', 'users', 'winners')
+ORDER BY 1, 2
+"""
+
+
+async def schema_problems(conn: Conn, schema: str, *, members: bool = True) -> list[str]:
     """What in a plugin's schema could mix servers' data, each with what to write instead."""
     found = [
         f"foreign key {r['conname']} on {r['relname']} leaves out guild_id; write FOREIGN KEY (guild_id, ...) "
@@ -102,6 +122,12 @@ async def schema_problems(conn: Conn, schema: str) -> list[str]:
         for r in await conn.fetch(LOOSE_UNIQUE, schema)
     ]
     found += [BYPASS_FIX[r["kind"]].format(name=r["name"]) for r in await conn.fetch(BYPASSES, schema)]
+    found += [
+        f"column {r['relname']}.{r['attname']} holds members' IDs as bigint{'[]' if r['is_array'] else ''}, "
+        f"which deleting a member's data would miss; give it the type "
+        f"teabot.member_id{'[]' if r['is_array'] else ''}"
+        for r in (await conn.fetch(UNTYPED_MEMBERS, schema) if members else [])
+    ]
     return found
 
 
@@ -284,7 +310,7 @@ END $$
 """
 
 
-async def _apply(conn: Conn, naming: Naming, plugin_id: str, migration: MigrationFile) -> None:
+async def _apply(conn: Conn, naming: Naming, plugin_id: str, migration: MigrationFile, *, last: bool) -> None:
     async with conn.transaction():
         if plugin_id == CORE:
             await conn.execute("SET LOCAL search_path TO core")
@@ -302,7 +328,9 @@ async def _apply(conn: Conn, naming: Naming, plugin_id: str, migration: Migratio
                 raise MigrationError(
                     f"{plugin_id}: tables without a bigint guild_id column: {', '.join(missing)}"
                 )
-            problems = await schema_problems(conn, naming.plugin_schema(plugin_id))
+            # A released migration cannot change, so a column the member check names may be fixed by a later
+            # one: that check reads the schema as the last pending migration leaves it.
+            problems = await schema_problems(conn, naming.plugin_schema(plugin_id), members=last)
             if problems:
                 raise MigrationError(f"{plugin_id}: " + "; ".join(problems))
         await conn.execute(
@@ -317,7 +345,7 @@ async def _apply(conn: Conn, naming: Naming, plugin_id: str, migration: Migratio
 async def _migrate_one(conn: Conn, naming: Naming, plugin_id: str, directory: Path | None) -> list[int]:
     pending = _pending(plugin_id, read_files(directory), await _applied(conn, plugin_id))
     for migration in pending:
-        await _apply(conn, naming, plugin_id, migration)
+        await _apply(conn, naming, plugin_id, migration, last=migration is pending[-1])
         log.info("applied migration", extra={"plugin": plugin_id, "file": migration.path.name})
     return [m.version for m in pending]
 

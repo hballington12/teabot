@@ -53,7 +53,7 @@ def arrays(tmp_path: Path) -> Arrays:
     directory = tmp_path / "arrays"
     directory.mkdir()
     (directory / "0001_posts.sql").write_text(
-        "CREATE TABLE posts (guild_id bigint NOT NULL, member_ids bigint[] NOT NULL, tags text[] NOT NULL);"
+        "CREATE TABLE posts (guild_id bigint NOT NULL, member_ids teabot.member_id[] NOT NULL, tags text[] NOT NULL);"
     )
     return Arrays(directory)
 
