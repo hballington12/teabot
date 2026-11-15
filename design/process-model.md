@@ -25,5 +25,18 @@ A teabot service runs one Python process per shard group: the Discord gateway, t
     - Failed jobs retry, but none of that protects against a hung loop.
 - **One dependency environment.** Two plugins needing incompatible versions of a library can't both be installed. Every plugin's dependencies also constrain teabot's own. This gets worse as the hub grows.
 - **Every update restarts everything.** Updating one plugin restarts the bot, which reconnects the gateway for every server. Shard clusters with rolling restarts (D40) soften this, but each process still holds all plugins.
-- **No per-plugin limits.** There's no way to cap one plugin's memory or CPU, or to count its use per server. The hosted service's quotas (D47) need both.
+- **No per-plugin limits.** There's no way to cap one plugin's memory or CPU. The hosted service's quotas (D47) are per-server counts of jobs, rows and actions, which the core can keep, so they do not need these caps.
 - **One core for compute.** Python's global interpreter lock means a CPU-heavy plugin competes with the gateway for the same core. Scaling is only by shard groups, each carrying every plugin.
+
+## The verdict
+
+teabot keeps the single process. Splitting plugins into processes would cost the shared cache, direct Discord calls and the shared test path, and add a second SDK in its IPC protocol, while a same-user subprocess still reads the secrets. A real boundary would need a container per plugin. Each cost above has a smaller answer instead, set out in `process-model-suggestion.md`:
+
+| Cost | Answer |
+|---|---|
+| No security boundary | The trust model in D5, review of every dependency change to the hosted lock, the hub's allowlist (D51), and out-of-process plugins for unreviewed code on the hosted service |
+| No fault isolation | The watchdog and its `faulthandler` limit, timeouts for actions and jobs (D33, D31), the queue failing a job that stops the process on every attempt, and a memory cap (D43) |
+| One dependency environment | Wide ranges, the SDK's own libraries, and a nightly resolve of the whole catalogue (D51) |
+| Every update restarts everything | Short restarts, and rolling restarts with the deferred shard clusters |
+| No per-plugin limits | Per-server quotas the core counts, and `duration_ms` in the logs |
+| One core for compute | `asyncio.to_thread`, and a service of the plugin's own for heavy work, called through `ctx.http` |

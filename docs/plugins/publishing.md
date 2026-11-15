@@ -64,6 +64,7 @@ commit=9db374fc205c5aae1f99bd5fd127266076f40ec8
 
 - The file is named for the plugin's id, and the commit is the full hash of the commit to list.
 - The pull request's checks install the plugin at that commit, run `teabot check` and its tests, and post a report. Fix anything they find in your repository, then change `commit=` in the same pull request.
+- Every package your plugin installs beyond teabot's own must be on the hub's `allowed-dependencies.txt`. To add one, open a pull request to that file first, saying what your plugin needs it for. Fewer is better: prefer what teabot already brings, such as `ctx.http` for web requests and pydantic for models.
 - A maintainer reads the code at that commit and merges it. The plugin then appears on the hub's page within minutes.
 - To release an update, change `commit=` in a new pull request. The report links the changes since the listed commit, which is what the maintainer reviews.
 
