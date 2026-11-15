@@ -1,17 +1,30 @@
 """The health report behind `/healthz` (D36, D40). Healthy means every shard is connected and the database answers."""
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import asyncpg
 
 from teabot.db.pool import Database
 
+STATM = Path("/proc/self/statm")
 BACKLOG = "SELECT count(*) FROM core.jobs WHERE state = 'pending' AND run_at <= now()"
 
 type ShardLatencies = Callable[[], dict[int, float | None]]
 type PluginStatuses = Callable[[], dict[str, str]]
+
+
+def memory_mb(statm: Path = STATM) -> float | None:
+    """The process's resident memory now, in megabytes, or None where the system does not say, as on macOS and
+    Windows. The current figure shows a leak growing; a peak would only ever rise."""
+    try:
+        resident_pages = int(statm.read_text().split()[1])
+    except (OSError, IndexError, ValueError):
+        return None
+    return round(resident_pages * os.sysconf("SC_PAGE_SIZE") / 2**20, 1)
 
 
 @dataclass(frozen=True)
@@ -47,6 +60,7 @@ class Health:
             "shards": {str(shard): latency for shard, latency in shards.items()},
             "database": database,
             "queue_backlog": backlog,
+            "memory_mb": memory_mb(),
             "plugins": self.plugins(),
         }
         return HealthReport(ok, body)

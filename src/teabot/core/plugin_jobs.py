@@ -14,6 +14,7 @@ from teabot.core.queue import Queue
 from teabot.core.recurring import Recurring
 from teabot.db.pool import GuildPluginDatabase, Pools
 from teabot.sdk import JobHandler
+from teabot.sdk.actions import JOB_TIMEOUT
 
 log = logging.getLogger(__name__)
 
@@ -78,6 +79,5 @@ def register_plugin_jobs(
         config = plugin.plugin.manifest.config
         runtime = _Runtime(pools, client, recurring)
         for name, handler in plugin.jobs.items():
-            queue.register(
-                plugin_id, name, _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
-            )
+            adapted = _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
+            queue.register(plugin_id, name, adapted, plugin.timeouts.get(name, JOB_TIMEOUT))

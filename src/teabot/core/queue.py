@@ -16,6 +16,7 @@ import asyncpg
 
 from teabot.db.pool import Database, Queries
 from teabot.db.types import Record
+from teabot.sdk.actions import JOB_TIMEOUT
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ CLASH_DELAY = timedelta(seconds=5)
 MAX_BACKOFF = timedelta(hours=1)
 
 SELECT_DUE = """
-SELECT j.id FROM core.jobs j
+SELECT j.id, j.state, j.attempts, j.max_attempts, j.plugin_id, j.handler FROM core.jobs j
 WHERE ((j.state = 'pending' AND j.run_at <= now()) OR (j.state = 'running' AND j.lease_until < now()))
   AND j.plugin_id = ANY($1::text[])
   AND ($2::integer IS NULL OR j.guild_id IS NULL OR ((j.guild_id >> 22) % $2) = ANY($3::integer[]))
@@ -37,6 +38,13 @@ WHERE ((j.state = 'pending' AND j.run_at <= now()) OR (j.state = 'running' AND j
 ORDER BY j.run_at
 LIMIT 1
 FOR UPDATE OF j SKIP LOCKED
+"""
+
+# A running job whose lease ran out was running when its process stopped. With its attempts used up, the job
+# itself may be what stopped it, such as by blocking the loop or exhausting memory, so it is failed, not run again.
+STOPPED = "the process stopped while running it"
+MARK_STOPPED = """
+UPDATE core.jobs SET state = 'failed', last_error = $2, finished_at = now(), lease_until = NULL WHERE id = $1
 """
 
 MARK_RUNNING = """
@@ -116,10 +124,13 @@ class Queue:
         self.db = db
         self.lease = lease
         self.handlers: dict[tuple[str, str], Handler] = {}
+        self.timeouts: dict[tuple[str, str], timedelta] = {}
         self.wake: Callable[[], None] = lambda: None
 
-    def register(self, plugin_id: str, name: str, handler: Handler) -> None:
+    def register(self, plugin_id: str, name: str, handler: Handler, timeout: timedelta = JOB_TIMEOUT) -> None:
+        """Run `handler` for the plugin's jobs called `name`, each stopped once it takes longer than `timeout`."""
         self.handlers[(plugin_id, name)] = handler
+        self.timeouts[(plugin_id, name)] = timeout
 
     async def schedule(self, job: NewJob, *, within: Queries | None = None) -> int:
         """Queue a job from core code. Plugins queue through their own `schedule_job` (D30).
@@ -148,10 +159,28 @@ class Queue:
         """Claim one due job, or return None. A second running apply for a server is put back for later."""
         count = shards.shard_count if shards else None
         ids = list(shards.shard_ids) if shards else []
+        while True:
+            stopped, claimed = await self._claim_one(list(runnable_plugins), count, ids)
+            if not stopped:
+                return claimed
+
+    async def _claim_one(
+        self, plugins: list[str], count: int | None, ids: list[int]
+    ) -> tuple[bool, Job | None]:
+        """Claim the next due job. Returns whether the job found was failed instead, for having stopped its
+        process on every attempt, and the job claimed."""
         async with self.db.transaction() as tx:
-            job_id = await tx.fetchval(SELECT_DUE, list(runnable_plugins), count, ids)
-            if job_id is None:
-                return None
+            due = await tx.fetchrow(SELECT_DUE, plugins, count, ids)
+            if due is None:
+                return False, None
+            job_id = due["id"]
+            if due["state"] == "running" and due["attempts"] >= due["max_attempts"]:
+                await tx.execute(MARK_STOPPED, job_id, STOPPED)
+                log.warning(
+                    "job failed: its process stopped on every attempt",
+                    extra={"job_id": job_id, "plugin": due["plugin_id"], "handler": due["handler"]},
+                )
+                return True, None
             try:
                 async with tx.connection.transaction():
                     row = await tx.fetchrow(MARK_RUNNING, job_id, self.lease)
@@ -159,8 +188,8 @@ class Queue:
                 await tx.execute(
                     "UPDATE core.jobs SET run_at = now() + $2::interval WHERE id = $1", job_id, CLASH_DELAY
                 )
-                return None
-        return Job.from_row(row) if row is not None else None
+                return False, None
+        return False, Job.from_row(row) if row is not None else None
 
     async def extend_lease(self, job: Job) -> None:
         await self.db.execute(

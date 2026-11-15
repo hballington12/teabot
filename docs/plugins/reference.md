@@ -70,6 +70,8 @@ async def draw(ctx: Ctx, channel: TextChannel, prize: Annotated[str, Field(max_l
 - `reply="public"` shows the reply to the channel. Replies are private by default.
 - The docstring's first line is the summary. Its `Args:` section describes every input, each in at most 100 characters. A missing entry fails the load and names the line.
 
+- A call that takes longer than a minute is stopped, and the member is told `That took too long, so it was stopped.` An action that needs longer says so, as in `@plugin.action(timeout=timedelta(minutes=5))`. A destructive action's apply runs as a job, with up to an hour.
+
 ### Inputs
 
 Every parameter after the context is an input. Each may be optional (`X | None = None`) or have a default.
@@ -309,7 +311,7 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
     - Never await Discord or HTTP inside a block. It holds a connection and its locks across a slow call. `tx.send` is not a Discord call: it stores the post, which teabot sends after the commit.
 - Use `now()` in SQL for the time, never `CURRENT_TIMESTAMP`, since tests move `now()`.
 - Never build dynamic SQL from member input in a plpgsql function (`EXECUTE`). It is the one way an injection bug could reach another plugin's data.
-- Never block the event loop. Use async libraries for any I/O.
+- Never block the event loop. Use async libraries for any I/O, and run a blocking library through `await asyncio.to_thread(...)`. Work that keeps a CPU busy for long, such as image processing, belongs in a service of its own, called through `ctx.http`. teabot logs a plugin that holds the loop for a second, with its file and line, and stops the process after thirty seconds held.
 
 ### Posting with a transaction
 
@@ -407,6 +409,7 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 - In a job, `ctx.actor` is the member who scheduled it and `ctx.config` is the server's config when it runs. If the bot has left the server, the job is dropped.
 - A job can run twice: after a crash, its lease runs out and another worker takes it. Check state first, so that a second run changes nothing, and test it with `harness.run_job`.
 - A failing job is retried after 2, 4, 8 and 16 seconds, five attempts in all, then stays failed with its error, which `/admin job_status` shows. Raise `ActionError` to give that error in your words.
+- A run that takes longer than fifteen minutes is stopped and retried like a failure. A job that needs longer says so, as in `@plugin.job(timeout=timedelta(hours=1))`. A run that stops the whole process, such as by blocking it or running out of memory, on every attempt is failed, with the error "the process stopped while running it".
 
 A job can also run on its own, on a schedule:
 

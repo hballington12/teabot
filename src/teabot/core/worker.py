@@ -3,12 +3,20 @@
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import Callable, Sequence
 
 from teabot.core.queue import Job, JobContext, NewJob, Queue, ShardFilter
 from teabot.db.pool import Database
+from teabot.sdk.actions import JOB_TIMEOUT
 
 log = logging.getLogger(__name__)
+
+
+def _ms(started: float) -> int:
+    """Milliseconds since `started`, from `time.monotonic()`."""
+    return round((time.monotonic() - started) * 1000)
+
 
 MAINTENANCE_PENDING = """
 SELECT 1 FROM core.jobs
@@ -88,8 +96,25 @@ class Workers:
             await self.queue.fail(job, f"no handler {job.plugin_id}.{job.handler}")
             return
         keeper = asyncio.create_task(self._keep_lease(job))
+        limit = self.queue.timeouts.get((job.plugin_id, job.handler), JOB_TIMEOUT)
+        started = time.monotonic()
         try:
-            await handler(JobContext(job, self.queue.db))
+            async with asyncio.timeout(limit.total_seconds()):
+                await handler(JobContext(job, self.queue.db))
+        except TimeoutError:
+            error = f"took longer than {limit.total_seconds():g} seconds, so it was stopped"
+            log.warning(
+                "job %s.%s timed out",
+                job.plugin_id,
+                job.handler,
+                extra={
+                    "job_id": job.id,
+                    "plugin": job.plugin_id,
+                    "handler": job.handler,
+                    "duration_ms": _ms(started),
+                },
+            )
+            await self.queue.fail(job, error)
         except Exception as exc:
             log.warning(
                 "job %s.%s failed: %r",
@@ -97,10 +122,25 @@ class Workers:
                 job.handler,
                 exc,
                 exc_info=exc,
-                extra={"job_id": job.id, "handler": job.handler, "error": repr(exc)},
+                extra={
+                    "job_id": job.id,
+                    "plugin": job.plugin_id,
+                    "handler": job.handler,
+                    "error": repr(exc),
+                    "duration_ms": _ms(started),
+                },
             )
             await self.queue.fail(job, repr(exc))
         else:
+            log.info(
+                "job done",
+                extra={
+                    "job_id": job.id,
+                    "plugin": job.plugin_id,
+                    "handler": job.handler,
+                    "duration_ms": _ms(started),
+                },
+            )
             await self.queue.finish(job)
         finally:
             keeper.cancel()

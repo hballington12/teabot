@@ -31,7 +31,7 @@ class _Collector:
     def action(self, spec: ActionSpec[Any, Any]) -> None:
         self.actions.append(spec)
 
-    def job(self, name: str, handler: JobHandler) -> None:
+    def job(self, name: str, handler: JobHandler, timeout: timedelta | None = None) -> None:
         self.jobs[name] = handler
 
     def event(self, name: EventName, handler: JobHandler) -> None:

@@ -37,6 +37,7 @@ from teabot.health import Health
 from teabot.runtime import Runtime, serve_until_stopped
 from teabot.sdk.plugin import EventName
 from teabot.settings import Settings
+from teabot.watchdog import watching
 from teabot.web import build_app
 
 log = logging.getLogger(__name__)
@@ -306,13 +307,19 @@ def stop_on_signals(loop: asyncio.AbstractEventLoop, stop: asyncio.Event) -> Non
 
 
 async def main(settings: Settings) -> int:
-    """Open the real parts, run until stopped, and return the exit code."""
+    """Open the real parts, run until stopped, and return the exit code. The watchdog is armed before the
+    plugins load, so one that hangs while it is imported is caught too (D33)."""
     token = token_or_exit(settings.discord_token.get_secret_value())
+    dog = watching(settings.loop_warn_seconds, settings.loop_limit_seconds, settings.startup_limit_seconds)
+    dog.arm()
     rt = await _open_runtime(settings, token)
+    heartbeat = asyncio.create_task(dog.beat())
     stop_on_signals(asyncio.get_running_loop(), rt.stop)
     try:
         return await serve_until_stopped(rt)
     finally:
+        heartbeat.cancel()
+        dog.disarm()
         await rt.pools.close()
 
 

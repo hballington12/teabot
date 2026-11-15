@@ -8,6 +8,7 @@ plugin's.
 """
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Protocol
 
 from teabot.auth.tokens import Tokens
@@ -26,6 +27,8 @@ from teabot.core.recurring import Recurring
 from teabot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
 from teabot.db.pool import Pools
 from teabot.sdk.plans import Diff
+
+APPLY_TIMEOUT = timedelta(hours=1)
 
 
 class Client(GuildSource, ChannelSource, CommandApi, Protocol):
@@ -75,7 +78,8 @@ def assemble(
 
     queue.register("core", SYNC_HANDLER, sync)
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
-    queue.register("core", APPLY_HANDLER, apply)
+    # An apply waits out Discord's rate limits, so a change to hundreds of members can rightly take a while.
+    queue.register("core", APPLY_HANDLER, apply, APPLY_TIMEOUT)
     outbox = Outbox(pools.core_db(), client)
     queue.register("core", POST_MESSAGE, outbox)
     recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})

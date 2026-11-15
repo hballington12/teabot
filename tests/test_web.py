@@ -1,5 +1,7 @@
 """`/healthz`: 200 when the gateway and database are fine, 503 otherwise, with the details either way."""
 
+import os
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -10,7 +12,7 @@ from teabot.db.migrate import migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
-from teabot.health import Health
+from teabot.health import Health, memory_mb
 from teabot.web import build_app
 
 
@@ -33,6 +35,8 @@ async def test_healthy(migrated: Pools) -> None:
     health = Health("1.2.3", migrated.core_db(), lambda: {0: 0.05, 1: 0.07}, lambda: {"alpha": "loaded"})
     status, body = await get(health)
     assert status == 200
+    memory = body.pop("memory_mb")
+    assert memory is None or memory > 0
     assert body == {
         "ok": True,
         "version": "1.2.3",
@@ -58,3 +62,10 @@ async def test_unreachable_database(migrated: Pools) -> None:
     status, body = await get(health)
     assert status == 503
     assert body["database"] is False and body["queue_backlog"] is None
+
+
+def test_memory_is_read_from_statm_and_unknown_without_it(tmp_path: Path) -> None:
+    statm = tmp_path / "statm"
+    statm.write_text("50000 25600 1000 1 0 3000 0\n")
+    assert memory_mb(statm) == round(25600 * os.sysconf("SC_PAGE_SIZE") / 2**20, 1)
+    assert memory_mb(tmp_path / "missing") is None

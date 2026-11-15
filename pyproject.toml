@@ -173,6 +173,7 @@ forbidden_modules = [
     "teabot.runtime",
     "teabot.settings",
     "teabot.testing",
+    "teabot.watchdog",
     "teabot.web",
 ]
 
@@ -196,6 +197,7 @@ forbidden_modules = [
     "teabot.runtime",
     "teabot.settings",
     "teabot.testing",
+    "teabot.watchdog",
     "teabot.web",
 ]
 
@@ -213,6 +215,7 @@ source_modules = [
     "teabot.db",
     "teabot.runtime",
     "teabot.testing",
+    "teabot.watchdog",
     "teabot.web",
 ]
 forbidden_modules = ["teabot.plugins"]

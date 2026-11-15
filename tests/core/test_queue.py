@@ -252,6 +252,23 @@ async def test_a_long_job_keeps_its_lease(admin: Conn, pools: Pools, queue: Queu
     assert stolen is None
 
 
+async def test_a_job_that_stops_its_process_every_time_is_failed_not_run_again(
+    queue: Queue, admin: Conn
+) -> None:
+    job_id = await queue.schedule(NewJob("alpha", "x", guild_id=SHARD0_GUILD, max_attempts=2))
+    later = await queue.schedule(NewJob("alpha", "y", guild_id=SHARD0_GUILD))
+    for _ in range(2):
+        claimed = await queue.claim(["alpha"], None)
+        assert claimed is not None and claimed.id == job_id
+        await admin.execute(
+            "UPDATE core.jobs SET lease_until = now() - interval '1 second' WHERE id = $1", job_id
+        )
+    nxt = await queue.claim(["alpha"], None)
+    assert nxt is not None and nxt.id == later
+    state = await job_state(admin, job_id)
+    assert (state["state"], state["last_error"]) == ("failed", "the process stopped while running it")
+
+
 async def test_a_job_can_carry_its_own_attempt_limit(queue: Queue, admin: Conn) -> None:
     default = await queue.schedule(NewJob("alpha", "x", guild_id=SHARD0_GUILD))
     patient = await queue.schedule(NewJob("alpha", "x", guild_id=SHARD0_GUILD, max_attempts=48))

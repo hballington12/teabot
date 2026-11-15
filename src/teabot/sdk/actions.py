@@ -3,6 +3,7 @@
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from datetime import timedelta
 from enum import Flag, IntEnum, auto
 from typing import Any, Literal, Protocol
 
@@ -109,6 +110,9 @@ class ActionContext(Protocol):
 
 
 MENU_NAME_MAX = 32
+# How long an action, and a job, may take unless it says otherwise (D33).
+ACTION_TIMEOUT = timedelta(minutes=1)
+JOB_TIMEOUT = timedelta(minutes=15)
 
 
 @dataclass(frozen=True)
@@ -138,6 +142,8 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     - `reply` is `"private"` for a reply only the member sees, or `"public"` for one the channel sees.
     - `suggest` maps an input's name to the function that suggests its values as the member types.
     - `menu` makes it a right-click command on a member or a message, which fills one input.
+    - `timeout` is how long a call may take before it fails, a minute unless given. A destructive action's
+      apply runs as a job, which has the job's limit instead.
     """
 
     name: str
@@ -155,6 +161,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
         default_factory=dict[str, Callable[[ActionContext, str], Awaitable[list["Choice[Any]"]]]]
     )
     menu: "Menu | None" = None
+    timeout: timedelta = ACTION_TIMEOUT
 
     def __post_init__(self) -> None:
         if not ACTION_NAME_RE.fullmatch(self.name):

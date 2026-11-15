@@ -103,8 +103,9 @@ class Registrar(Protocol):
         """Offer an action. Its name must start with the plugin's id."""
         ...
 
-    def job(self, name: str, handler: JobHandler) -> None:
-        """Handle the plugin's jobs called `name`, which its actions queue with `ctx.queue.schedule`."""
+    def job(self, name: str, handler: JobHandler, timeout: timedelta | None = None) -> None:
+        """Handle the plugin's jobs called `name`, which its actions queue with `ctx.queue.schedule`. A run is
+        stopped once it takes longer than `timeout`, fifteen minutes unless given."""
         ...
 
     def recurring(self, name: str, every: timedelta) -> None:

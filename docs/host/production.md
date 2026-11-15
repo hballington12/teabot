@@ -53,13 +53,13 @@ AI assistants and your own services reach teabot over HTTP, on `127.0.0.1:8780`.
 curl -s http://127.0.0.1:8780/healthz
 ```
 
-It answers `"ok":true` while the bot is connected to Discord and its database, with each plugin's state, the queue's backlog and the version:
+It answers `"ok":true` while the bot is connected to Discord and its database, with each plugin's state, the queue's backlog, the memory it uses now and the version:
 
 ```json
-{"ok":true,"version":"1.2.0","shards":{"0":0.05},"database":true,"queue_backlog":0,"plugins":{"announcements":"loaded","giveaways":"loaded"}}
+{"ok":true,"version":"1.5.0","shards":{"0":0.05},"database":true,"queue_backlog":0,"memory_mb":182.4,"plugins":{"announcements":"loaded","roles":"loaded"}}
 ```
 
-A plugin that failed to load shows why, such as `failed` or `duplicate_id`. The check answers only on this machine, so watch it from here, with a monitoring agent or a cron job. Compose restarts the bot if it stops.
+A plugin that failed to load shows why, such as `failed` or `duplicate_id`. A plugin that holds teabot's event loop for a second is logged as `event loop blocked`, with the plugin and the line of its code. One that holds it for thirty seconds stops teabot, which logs every thread's traceback first, and Compose or systemd starts it again. `TEABOT_LOOP_WARN_SECONDS` and `TEABOT_LOOP_LIMIT_SECONDS` change the two limits. The check answers only on this machine, so watch it from here, with a monitoring agent or a cron job. Compose restarts the bot if it stops.
 
 ## Upgrade
 

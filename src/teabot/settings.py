@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     disabled_plugins: Annotated[tuple[str, ...], NoDecode] = ()
     guild_retention_days: int = Field(default=30, ge=0)
     message_content: bool = False
+    loop_warn_seconds: float = Field(default=1.0, gt=0)
+    loop_limit_seconds: float = Field(default=30.0, gt=0)
+    startup_limit_seconds: float = Field(default=600.0, gt=0)
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["auto", "text", "json"] = "auto"

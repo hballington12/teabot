@@ -8,6 +8,7 @@ the action is known is audited once with the outcome `refused`. Token checks (D1
 
 import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
@@ -354,8 +355,16 @@ class Registry:
         self, spec: ActionSpec[Any, Any], record: CallRecord, ctx: PluginActionContext, data: BaseModel
     ) -> BaseModel:
         audit_id = await self.audit.started(record) if spec.risk > Risk.READ else None
+        started = time.monotonic()
         try:
-            output = await spec.run(ctx, data)
+            async with asyncio.timeout(spec.timeout.total_seconds()):
+                output = await spec.run(ctx, data)
+        except TimeoutError as exc:
+            message = (
+                f"{spec.name} took longer than {spec.timeout.total_seconds():g} seconds, so it was stopped."
+            )
+            await self._record(spec, record, audit_id, "error", message)
+            raise ActionFailed(message, public_message="That took too long, so it was stopped.") from exc
         except ActionError as exc:
             await self._record(spec, record, audit_id, "error", str(exc))
             raise ActionFailed(repr(exc), public_message=str(exc)) from exc
@@ -363,6 +372,10 @@ class Registry:
             await self._record(spec, record, audit_id, "error", repr(exc))
             raise ActionFailed(repr(exc)) from exc
         await self._record(spec, record, audit_id, "ok", None)
+        log.info(
+            "action done",
+            extra={"action": spec.name, "duration_ms": round((time.monotonic() - started) * 1000)},
+        )
         return output
 
     async def _record(

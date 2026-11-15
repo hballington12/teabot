@@ -58,6 +58,7 @@ class Loaded:
     jobs: dict[str, JobHandler] = field(default_factory=dict[str, JobHandler])
     events: frozenset[EventName] = frozenset()
     recurring: dict[str, timedelta] = field(default_factory=dict[str, timedelta])
+    timeouts: dict[str, timedelta] = field(default_factory=dict[str, timedelta])
 
 
 @dataclass
@@ -166,6 +167,7 @@ class _Registrar:
         self.jobs: dict[str, JobHandler] = {}
         self.events: set[EventName] = set()
         self.every: dict[str, timedelta] = {}
+        self.timeouts: dict[str, timedelta] = {}
 
     def recurring(self, name: str, every: timedelta) -> None:
         if name not in self.jobs:
@@ -179,10 +181,12 @@ class _Registrar:
             raise ValueError(f"{spec.name} registered twice")
         self.actions[spec.name] = spec
 
-    def job(self, name: str, handler: JobHandler) -> None:
+    def job(self, name: str, handler: JobHandler, timeout: timedelta | None = None) -> None:
         if name in self.jobs:
             raise ValueError(f"job {name} registered twice")
         self.jobs[name] = handler
+        if timeout is not None:
+            self.timeouts[name] = timeout
 
     def event(self, name: EventName, handler: JobHandler) -> None:
         if name in self.events:
@@ -232,7 +236,12 @@ def _setup(plugin_id: str, plugin: LoadablePlugin, report: LoadReport) -> bool:
         report.fail(plugin_id, "failed", f"setup failed: {exc!r}")
         return False
     report.loaded[plugin_id] = Loaded(
-        plugin, registrar.actions, registrar.jobs, frozenset(registrar.events), registrar.every
+        plugin,
+        registrar.actions,
+        registrar.jobs,
+        frozenset(registrar.events),
+        registrar.every,
+        registrar.timeouts,
     )
     report.statuses[plugin_id] = LOADED
     return True

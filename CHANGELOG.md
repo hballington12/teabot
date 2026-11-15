@@ -6,6 +6,16 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Self-hosting
+
+- A watchdog logs a plugin that holds the event loop for a second, as `event loop blocked` with the plugin, file and line, and stops the process after thirty seconds held, for Compose or systemd to restart it. `TEABOT_LOOP_WARN_SECONDS`, `TEABOT_LOOP_LIMIT_SECONDS` and `TEABOT_STARTUP_LIMIT_SECONDS` set the limits.
+- A job that stops the process on every attempt is failed, with "the process stopped while running it", where it used to run again after every restart.
+- `/healthz` reports the memory the process uses now, as `memory_mb`. Action and job log lines carry `duration_ms`.
+
+### Writing plugins
+
+- An action is stopped after a minute and a job after fifteen, unless it sets `timeout=` in its decorator. A destructive action's apply has an hour.
+
 ## 1.4.0 - 2026-11-15
 
 ### Using teabot

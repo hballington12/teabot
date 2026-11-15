@@ -45,6 +45,7 @@ from teabot.sdk._signature import (
 )
 from teabot.sdk._views import guild_view
 from teabot.sdk.actions import (
+    ACTION_TIMEOUT,
     MENU_NAME_MAX,
     SYSTEM,
     ActionContext,
@@ -173,6 +174,7 @@ class Action[C: BaseModel, **P, R]:
     - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
     - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches.
     - `menu` is its right-click command, if `menu=` made one.
+    - `timeout` is how long a call may take before it is stopped.
     """
 
     func: Callable[Concatenate[Context[C], P], Awaitable[R]]
@@ -189,6 +191,7 @@ class Action[C: BaseModel, **P, R]:
     )
     hosts: frozenset[str] = frozenset()
     menu: Menu | None = None
+    timeout: timedelta = ACTION_TIMEOUT
 
     def autocomplete[T: (str, int)](
         self, option: str
@@ -235,6 +238,7 @@ class Action[C: BaseModel, **P, R]:
             surfaces=self._surfaces(),
             suggest={option: self._suggester(option) for option in self.suggesters},
             menu=self.menu,
+            timeout=self.timeout,
         )
 
     def _surfaces(self) -> Surface:
@@ -335,6 +339,7 @@ class Job[C: BaseModel, **P]:
     - `inputs` is the payload's model, read from the function's signature.
     - `every` is how often it runs on its own, or None for a job that runs when scheduled.
     - `plugin_id` is its plugin's id, and `hosts` the hosts its plugin declared, which its `ctx.http` reaches.
+    - `timeout` is how long a run may take before it is stopped, or None for teabot's fifteen minutes.
     """
 
     func: Callable[Concatenate[Context[C], P], Awaitable[None]]
@@ -343,6 +348,7 @@ class Job[C: BaseModel, **P]:
     every: timedelta | None = None
     plugin_id: str = ""
     hosts: frozenset[str] = frozenset()
+    timeout: timedelta | None = None
 
     def bind(self, *args: P.args, **kwargs: P.kwargs) -> Bound:
         """The job with its arguments fixed, for `tx.schedule` and `tx.unschedule`. Its key is the job's name and
@@ -407,6 +413,7 @@ class Plugin(Generic[Cfg]):
         reply: Literal["private", "public"] = "private",
         surfaces: Surface = Surface.ALL,
         menu: str | None = None,
+        timeout: timedelta = ACTION_TIMEOUT,
     ) -> Callable[[Callable[Concatenate[Context[Cfg], P], Awaitable[R]]], Action[Cfg, P, R]]:
         """Make a function an action: a slash command, an MCP tool, a service route, and what a button or select
         menu runs, at once (D1).
@@ -418,6 +425,8 @@ class Plugin(Generic[Cfg]):
         `menu="Give a pet"` also makes it a right-click command, named so in Discord's Apps menu, on a member when
         its one input is a `Member`, or on a message when it is a `ReceivedMessage`. An action on a message is not
         a slash command, since no slash command can give one.
+
+        `timeout` is how long a call may take before teabot stops it and tells the member, a minute unless given.
         """
 
         def register(func: Callable[Concatenate[Context[Cfg], P], Awaitable[R]]) -> Action[Cfg, P, R]:
@@ -441,6 +450,7 @@ class Plugin(Generic[Cfg]):
                 surfaces=offered,
                 hosts=self.hosts,
                 menu=found_menu,
+                timeout=timeout,
             )
             self.actions[action_name] = built
             self._module = self._module or func.__module__
@@ -452,16 +462,33 @@ class Plugin(Generic[Cfg]):
     def job[**P](self, func: Callable[Concatenate[Context[Cfg], P], Awaitable[None]], /) -> Job[Cfg, P]: ...
     @overload
     def job(
-        self, func: None = None, /, *, name: str | None = None, every: timedelta | None = None
+        self,
+        func: None = None,
+        /,
+        *,
+        name: str | None = None,
+        every: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> "NamedJob[Cfg]": ...
-    def job(self, func: Any = None, /, *, name: str | None = None, every: timedelta | None = None) -> Any:
+    def job(
+        self,
+        func: Any = None,
+        /,
+        *,
+        name: str | None = None,
+        every: timedelta | None = None,
+        timeout: timedelta | None = None,
+    ) -> Any:
         """Make a function one of the plugin's jobs: `@plugin.job`, or `@plugin.job(name="...")` to keep a name
         that jobs already queued were stored under. Its parameters, after the context, are its payload.
 
         `@plugin.job(every=timedelta(days=1))` runs it on its own, every day, in each server where the plugin
-        is enabled. A recurring job takes no parameters after the context."""
+        is enabled. A recurring job takes no parameters after the context.
+
+        `timeout` is how long a run may take before teabot stops it and retries it later, fifteen minutes unless
+        given."""
         if func is None:
-            return NamedJob(self, name, every)
+            return NamedJob(self, name, every, timeout)
         return self.register_job(func, name)
 
     def register_job[**P](
@@ -469,6 +496,7 @@ class Plugin(Generic[Cfg]):
         func: Callable[Concatenate[Context[Cfg], P], Awaitable[None]],
         name: str | None = None,
         every: timedelta | None = None,
+        timeout: timedelta | None = None,
     ) -> Job[Cfg, P]:
         """Register a job; `@plugin.job` is the usual way to call this."""
         job_name = name or func.__name__
@@ -483,7 +511,7 @@ class Plugin(Generic[Cfg]):
                 raise SignatureError(
                     f"{where(func)}: {self.id}.{job_name} runs on its own, so it takes no parameters after ctx"
                 )
-        built = Job(func, job_name, inputs, every, self.id, self.hosts)
+        built = Job(func, job_name, inputs, every, self.id, self.hosts, timeout)
         self.jobs[job_name] = built
         self._module = self._module or func.__module__
         return built
@@ -540,7 +568,7 @@ class Plugin(Generic[Cfg]):
                 )
             registrar.action(action.spec())
         for job in self.jobs.values():
-            registrar.job(job.name, job._handle)  # pyright: ignore[reportPrivateUsage]
+            registrar.job(job.name, job._handle, job.timeout)  # pyright: ignore[reportPrivateUsage]
             if job.every is not None:
                 registrar.recurring(job.name, job.every)
         for event, func in self.listeners.items():
@@ -684,9 +712,10 @@ class NamedJob[C: BaseModel]:
     plugin: Plugin[C]
     name: str | None
     every: timedelta | None = None
+    timeout: timedelta | None = None
 
     def __call__[**P](self, func: Callable[Concatenate[Context[C], P], Awaitable[None]]) -> Job[C, P]:
-        return self.plugin.register_job(func, self.name, self.every)
+        return self.plugin.register_job(func, self.name, self.every, self.timeout)
 
 
 def _caller_module() -> str:
