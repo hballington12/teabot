@@ -230,6 +230,7 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 | `@plugin.on_reaction_remove` | `Reaction` | A person takes a reaction off. |
 | `@plugin.on_member_roles` | `RoleChange`: `member`, and the role IDs `added` and `removed` | A member's roles change. |
 | `@plugin.on_voice` | `VoiceChange`: `member`, and the channel IDs `left` and `joined` | A member joins, leaves or moves between voice channels. |
+| `@plugin.on_enable` | nothing but `ctx` | The server turns the plugin on, each time. Check what is already there first. |
 
 - Messages and reactions from bots, teabot's own among them, are not heard, so plugins cannot set each other off in a loop.
 - A message's `content` is empty unless the operator turns on the Message Content intent, with `TEABOT_MESSAGE_CONTENT=true` (see [Settings](../host/settings.md)). Messages that mention the bot carry their text anyway. Say in the plugin's README when it needs the intent.
@@ -341,6 +342,7 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 | `harness.react(message, member, emoji)` | fire a reaction; `remove=True` takes it off |
 | `harness.change_roles(member, added=[...], removed=[...])` | change a member's roles and fire it |
 | `harness.voice(member, joined=channel, left=channel)` | fire a voice move |
+| `harness.enable()` | turn the plugin on as `/plugins enable` would, running `on_enable`; the harness starts with it on without running it |
 | `harness.autocomplete(action, "option", typed)` | the suggestions a member sees after typing `typed`; `as_member(m).autocomplete(...)` as someone else, who sees none if they may not run the action |
 | `harness.run_job(job.bind(...))` | runs the job now, as if scheduled again; use it after the job's first run, then check that nothing changed again |
 | `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |

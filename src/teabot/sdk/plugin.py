@@ -83,7 +83,14 @@ type JobHandler = Callable[[JobContext], Awaitable[None]]
 
 
 type EventName = Literal[
-    "member_join", "member_leave", "message", "reaction_add", "reaction_remove", "member_roles", "voice"
+    "member_join",
+    "member_leave",
+    "message",
+    "reaction_add",
+    "reaction_remove",
+    "member_roles",
+    "voice",
+    "enable",
 ]
 """The Discord events a plugin can handle."""
 

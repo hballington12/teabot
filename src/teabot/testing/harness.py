@@ -200,6 +200,17 @@ class PluginHarness:
         await self.events.fire(self.guild.id, "member_leave", {"user_id": member.id, "name": member.name})
         await self.run_jobs()
 
+    async def enable(self) -> None:
+        """Turn the plugin on in the fake server as `/plugins enable` would, as the first member, and run its
+        enable handler. The harness starts with the plugin on without running it."""
+        await self.admin.execute(
+            "UPDATE core.guild_plugins SET enabled = false WHERE guild_id = $1 AND plugin_id = $2",
+            self.guild.id,
+            self.plugin_id,
+        )
+        await self.invoke("plugins.enable", {"plugin": self.plugin_id})
+        await self.run_jobs()
+
     async def _fire(self, event: EventName, payload: Mapping[str, Any]) -> None:
         assert self.events is not None
         await self.events.fire(self.guild.id, event, payload)

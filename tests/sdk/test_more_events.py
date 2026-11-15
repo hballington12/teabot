@@ -45,6 +45,11 @@ async def voice(ctx: Ctx, change: VoiceChange) -> None:
     heard.append(change)
 
 
+@plugin.on_enable
+async def enabled(ctx: Ctx) -> None:
+    heard.append(("enabled", ctx.guild.id))
+
+
 @pytest.fixture
 async def harness(teabot_harness: HarnessFactory) -> PluginHarness:
     heard.clear()
@@ -83,3 +88,12 @@ async def test_a_disabled_plugin_hears_nothing(harness: PluginHarness) -> None:
     channel = harness.guild.add_channel(FakeChannel(name="chat"))
     await harness.post(channel, harness.member, "anyone?")
     assert heard == []
+
+
+async def test_turning_the_plugin_on_runs_its_enable_handler_each_time(harness: PluginHarness) -> None:
+    await harness.enable()
+    await harness.invoke("plugins.enable", {"plugin": "eventlog"})
+    await harness.run_jobs()
+    assert heard == [("enabled", harness.guild.id)]
+    await harness.enable()
+    assert heard == [("enabled", harness.guild.id)] * 2

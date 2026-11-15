@@ -465,6 +465,13 @@ class Plugin(Generic[Cfg]):
         heard. It runs as a job."""
         return self._listen("voice", func)
 
+    def on_enable(
+        self, func: Callable[[Context[Cfg]], Awaitable[None]]
+    ) -> Callable[[Context[Cfg]], Awaitable[None]]:
+        """Run `func` when a server turns the plugin on, such as to create what it needs there. It runs again
+        each time the plugin is turned back on, so check what is already there first. It runs as a job."""
+        return self._listen("enable", func)
+
     def _listen[F: Callable[..., Awaitable[None]]](self, event: EventName, func: F) -> F:
         if event in self.listeners:
             raise SignatureError(f"{where(func)}: {self.id} already handles {event}")
@@ -484,6 +491,9 @@ class Plugin(Generic[Cfg]):
             context = _Context(
                 guild_view(guild, _reason(name, actor)), actor, job.config, lambda: job.db, job.report
             )
+            if event == "enable":
+                await func(context)
+                return
             received = await _received(event, context.guild, job.payload)
             if received is not None:
                 await func(context, received)

@@ -22,6 +22,9 @@ MANAGE_SERVER = discord.Permissions(manage_guild=True)
 ADMIN = "admin"
 
 STATES = "SELECT plugin_id, enabled FROM core.guild_plugins WHERE guild_id = $1 AND plugin_id <> 'admin'"
+WAS_ENABLED = (
+    "SELECT coalesce((SELECT enabled FROM core.guild_plugins WHERE guild_id = $1 AND plugin_id = $2), false)"
+)
 SET_ENABLED = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled, updated_by) VALUES ($1, $2, $3, $4)
 ON CONFLICT (guild_id, plugin_id) DO UPDATE
@@ -96,6 +99,10 @@ async def _nothing(_guild_id: int) -> None:
     return None
 
 
+async def _nothing_enabled(_guild_id: int, _plugin_id: str, _user_id: int) -> None:
+    return None
+
+
 class Admin:
     """The admin plugin's actions over core services. `statuses` maps each known plugin to `loaded` or the
     reason it is not; `configs` holds the config model of each loaded plugin."""
@@ -107,12 +114,14 @@ class Admin:
         statuses: MutableMapping[str, str],
         configs: Mapping[str, type[BaseModel]],
         on_change: Callable[[int], Awaitable[None]] = _nothing,
+        on_enabled: Callable[[int, str, int], Awaitable[None]] = _nothing_enabled,
     ) -> None:
         self.db = db
         self.store = ConfigStore(db)
         self.statuses = statuses
         self.configs = configs
         self.on_change = on_change
+        self.on_enabled = on_enabled
 
     def _known(self, plugin: str) -> str:
         if plugin not in self.statuses or plugin == ADMIN:
@@ -127,8 +136,11 @@ class Admin:
         return PluginStates(plugins=states)
 
     async def _set(self, ctx: ActionContext, plugin: str, enabled: bool) -> Toggled:
+        was = await self.db.fetchval(WAS_ENABLED, ctx.guild.id, plugin)
         await self.db.execute(SET_ENABLED, ctx.guild.id, plugin, enabled, ctx.actor.user_id)
         await self.on_change(ctx.guild.id)
+        if enabled and not was:
+            await self.on_enabled(ctx.guild.id, plugin, ctx.actor.user_id)
         return Toggled(plugin=plugin, enabled=enabled)
 
     async def enable(self, ctx: ActionContext, data: PluginChoice) -> Toggled:

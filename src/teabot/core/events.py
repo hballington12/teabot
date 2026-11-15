@@ -36,6 +36,12 @@ class Events:
         """Whether any loaded plugin listens for `event`, so the gateway can skip the rest without a query."""
         return any(event in events for events in self.listeners.values())
 
+    async def enabled(self, guild_id: int, plugin_id: str, user_id: int) -> None:
+        """A server has just turned `plugin_id` on: queue its enable handler, if it has one."""
+        if "enable" in self.listeners.get(plugin_id, ()):
+            job = NewJob(plugin_id, event_job("enable"), guild_id, payload={"user_id": user_id})
+            await self.queue.schedule(job)
+
     async def fire(self, guild_id: int, event: EventName, payload: Mapping[str, Any]) -> int:
         """Queue `event` for every listening plugin enabled in the server; returns how many. `payload` is what
         the handler receives, such as `user_id`, and for a leave the member's username as `name`, which the

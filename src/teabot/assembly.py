@@ -79,4 +79,5 @@ def assemble(
     register_plugin_jobs(queue, report.loaded, pools, client)
     listeners = {plugin_id: loaded.events for plugin_id, loaded in report.loaded.items() if loaded.events}
     events = Events(pools.core_db(), queue, listeners)
+    admin.on_enabled = events.enabled
     return Core(registry, sources, statuses, sync, tokens, queue, events, outbox)

@@ -9,6 +9,7 @@ from pydantic import Field
 from teabot.adapters.schema import fold_lists, mcp_input_schema, slash_fields
 from teabot.sdk import Choice, Context, EmptyConfig, Option, Plugin, Role, Select, TextChannel
 from teabot.sdk._signature import SignatureError
+from teabot.sdk._views import _menu  # pyright: ignore[reportPrivateUsage]
 from teabot.testing import FakeChannel, HarnessFactory
 
 plugin = Plugin("lists")
@@ -188,7 +189,5 @@ def test_suggestions_are_for_options_the_action_has() -> None:
 
 
 async def test_discord_gets_the_defaults_as_its_default_values() -> None:
-    from teabot.sdk._views import _menu  # pyright: ignore[reportPrivateUsage]
-
     item = _menu(Select(pick.bind(), into="roles", kind="role", max=2, defaults=(5, 6)))
     assert [int(d.id) for d in getattr(item, "default_values", [])] == [5, 6]
