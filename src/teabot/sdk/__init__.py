@@ -13,6 +13,7 @@ A plugin:
 - `Manifest`: a plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
 - `InstanceSettings`: settings for the whole instance, such as an API key, from `plugin.instance_settings(Model)`,
   read from `TEABOT_PLUGIN_<ID>_<FIELD>`.
+- `Store`: `ctx.store(Model)`, a server's pydantic records by key, for plugins that need no SQL.
 - `Http`: `ctx.http`, the shared HTTP client for the hosts in `Plugin(..., hosts=[...])`. A request returns a
   `Response`; one to an undeclared host raises `HostNotDeclared`.
 - `LoadablePlugin`: what an entry point may name: a `Plugin`, or any object with a `Manifest` and a `setup`
@@ -96,6 +97,7 @@ from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff, DiffEntry
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
 from teabot.sdk.settings import InstanceSettings
+from teabot.sdk.store import Store
 
 __all__ = [
     "DESTRUCTIVE",
@@ -156,6 +158,7 @@ __all__ = [
     "Scheduler",
     "Select",
     "SelectKind",
+    "Store",
     "Surface",
     "TextChannel",
     "Tx",

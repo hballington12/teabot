@@ -231,6 +231,7 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
     await conn.execute(f'SET ROLE "{role}"')
     try:
         await conn.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO "{owner}"')
+        await conn.execute(STORE_TABLE.format(schema=schema))
         await conn.execute(RUNTIME_GRANTS.format(schema=schema, runtime=runtime))
     finally:
         await conn.execute("RESET ROLE")
@@ -315,6 +316,19 @@ BEGIN
 END $$
 """
 
+
+# `ctx.store`'s records, in each plugin's own schema, so the server policy holds them as it does the plugin's tables.
+STORE_TABLE = """
+CREATE TABLE IF NOT EXISTS "{schema}".teabot_store (
+    guild_id bigint NOT NULL,
+    kind text NOT NULL,
+    key text NOT NULL,
+    member_id teabot.member_id,
+    value jsonb NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (guild_id, kind, key)
+)
+"""
 
 # What the runtime role may do in the plugin's schema: use its tables and sequences, now and as migrations add them.
 RUNTIME_GRANTS = """

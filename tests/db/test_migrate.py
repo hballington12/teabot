@@ -73,7 +73,7 @@ async def test_failed_file_rolls_back_and_others_carry_on(
     report = await migrate(admin, naming, [PluginMigrations("bad", bad), PluginMigrations("good", good)])
     assert "bad" in report.failed and report.applied["good"] == [1]
     tables = await admin.fetch("SELECT tablename FROM pg_tables WHERE schemaname = 'plugin_bad'")
-    assert [t["tablename"] for t in tables] == ["entries"]
+    assert sorted(t["tablename"] for t in tables) == ["entries", "teabot_store"]
 
 
 async def test_dollar_quoted_trigger(admin: Conn, naming: Naming, ready: Pools, tmp_path: Path) -> None:

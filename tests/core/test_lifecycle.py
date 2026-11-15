@@ -66,7 +66,9 @@ async def test_the_plan_shows_what_will_be_deleted_and_no_changes_nothing(
         return False
 
     assert await Purge(admin, naming, audit)("alpha", operator="ops", confirm=no) is None
-    assert seen == [PurgePlan("alpha", {"entries": 3, "prizes": 0}, {HERE: True, THERE: False}, jobs=1)]
+    assert seen == [
+        PurgePlan("alpha", {"entries": 3, "prizes": 0, "teabot_store": 0}, {HERE: True, THERE: False}, jobs=1)
+    ]
     assert await admin.fetchval("SELECT count(*) FROM plugin_alpha.entries") == 3
 
 

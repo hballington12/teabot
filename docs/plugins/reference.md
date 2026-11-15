@@ -328,6 +328,31 @@ async with ctx.db.transaction() as tx:
 - Use `channel.send` when the action needs the message straight away, such as to reply with its link, or to tell the member at once that the channel refuses posts.
 - In tests, `harness.call`, `press` and `choose` send the posts an action queued before they return, so a test checks `channel.sent` straight after. `harness.run_jobs()` sends a job's posts too.
 
+## The store
+
+A plugin that keeps a few records, such as tags, counters or each member's settings, can skip tables and migrations:
+
+```python
+class Tally(BaseModel):
+    count: int = 0
+
+
+@plugin.action()
+async def bump(ctx: Ctx, member: Member) -> str:
+    tallies = ctx.store(Tally)
+    tally = await tallies.get(member) or Tally()
+    tally.count += 1
+    await tallies.put(member, tally)
+    return f"{member.display_name} is on {tally.count}."
+```
+
+- `ctx.store(Model)` is this server's records of that model: `get(key)`, `put(key, record)`, `delete(key)` and `all()`.
+- A key is text, or a `Member` or `User`. A member's key is kept as their ID, so `teabot users delete` removes their records.
+- Records are named by the model's class name. To rename the class, keep its records with `ctx.store(NewName, kind="OldName")`.
+- A record is checked through its model on every read, so change a model only in ways stored records still validate, as for config: new fields with defaults, aliases for renames, `extra="ignore"` for removals.
+- It is held to the server like the plugin's own tables, and kept in its schema as `teabot_store`. Use it outside transaction blocks.
+- Use tables when the plugin queries across records, such as "the ten highest", or needs a foreign key.
+
 ## Migrations
 
 - `migrations/0001_<name>.sql`, `0002_<name>.sql` and so on, numbered from 1 with no gaps. Each runs once, in its own transaction, as the plugin's role.

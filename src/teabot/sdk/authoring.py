@@ -64,6 +64,7 @@ from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
 from teabot.sdk.settings import InstanceSettings
+from teabot.sdk.store import Store
 
 READ = Risk.READ
 WRITE = Risk.WRITE
@@ -116,6 +117,10 @@ class Context[C: BaseModel](Protocol):
         """The shared HTTP client, for the hosts the plugin declares in `Plugin(..., hosts=[...])` (D12)."""
         ...
 
+    def store[M: BaseModel](self, model: type[M], *, kind: str | None = None) -> Store[M]:
+        """This server's records of `model`, by key, with no SQL (D10). Not inside a transaction block."""
+        ...
+
 
 type Suggester[C: BaseModel, T: (str, int)] = Callable[[Context[C], str], Awaitable[list[Choice[T]]]]
 """What `@action.autocomplete(...)` decorates: it takes the context and what the member has typed."""
@@ -143,6 +148,9 @@ class _Context:
     @property
     def http(self) -> Http:
         return Http(self.plugin_id, self.hosts)
+
+    def store[M: BaseModel](self, model: type[M], *, kind: str | None = None) -> Store[M]:
+        return Store(self.db, self.guild.id, model, kind or model.__name__)
 
     async def report(self, progress: Mapping[str, Any], /) -> None:
         await self.reporter(progress)
