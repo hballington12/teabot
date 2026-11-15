@@ -49,7 +49,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Documentation
 
-- The documentation is a site, at https://hballington12.github.io/teabot/, in three parts: using teabot in a server, self-hosting, and writing plugins. Its tutorial builds a polls plugin, whose code is tested with teabot's own.
+- The documentation is a site, at https://teabot-dev.github.io/teabot/, in three parts: using teabot in a server, self-hosting, and writing plugins. Its tutorial builds a polls plugin, whose code is tested with teabot's own.
 
 ### Using teabot
 

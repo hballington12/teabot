@@ -20,7 +20,7 @@ flowchart LR
 - Every call takes the same path. teabot checks the input against your function's parameters, checks the member's Discord permissions, shows a plan first for a destructive action, and records the call in the audit log. Only then does your function run.
 - Your function works in one server at a time: `ctx.guild`, and the rows of that server in your own tables.
 
-Worked examples are the plugins that ship with teabot, which import only `teabot.sdk` like yours: [giveaways](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/giveaways/__init__.py) (jobs, settings, a plan) and [announcements](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/announcements/__init__.py) (posting now and later).
+Worked examples are the plugins that ship with teabot, which import only `teabot.sdk` like yours: [giveaways](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/giveaways/__init__.py) (jobs, settings, a plan) and [announcements](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/announcements/__init__.py) (posting now and later).
 
 ## The package
 
@@ -155,7 +155,7 @@ await channel.send(embed=discord.Embed(title="Results"))
 
 Added in 1.3, except finding channels, roles and members, and sending.
 
-Every operation acts with the bot's own power, so **the plugin decides who may use it**: through the action's `needs=`, and its own checks where it lets members do something they could not do in Discord themselves, as the [roles plugin](https://github.com/hballington12/teabot/blob/main/src/teabot/plugins/roles/__init__.py) does. Before calling Discord, each operation refuses what Discord would, with an `ActionError` the member can read, such as "Raids is at or above my highest role".
+Every operation acts with the bot's own power, so **the plugin decides who may use it**: through the action's `needs=`, and its own checks where it lets members do something they could not do in Discord themselves, as the [roles plugin](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/roles/__init__.py) does. Before calling Discord, each operation refuses what Discord would, with an `ActionError` the member can read, such as "Raids is at or above my highest role".
 
 | On | Read | Do |
 |---|---|---|

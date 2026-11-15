@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/hballington12/teabot/main/brand/teabot.png" width="160" alt="Teabot" />
+<img src="https://raw.githubusercontent.com/teabot-dev/teabot/main/brand/teabot.png" width="160" alt="Teabot" />
 
 <h1>Teabot</h1>
 
@@ -9,8 +9,8 @@
 <p>
   <a href="https://pypi.org/project/teabot/"><img alt="PyPI" src="https://img.shields.io/pypi/v/teabot?color=d4a72c&cacheSeconds=3600"></a>
   <a href="https://pypi.org/project/teabot/"><img alt="Python 3.12 and 3.13" src="https://img.shields.io/badge/python-3.12%20%7C%203.13-d4a72c"></a>
-  <a href="https://github.com/hballington12/teabot/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/hballington12/teabot/ci.yml?branch=main&label=CI"></a>
-  <a href="https://github.com/hballington12/teabot/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+  <a href="https://github.com/teabot-dev/teabot/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/teabot-dev/teabot/ci.yml?branch=main&label=CI"></a>
+  <a href="https://github.com/teabot-dev/teabot/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
   <a href="https://buymeacoffee.com/hballington"><img alt="Support" src="https://img.shields.io/badge/support-buy%20me%20a%20coffee-d4a72c"></a>
 </p>
 
@@ -28,33 +28,33 @@
 ## Quick start
 
 1. **Add our bot.** A hosted Teabot is on its way, free for early adopters. Watch this repository to hear when it opens.
-2. **Host it yourself.** Follow the [quick start](https://hballington12.github.io/teabot/host/): with Docker, you have your own Teabot running in about 15 minutes.
+2. **Host it yourself.** Follow the [quick start](https://teabot-dev.github.io/teabot/host/): with Docker, you have your own Teabot running in about 15 minutes.
 
 ## Plugins
 
 | Plugin | What it does |
 |---|---|
-| [`announcements`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/announcements) | Posts an announcement to a channel, now or at a set time. |
-| [`giveaways`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/giveaways) | Runs giveaways: members enter, and winners are drawn when time is up. |
-| [`roles`](https://github.com/hballington12/teabot/tree/main/src/teabot/plugins/roles) | Posts a role picker: a button for each role, which members press to take it. |
+| [`announcements`](https://github.com/teabot-dev/teabot/tree/main/src/teabot/plugins/announcements) | Posts an announcement to a channel, now or at a set time. |
+| [`giveaways`](https://github.com/teabot-dev/teabot/tree/main/src/teabot/plugins/giveaways) | Runs giveaways: members enter, and winners are drawn when time is up. |
+| [`roles`](https://github.com/teabot-dev/teabot/tree/main/src/teabot/plugins/roles) | Posts a role picker: a button for each role, which members press to take it. |
 
 These ship with teabot. Turn one on in a server with `/plugins enable plugin:<name>`.
 
-A plugin hub for community plugins is coming. To write your own, see [Your first plugin](https://hballington12.github.io/teabot/plugins/).
+A plugin hub for community plugins is coming. To write your own, see [Your first plugin](https://teabot-dev.github.io/teabot/plugins/).
 
 ## Documentation
 
-Everything is on the [documentation site](https://hballington12.github.io/teabot/):
-- [Using Teabot](https://hballington12.github.io/teabot/use/): adding it to your server, plugins, permissions and AI assistants.
-- [Self-hosting](https://hballington12.github.io/teabot/host/): running your own, from nothing to a live bot.
-- [Writing plugins](https://hballington12.github.io/teabot/plugins/): your first plugin, a tutorial, and the reference.
-- [Release notes](https://hballington12.github.io/teabot/host/changelog/).
+Everything is on the [documentation site](https://teabot-dev.github.io/teabot/):
+- [Using Teabot](https://teabot-dev.github.io/teabot/use/): adding it to your server, plugins, permissions and AI assistants.
+- [Self-hosting](https://teabot-dev.github.io/teabot/host/): running your own, from nothing to a live bot.
+- [Writing plugins](https://teabot-dev.github.io/teabot/plugins/): your first plugin, a tutorial, and the reference.
+- [Release notes](https://teabot-dev.github.io/teabot/host/changelog/).
 
-For contributors, the [design decisions and architecture](https://github.com/hballington12/teabot/tree/main/design) explain how Teabot is built.
+For contributors, the [design decisions and architecture](https://github.com/teabot-dev/teabot/tree/main/design) explain how Teabot is built.
 
 ## Contributing
 
-Issues and pull requests are welcome. [CONTRIBUTING.md](https://github.com/hballington12/teabot/blob/main/CONTRIBUTING.md) covers the setup and the checks, and [SECURITY.md](https://github.com/hballington12/teabot/blob/main/SECURITY.md) how to report a vulnerability privately. Everyone taking part follows the [code of conduct](https://github.com/hballington12/teabot/blob/main/CODE_OF_CONDUCT.md).
+Issues and pull requests are welcome. [CONTRIBUTING.md](https://github.com/teabot-dev/teabot/blob/main/CONTRIBUTING.md) covers the setup and the checks, and [SECURITY.md](https://github.com/teabot-dev/teabot/blob/main/SECURITY.md) how to report a vulnerability privately. Everyone taking part follows the [code of conduct](https://github.com/teabot-dev/teabot/blob/main/CODE_OF_CONDUCT.md).
 
 ## Support
 

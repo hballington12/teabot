@@ -3,13 +3,13 @@
 [project]
 site_name = "teabot"
 site_description = "An open-source, plugin-based Discord bot."
-site_url = "https://hballington12.github.io/teabot/"
-repo_url = "https://github.com/hballington12/teabot"
-repo_name = "hballington12/teabot"
+site_url = "https://teabot-dev.github.io/teabot/"
+repo_url = "https://github.com/teabot-dev/teabot"
+repo_name = "teabot-dev/teabot"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 extra_css = ["stylesheets/extra.css"]
-copyright = 'MIT licensed. <a href="https://github.com/hballington12/teabot/blob/main/CONTRIBUTING.md">Contributing to teabot</a>'
+copyright = 'MIT licensed. <a href="https://github.com/teabot-dev/teabot/blob/main/CONTRIBUTING.md">Contributing to teabot</a>'
 
 nav = [
   { "Home" = "index.md" },
@@ -83,7 +83,7 @@ toggle.name = "Switch to system preference"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/hballington12/teabot"
+link = "https://github.com/teabot-dev/teabot"
 
 # Declaring any extension replaces Zensical's defaults, so every one the pages use is listed.
 [project.markdown_extensions]

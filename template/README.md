@@ -1,6 +1,6 @@
 # A teabot instance
 
-This folder is your own teabot: which plugins it runs, your own plugins, and how it is deployed. To set it up, run `./setup.sh`, following the quick start at https://hballington12.github.io/teabot/host/
+This folder is your own teabot: which plugins it runs, your own plugins, and how it is deployed. To set it up, run `./setup.sh`, following the quick start at https://teabot-dev.github.io/teabot/host/
 
 ## What each file is for
 
@@ -11,7 +11,7 @@ This folder is your own teabot: which plugins it runs, your own plugins, and how
 - `teabot.env.example`: every setting, explained. `setup.sh` copies it to `teabot.env`, which never goes into git.
 - `.env`: the database password and your user and group ids, for Compose. Written by `setup.sh`; never goes into git.
 - `plugins/`: plugins you write for this instance, made with `uv run teabot new-plugin <id>`.
-- `deploy/bare-metal/`: the careful setup on a dedicated Ubuntu server, with HTTPS and continuous backups. See https://hballington12.github.io/teabot/host/bare-metal/
+- `deploy/bare-metal/`: the careful setup on a dedicated Ubuntu server, with HTTPS and continuous backups. See https://teabot-dev.github.io/teabot/host/bare-metal/
 
 ## teabot's own development
 

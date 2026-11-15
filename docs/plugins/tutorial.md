@@ -2,7 +2,7 @@
 
 This grows the `polls` plugin from [Your first plugin](index.md) into a real one. At the end, members can start polls, vote and change their votes, a job posts the results when time is up, and moderators can delete a poll after confirming a plan. Every piece is tested.
 
-The finished plugin is [`examples/polls`](https://github.com/hballington12/teabot/tree/main/examples/polls) in teabot's repository. Its tests run with teabot's own, so the code on this page works as shown.
+The finished plugin is [`examples/polls`](https://github.com/teabot-dev/teabot/tree/main/examples/polls) in teabot's repository. Its tests run with teabot's own, so the code on this page works as shown.
 
 ## 1. The plugin and its settings
 
@@ -102,7 +102,7 @@ The queries this tutorial uses sit together near the top of the file:
 
 ## 8. Tests
 
-Write `tests/test_polls.py`, with tests for each part. The finished file is [`examples/polls/tests/test_polls.py`](https://github.com/hballington12/teabot/blob/main/examples/polls/tests/test_polls.py) in teabot's repository; here are the parts that show something new.
+Write `tests/test_polls.py`, with tests for each part. The finished file is [`examples/polls/tests/test_polls.py`](https://github.com/teabot-dev/teabot/blob/main/examples/polls/tests/test_polls.py) in teabot's repository; here are the parts that show something new.
 
 Tests import from `teabot.testing`, and from your plugin:
 

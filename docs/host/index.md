@@ -15,7 +15,7 @@ At the end of this page, your own teabot is running and you have the link that i
 
 ```bash
 mkdir my-teabot && cd my-teabot
-curl -fsSL https://github.com/hballington12/teabot/releases/latest/download/teabot-template.tar.gz | tar xz
+curl -fsSL https://github.com/teabot-dev/teabot/releases/latest/download/teabot-template.tar.gz | tar xz
 ```
 
 This folder is now your instance: your bot's settings, plugins and deploy files. Keep it in git. Its `.gitignore` keeps the secret files out.

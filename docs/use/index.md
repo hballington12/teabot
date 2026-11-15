@@ -4,7 +4,7 @@ This section is for server admins: adding teabot to a Discord server and using i
 
 ## Which teabot?
 
-A public teabot that anyone can add is on its way, but it is not open yet. Watch the [repository](https://github.com/hballington12/teabot) to hear when it opens.
+A public teabot that anyone can add is on its way, but it is not open yet. Watch the [repository](https://github.com/teabot-dev/teabot) to hear when it opens.
 
 Until then, a teabot is run by someone: a friend, your community, or you. That person is its **operator**. To run your own, see the [Quick start](../host/index.md).
 

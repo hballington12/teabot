@@ -2,14 +2,14 @@
 
 ## Before you start
 
-- The design is in [design/design.md](https://github.com/hballington12/teabot/blob/main/design/design.md), as numbered decisions such as D21, and [design/architecture.md](https://github.com/hballington12/teabot/blob/main/design/architecture.md) shows how teabot is built. A change that goes against a decision starts as an issue proposing to change it.
+- The design is in [design/design.md](https://github.com/teabot-dev/teabot/blob/main/design/design.md), as numbered decisions such as D21, and [design/architecture.md](https://github.com/teabot-dev/teabot/blob/main/design/architecture.md) shows how teabot is built. A change that goes against a decision starts as an issue proposing to change it.
 - Report a bug as an issue with the steps that show it. Report a security problem as [SECURITY.md](SECURITY.md) describes.
-- A plugin for your own instance needs nobody's approval; [Writing plugins](https://hballington12.github.io/teabot/plugins/) covers writing one. First-party plugins in this repository follow the [review checklist](https://hballington12.github.io/teabot/plugins/reference/#review-checklist).
+- A plugin for your own instance needs nobody's approval; [Writing plugins](https://teabot-dev.github.io/teabot/plugins/) covers writing one. First-party plugins in this repository follow the [review checklist](https://teabot-dev.github.io/teabot/plugins/reference/#review-checklist).
 
 ## Setting up
 
 ```
-git clone https://github.com/hballington12/teabot.git
+git clone https://github.com/teabot-dev/teabot.git
 cd teabot
 uv sync
 docker compose -f template/compose.yaml up -d --wait postgres

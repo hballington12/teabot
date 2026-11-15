@@ -36,3 +36,5 @@ htmlcov/
 target/
 # the documentation site's build
 site/
+# the documentation build's cache
+.cache/
