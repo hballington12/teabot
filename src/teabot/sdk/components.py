@@ -123,6 +123,8 @@ class Select:
     - `options` are the choices of an `"options"` menu, up to 25.
     - `min` and `max` are how many may be chosen, from 0 to 25. `max` is 1 unless given, for a menu of one choice.
     - `placeholder` is shown before anything is chosen.
+    - `defaults` are the IDs a role, channel or member picker shows chosen when it opens, such as the roles a
+      member has. A menu of options ticks its own with `Option(default=True)` instead.
     """
 
     bound: BoundAction
@@ -132,11 +134,18 @@ class Select:
     min: int = 0
     max: int = 1
     placeholder: str | None = None
+    defaults: tuple[int, ...] = ()
 
     def __post_init__(self) -> None:
         if self.kind == "options" and not 1 <= len(self.options) <= OPTIONS_MAX:
             raise ValueError(
                 f"A select menu of options holds 1 to {OPTIONS_MAX} options, not {len(self.options)}."
+            )
+        if self.defaults and self.kind == "options":
+            raise ValueError("A menu of options ticks its defaults with Option(default=True), not defaults=.")
+        if len(self.defaults) > self.max:
+            raise ValueError(
+                f"A select menu shows at most max={self.max} defaults, not {len(self.defaults)}."
             )
         if not 0 <= self.min <= self.max <= OPTIONS_MAX:
             raise ValueError(

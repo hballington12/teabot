@@ -52,6 +52,7 @@ def _select(select: Select) -> dict[str, Any]:
         "min": select.min,
         "max": select.max,
         "placeholder": select.placeholder,
+        "defaults": list(select.defaults),
     }
 
 
@@ -66,7 +67,10 @@ def _menu(data: Mapping[str, Any]) -> Select:
     assert parsed is not None
     bound, into = parsed
     options = tuple(Option(**o) for o in data.get("options", ()))
-    return Select(bound, into, data["kind"], options, data["min"], data["max"], data.get("placeholder"))
+    defaults = tuple(int(i) for i in data.get("defaults", ()))
+    return Select(
+        bound, into, data["kind"], options, data["min"], data["max"], data.get("placeholder"), defaults
+    )
 
 
 def decode(message: Mapping[str, Any]) -> dict[str, Any]:

@@ -68,6 +68,7 @@ class FakeSelect:
     options: list[str]
     min: int
     max: int
+    defaults: list[int] = field(default_factory=list[int])
 
 
 def _buttons(view: Any = None, buttons: Sequence[Any] = ()) -> list[FakeButton]:
@@ -93,12 +94,22 @@ def _select(view: Any = None, select: Any = None) -> FakeSelect | None:
             kind = SELECT_KINDS.get(type(item).__name__)
             if kind is not None:
                 values = [o.value for o in getattr(item, "options", [])]
-                return FakeSelect(str(item.custom_id), kind, values, item.min_values, item.max_values)
+                defaults = [int(d.id) for d in getattr(item, "default_values", [])]
+                return FakeSelect(
+                    str(item.custom_id), kind, values, item.min_values, item.max_values, defaults
+                )
         return None
     if select is None:
         return None
     values = [o.value for o in select.options]
-    return FakeSelect(select.bound.custom_id(select.into), select.kind, values, select.min, select.max)
+    return FakeSelect(
+        select.bound.custom_id(select.into),
+        select.kind,
+        values,
+        select.min,
+        select.max,
+        list(select.defaults),
+    )
 
 
 @dataclass

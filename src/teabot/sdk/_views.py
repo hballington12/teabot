@@ -65,6 +65,13 @@ STYLES = {
 }
 
 
+DEFAULT_KINDS = {
+    "role": discord.SelectDefaultValueType.role,
+    "channel": discord.SelectDefaultValueType.channel,
+    "member": discord.SelectDefaultValueType.user,
+}
+
+
 def _menu(select: Select) -> discord.ui.Item[Any]:
     custom_id = select.bound.custom_id(select.into)
     limits: dict[str, Any] = {
@@ -73,6 +80,9 @@ def _menu(select: Select) -> discord.ui.Item[Any]:
         "min_values": select.min,
         "max_values": select.max,
     }
+    if select.kind != "options" and select.defaults:
+        kind = DEFAULT_KINDS[select.kind]
+        limits["default_values"] = [discord.SelectDefaultValue(id=i, type=kind) for i in select.defaults]
     if select.kind == "role":
         return discord.ui.RoleSelect(**limits)
     if select.kind == "channel":

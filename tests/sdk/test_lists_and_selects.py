@@ -111,6 +111,23 @@ async def test_a_role_picker_fills_its_list_with_the_roles_chosen(teabot_harness
     assert await harness.choose(select, []) == "none"
 
 
+async def test_a_picker_opens_with_its_defaults_chosen(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
+    raids = harness.guild.add_role("Raids")
+    message = await channel.send(
+        "Roles", select=Select(pick.bind(), into="roles", kind="role", max=3, defaults=(raids.id,))
+    )
+    assert message.select is not None and message.select.defaults == [raids.id]
+
+
+def test_defaults_belong_to_pickers_and_fit_within_max() -> None:
+    with pytest.raises(ValueError, match="Option\\(default=True\\)"):
+        Select(pick.bind(), into="roles", options=(Option("a", "a"),), defaults=(1,))
+    with pytest.raises(ValueError, match="at most max=1"):
+        Select(pick.bind(), into="roles", kind="role", defaults=(1, 2))
+
+
 def test_a_list_without_a_limit_is_refused_when_the_action_is_set_up() -> None:
     bad = Plugin("bad")
 
@@ -168,3 +185,10 @@ async def test_a_member_who_may_not_run_the_action_gets_no_suggestions(
 def test_suggestions_are_for_options_the_action_has() -> None:
     with pytest.raises(SignatureError, match="has no option nope"):
         find.autocomplete("nope")
+
+
+async def test_discord_gets_the_defaults_as_its_default_values() -> None:
+    from teabot.sdk._views import _menu  # pyright: ignore[reportPrivateUsage]
+
+    item = _menu(Select(pick.bind(), into="roles", kind="role", max=2, defaults=(5, 6)))
+    assert [int(d.id) for d in getattr(item, "default_values", [])] == [5, 6]
