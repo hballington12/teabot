@@ -45,7 +45,7 @@ async def test_core_and_plugin_migrate_in_order_once(
     assert report.applied == {"core": core_versions, "alpha": [1, 2]} and not report.failed
     again = await migrate(admin, naming, [PluginMigrations("alpha", alpha)])
     assert again.applied == {"core": [], "alpha": []}
-    assert await ready.plugin_db("alpha").fetchval("SELECT count(*) FROM entries") == 1
+    assert await ready.guild_plugin_db("alpha", 1).fetchval("SELECT count(*) FROM entries") == 1
 
 
 async def test_plugin_tables_are_owned_by_the_plugin_role(
@@ -89,7 +89,7 @@ CREATE TRIGGER upper_name BEFORE INSERT ON entries FOR EACH ROW EXECUTE FUNCTION
         admin, naming, [PluginMigrations("alpha", write(tmp_path / "a", {"0001_t.sql": sql}))]
     )
     assert not report.failed
-    db = ready.plugin_db("alpha")
+    db = ready.guild_plugin_db("alpha", 1)
     await db.execute("INSERT INTO entries VALUES ($1, $2)", 1, "quiet")
     assert await db.fetchval("SELECT name FROM entries") == "QUIET"
 
@@ -246,3 +246,53 @@ async def test_the_safe_forms_are_accepted(admin: Conn, naming: Naming, ready: P
         admin, naming, [PluginMigrations("alpha", write(tmp_path / "a", {"0001_x.sql": safe}))]
     )
     assert report.failed == {} and report.applied["alpha"] == [1]
+
+
+async def scoped_world(admin: Conn, naming: Naming, tmp_path: Path) -> None:
+    files = {
+        "0001_entries.sql": ENTRIES,
+        "0002_seed.sql": "INSERT INTO entries VALUES (1, 'one'), (2, 'two');",
+    }
+    await migrate(admin, naming, [PluginMigrations("alpha", write(tmp_path / "alpha", files))])
+
+
+async def test_plugin_code_sees_only_its_servers_rows(
+    admin: Conn, naming: Naming, ready: Pools, tmp_path: Path
+) -> None:
+    await scoped_world(admin, naming, tmp_path)
+    one = ready.guild_plugin_db("alpha", 1)
+    assert [r["name"] for r in await one.fetch("SELECT name FROM entries")] == ["one"]
+    assert await one.execute("UPDATE entries SET name = 'x'") == "UPDATE 1"
+    assert await one.execute("DELETE FROM entries WHERE guild_id = 2") == "DELETE 0"
+    assert await ready.plugin_db("alpha").fetch("SELECT name FROM entries") == []
+
+
+async def test_an_insert_takes_the_server_from_the_scope_and_refuses_another(
+    admin: Conn, naming: Naming, ready: Pools, tmp_path: Path
+) -> None:
+    await scoped_world(admin, naming, tmp_path)
+    one = ready.guild_plugin_db("alpha", 1)
+    await one.execute("INSERT INTO entries (name) VALUES ('mine')")
+    assert await admin.fetchval("SELECT guild_id FROM plugin_alpha.entries WHERE name = 'mine'") == 1
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+        await one.execute("INSERT INTO entries VALUES (2, 'theirs')")
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="row-level security"):
+        await ready.plugin_db("alpha").execute("INSERT INTO entries (name) VALUES ('nobody')")
+
+
+async def test_the_scope_is_reset_when_the_connection_goes_back(
+    admin: Conn, naming: Naming, ready: Pools, tmp_path: Path
+) -> None:
+    await scoped_world(admin, naming, tmp_path)
+    await ready.guild_plugin_db("alpha", 1).fetch("SELECT 1")
+    async with ready.plugins.acquire() as conn:
+        assert await conn.fetchval("SELECT current_setting('teabot.guild_id', true)") in ("", None)
+
+
+async def test_the_plugin_pool_cannot_become_the_owner_role(
+    admin: Conn, naming: Naming, ready: Pools, tmp_path: Path
+) -> None:
+    await scoped_world(admin, naming, tmp_path)
+    async with ready.plugins.acquire() as conn:
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute(f'SET ROLE "{naming.plugin_role("alpha")}"')

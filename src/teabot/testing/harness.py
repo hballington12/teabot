@@ -239,7 +239,9 @@ async def install_clock(admin: Conn, naming: Naming, plugin_id: str, offset: tim
         f'CREATE OR REPLACE FUNCTION "{schema}".now() RETURNS timestamptz LANGUAGE sql STABLE '
         f"AS $$ SELECT pg_catalog.now() + make_interval(secs => {seconds}) $$"
     )
-    await admin.execute(f'GRANT EXECUTE ON FUNCTION "{schema}".now() TO "{naming.plugin_role(plugin_id)}"')
+    await admin.execute(
+        f'GRANT EXECUTE ON FUNCTION "{schema}".now() TO "{naming.plugin_runtime_role(plugin_id)}"'
+    )
 
 
 @dataclass(frozen=True)

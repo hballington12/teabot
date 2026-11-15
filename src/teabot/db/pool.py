@@ -166,19 +166,26 @@ class PluginDatabase(Database):
     def __init__(self, pool: Pool, name: str, naming: Naming, timing: Timing | None = None) -> None:
         super().__init__(pool, name, timing)
         self.naming = naming
-        self.role = naming.plugin_role(name)
+        self.role = naming.plugin_runtime_role(name)
         self.schema = naming.plugin_schema(name)
+
+    def _scope(self) -> str:
+        """The server the connection acts for, as a setting; none here, so the tables show no rows (S6)."""
+        return ""
 
     @asynccontextmanager
     async def _connection(self) -> AsyncGenerator[AnyConn]:
         async with super()._connection() as conn:
             # pg_catalog comes after the schema, so a test database's clock function there is found first.
-            await conn.execute(f'SET ROLE "{self.role}"; SET search_path TO "{self.schema}", pg_catalog')
+            await conn.execute(
+                f'SET ROLE "{self.role}"; SET search_path TO "{self.schema}", pg_catalog; '
+                f"SET teabot.guild_id = '{self._scope()}'"
+            )
             try:
                 yield conn
             finally:
                 if not conn.is_closed():
-                    await conn.execute("RESET ROLE; RESET search_path")
+                    await conn.execute("RESET ROLE; RESET search_path; RESET teabot.guild_id")
 
 
 SCHEDULE = "SELECT schedule_job($1, $2, coalesce($3, now()), $4::jsonb, $5, $6)"
@@ -273,6 +280,9 @@ class GuildPluginDatabase(ServerScheduling, PluginDatabase):
         super().__init__(base.pool, base.name, base.naming, base.timing)
         self.guild_id = guild_id
         self.started_by = started_by
+
+    def _scope(self) -> str:
+        return str(int(self.guild_id))
 
     def _transaction_for(self, conn: AnyConn) -> Transaction:
         return GuildTransaction(conn, self.guild_id, self.started_by)

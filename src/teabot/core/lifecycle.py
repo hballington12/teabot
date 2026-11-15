@@ -91,8 +91,9 @@ async def _drop(conn: AnyConn, naming: Naming, plugin_id: str) -> None:
         await conn.execute(f"SET LOCAL ROLE {quoted(role)}")
         await conn.execute(f"DROP SCHEMA {quoted(schema)} CASCADE")
         await conn.execute("RESET ROLE")
-    if await conn.fetchval(ROLE_EXISTS, role):
-        await conn.execute(f"DROP ROLE {quoted(role)}")
+    for name in (role, naming.plugin_runtime_role(plugin_id)):
+        if await conn.fetchval(ROLE_EXISTS, name):
+            await conn.execute(f"DROP ROLE {quoted(name)}")
     for table in CORE_TABLES:
         await conn.execute(f"DELETE FROM core.{table} WHERE plugin_id = $1", plugin_id)
 
@@ -213,7 +214,7 @@ class Guilds:
         if guild_id is None or not await self.db.fetchval(STILL_REMOVED, guild_id):
             return
         for row in await self.db.fetch(PLUGIN_SCHEMAS):
-            plugin = self.pools.plugin_db(row["nspname"].removeprefix("plugin_"))
+            plugin = self.pools.guild_plugin_db(row["nspname"].removeprefix("plugin_"), guild_id)
             async with plugin.transaction() as tx:
                 for table in await tx.fetch(GUILD_TABLES, row["nspname"]):
                     await tx.execute(f"DELETE FROM {quoted(table['relname'])} WHERE guild_id = $1", guild_id)

@@ -214,7 +214,8 @@ async def farewell(ctx: Ctx, user: User) -> None:
 - The plugin owns the schema `plugin_<id>` and a role that can use nothing else. Name tables without a prefix. Reading the core or another plugin's tables fails.
 - Every table has a `bigint guild_id` column, and the migration runner refuses tables without one. That is how the core deletes a server's data when the bot leaves it.
 - A column holding members' Discord IDs has the type `teabot.member_id`, or `teabot.member_id[]` for a list. That is how `teabot users delete` finds a member's rows when they ask for their data to be deleted: a row with them in such a column is deleted, and they are taken out of a list. teabot refuses a `bigint` column named for members, such as `member_id`, `user_id` or `winner_ids`, and names the type to use.
-- Every query must filter by `guild_id` itself (`WHERE guild_id = $1` with `ctx.guild.id`). A query without the filter sees every server's rows.
+- Plugin code sees only the current server's rows. teabot holds every table to the server the action or job is for, so a query without `WHERE guild_id = ...` still reads and changes only that server's rows. An insert may leave `guild_id` out, and teabot fills it in; an insert naming another server is refused. Writing `WHERE guild_id = $1` with `ctx.guild.id` anyway keeps the query clear, and lets Postgres use an index on `guild_id`.
+- Migrations run as the plugin's owner role, which sees every server's rows, so a migration can fill in a new column everywhere. Plugin code runs as a second role, which cannot create tables or other objects.
 - A foreign key includes `guild_id`, so a row cannot point at another server's row. A unique index includes `guild_id` unless one of its columns is unique on its own. teabot checks these when the plugin loads, along with no views and no `SECURITY DEFINER` functions, and a broken rule stops the load with what to write instead.
 - Queries take the result type first: `fetch(Model, sql, ...)` returns a list of models, `fetchrow(Model, sql, ...)` a model or `None`, and `fetchval(int, sql, ...)` one value. Each row is validated. `execute(sql, ...)` returns Postgres's status, such as `"INSERT 0 1"`.
 - Each call runs exactly one statement. Pass values as parameters (`$1`, `$2`), never by building strings.
@@ -355,7 +356,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 - Reads the time through `ctx.now` and `now()`, never `datetime.now()`, `time.time()` or `CURRENT_TIMESTAMP`.
 - No `SET`, `RESET` or `set_config` in SQL.
 - External connections listed in the README, and nothing else contacted.
-- Every table has `guild_id`, every query filters by it, and released migrations are unchanged.
+- Every table has `guild_id`, and released migrations are unchanged.
 - No Discord or HTTP awaits inside transaction blocks, and no blocking I/O.
 - No dynamic SQL built from member input.
 - Jobs are safe to run twice.

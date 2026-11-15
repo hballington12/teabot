@@ -35,7 +35,12 @@ class Naming:
         return f"{self.prefix}_plugins"
 
     def plugin_role(self, plugin_id: str) -> str:
+        """The plugin's owner role: it owns the schema and its tables, and runs the migrations."""
         return f"{self.prefix}_plugin_{check_plugin_id(plugin_id)}"
+
+    def plugin_runtime_role(self, plugin_id: str) -> str:
+        """The role plugin code runs as: rights on the plugin's tables, and only the current server's rows (S6)."""
+        return f"{self.prefix}_run_{check_plugin_id(plugin_id)}"
 
     @staticmethod
     def plugin_schema(plugin_id: str) -> str:

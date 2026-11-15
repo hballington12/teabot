@@ -32,7 +32,7 @@ Delete `src/teabot_polls/migrations/0001_greetings.sql`, and write `src/teabot_p
 --8<-- "examples/polls/src/teabot_polls/migrations/0001_polls.sql"
 ```
 
-- Every table has a `guild_id`, the server's ID, and every query filters by it. That keeps each server's polls apart.
+- Every table has a `guild_id`, the server's ID. teabot shows plugin code only the current server's rows, which keeps each server's polls apart. The queries filter by `guild_id` too, which keeps them clear and lets Postgres use the index.
 - A foreign key includes `guild_id` too, so a vote can never point at another server's poll.
 - teabot checks these rules when it loads the plugin, and stops with the fix if a table breaks one.
 - Migrations only go forward. Once a plugin is released, add a `0002_...sql` for a change instead of editing this file.

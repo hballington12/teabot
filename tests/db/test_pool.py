@@ -12,13 +12,18 @@ from teabot.db.types import Conn
 
 
 async def make_plugin(admin: Conn, naming: Naming, plugin_id: str, rows: list[str]) -> None:
-    """Stand-in for the migration runner: role, schema and a table with rows."""
+    """Stand-in for the migration runner: the owner and runtime roles, the schema, and a table with rows, without
+    the runner's server policies."""
     role, schema = naming.plugin_role(plugin_id), naming.plugin_schema(plugin_id)
+    runtime = naming.plugin_runtime_role(plugin_id)
     await admin.execute(f'CREATE ROLE "{role}" NOLOGIN')
-    await admin.execute(f'GRANT "{role}" TO "{naming.plugins_role}"')
+    await admin.execute(f'CREATE ROLE "{runtime}" NOLOGIN')
+    await admin.execute(f'GRANT "{runtime}" TO "{naming.plugins_role}"')
     await admin.execute(f'CREATE SCHEMA "{schema}" AUTHORIZATION "{role}"')
     await admin.execute(f'SET ROLE "{role}"')
     await admin.execute(f'CREATE TABLE "{schema}".entries (guild_id bigint, name text)')
+    await admin.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO "{runtime}"')
+    await admin.execute(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "{schema}".entries TO "{runtime}"')
     for name in rows:
         await admin.execute(f'INSERT INTO "{schema}".entries VALUES (1, $1)', name)
     await admin.execute("RESET ROLE")
@@ -82,11 +87,15 @@ async def test_injected_set_config_is_refused(world: Pools) -> None:
         await world.plugin_db("alpha").fetch("SELECT set_config('role', 'none', false)")
 
 
-async def test_plpgsql_cannot_set_role_to_app(world: Pools, naming: Naming) -> None:
+async def test_plpgsql_cannot_set_role_to_app(world: Pools, naming: Naming, admin: Conn) -> None:
     db = world.plugin_db("alpha")
-    await db.execute(
-        "CREATE FUNCTION run_dynamic(sql text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN EXECUTE sql; END $$"
+    # A migration, as the owner role, creates the function; plugin code, as the runtime role, cannot create one.
+    await admin.execute(f'SET ROLE "{naming.plugin_role("alpha")}"')
+    await admin.execute(
+        "CREATE FUNCTION plugin_alpha.run_dynamic(sql text) RETURNS void LANGUAGE plpgsql "
+        "AS $$ BEGIN EXECUTE sql; END $$"
     )
+    await admin.execute("RESET ROLE")
     with pytest.raises(asyncpg.InsufficientPrivilegeError, match="set role"):
         await db.fetch(f"SELECT run_dynamic('SET ROLE \"{naming.app_role}\"')")
 
@@ -175,3 +184,8 @@ async def test_core_db_inside_its_own_open_block_raises(world: Pools) -> None:
 async def test_pools_open_one_connection_each_up_front(world: Pools) -> None:
     assert world.core.get_size() == 1
     assert world.plugins.get_size() == 1
+
+
+async def test_plugin_code_cannot_create_objects(world: Pools) -> None:
+    with pytest.raises(asyncpg.InsufficientPrivilegeError, match="permission denied for schema"):
+        await world.plugin_db("alpha").execute("CREATE TABLE more (guild_id bigint)")

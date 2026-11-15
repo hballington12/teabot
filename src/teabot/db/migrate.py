@@ -18,7 +18,7 @@ import asyncpg
 
 from teabot.db.lockkeys import MIGRATION_NS
 from teabot.db.naming import Naming
-from teabot.db.types import Conn
+from teabot.db.types import AnyConn, Conn
 
 log = logging.getLogger(__name__)
 
@@ -214,10 +214,15 @@ async def _setup_core(conn: Conn, naming: Naming) -> None:
 
 async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
     role, schema = naming.plugin_role(plugin_id), naming.plugin_schema(plugin_id)
-    if not await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", role):
-        await conn.execute(f'CREATE ROLE "{role}" NOLOGIN')
-    await conn.execute(f'GRANT "{role}" TO "{naming.plugins_role}" WITH INHERIT FALSE, SET TRUE')
-    await conn.execute(f'GRANT "{role}" TO CURRENT_USER WITH INHERIT FALSE, SET TRUE')
+    runtime = naming.plugin_runtime_role(plugin_id)
+    for name in (role, runtime):
+        if not await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", name):
+            await conn.execute(f'CREATE ROLE "{name}" NOLOGIN')
+        await conn.execute(f'GRANT "{name}" TO CURRENT_USER WITH INHERIT FALSE, SET TRUE')
+    # Plugin code runs as the runtime role, which the policies hold to one server; the owner role is for
+    # migrations alone, so the plugin pool may no longer become it (S6).
+    await conn.execute(f'GRANT "{runtime}" TO "{naming.plugins_role}" WITH INHERIT FALSE, SET TRUE')
+    await conn.execute(f'REVOKE "{role}" FROM "{naming.plugins_role}"')
     await conn.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}" AUTHORIZATION "{role}"')
     # The owner holds the plugin role without inheriting it, so it has no rights in the plugin's schema. The
     # role, as the schema's owner, grants it CREATE, so the owner can create schedule_job there. The function
@@ -226,6 +231,7 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
     await conn.execute(f'SET ROLE "{role}"')
     try:
         await conn.execute(f'GRANT USAGE, CREATE ON SCHEMA "{schema}" TO "{owner}"')
+        await conn.execute(RUNTIME_GRANTS.format(schema=schema, runtime=runtime))
     finally:
         await conn.execute("RESET ROLE")
     # Earlier releases had a four-argument schedule_job; a new signature is a new function, so the old one goes.
@@ -238,7 +244,7 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
     for definition, signature in functions:
         await conn.execute(definition.format(schema=schema, plugin_id=plugin_id))
         await conn.execute(f'REVOKE ALL ON FUNCTION "{schema}".{signature} FROM PUBLIC')
-        await conn.execute(f'GRANT EXECUTE ON FUNCTION "{schema}".{signature} TO "{role}"')
+        await conn.execute(f'GRANT EXECUTE ON FUNCTION "{schema}".{signature} TO "{runtime}"')
 
 
 QUEUE_POST_SIGNATURE = "queue_post(bigint, bigint, bigint, jsonb, boolean, bigint)"
@@ -310,6 +316,47 @@ END $$
 """
 
 
+# What the runtime role may do in the plugin's schema: use its tables and sequences, now and as migrations add them.
+RUNTIME_GRANTS = """
+GRANT USAGE ON SCHEMA "{schema}" TO "{runtime}";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "{schema}" TO "{runtime}";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA "{schema}" TO "{runtime}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA "{schema}" GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "{runtime}";
+ALTER DEFAULT PRIVILEGES IN SCHEMA "{schema}" GRANT USAGE, SELECT ON SEQUENCES TO "{runtime}";
+"""
+
+# The server a plugin connection acts for. A reset setting reads back as '', so nullif makes an unscoped
+# connection see no rows rather than fail (S6).
+SCOPE = "nullif(current_setting('teabot.guild_id', true), '')::bigint"
+SCOPED_TABLES = """
+SELECT c.relname FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'guild_id' AND NOT a.attisdropped
+WHERE n.nspname = $1 AND c.relkind IN ('r', 'p')
+AND NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid AND p.polname = 'teabot_server')
+ORDER BY c.relname
+"""
+
+
+async def scope_tables(conn: AnyConn, naming: Naming, plugin_id: str) -> None:
+    """Hold every table of the plugin to one server for its runtime role: a policy on `guild_id`, and the
+    current server as `guild_id`'s default. The owner role, which runs migrations, is exempt, since the tables
+    are not set to FORCE. Safe to repeat; run after each plugin's migrations, so new tables get it too (S6)."""
+    role, schema = naming.plugin_role(plugin_id), naming.plugin_schema(plugin_id)
+    runtime = naming.plugin_runtime_role(plugin_id)
+    async with conn.transaction():
+        await conn.execute(f'SET LOCAL ROLE "{role}"')
+        for row in await conn.fetch(SCOPED_TABLES, schema):
+            table = f'"{schema}"."{row["relname"]}"'
+            await conn.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
+            await conn.execute(
+                f'CREATE POLICY teabot_server ON {table} TO "{runtime}" '
+                f"USING (guild_id = {SCOPE}) WITH CHECK (guild_id = {SCOPE})"
+            )
+            await conn.execute(f"ALTER TABLE {table} ALTER COLUMN guild_id SET DEFAULT {SCOPE}")
+        await conn.execute("RESET ROLE")
+
+
 async def _apply(conn: Conn, naming: Naming, plugin_id: str, migration: MigrationFile, *, last: bool) -> None:
     async with conn.transaction():
         if plugin_id == CORE:
@@ -363,6 +410,7 @@ async def migrate(conn: Conn, naming: Naming, plugins: Sequence[PluginMigrations
                 report.applied[plugin.plugin_id] = await _migrate_one(
                     conn, naming, plugin.plugin_id, plugin.directory
                 )
+                await scope_tables(conn, naming, plugin.plugin_id)
             except (MigrationError, asyncpg.PostgresError) as exc:
                 report.failed[plugin.plugin_id] = str(exc)
                 log.error("plugin migration failed", extra={"plugin": plugin.plugin_id, "error": str(exc)})
