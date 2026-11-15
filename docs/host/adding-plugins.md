@@ -8,7 +8,33 @@ A plugin is installed on your instance by you, the operator, and then turned on 
 
 [Announcements](../use/plugins/announcements.md), [giveaways](../use/plugins/giveaways.md) and [roles](../use/plugins/roles.md) ship inside teabot. They are installed already, and off in every server until an admin turns them on.
 
-## Install a plugin
+## Install a plugin from the hub
+
+The [plugin hub](https://teabot-dev.github.io/plugin-hub/) lists the plugins teabot's maintainers have reviewed, each with what it does and every server outside Discord it contacts. Find one there, or from your instance's folder:
+
+```bash
+uv run teabot hub search
+uv run teabot hub show wom
+```
+
+Install it, then rebuild the bot:
+
+```bash
+uv run teabot hub add wom
+docker compose up -d --build
+```
+
+`teabot hub add` adds the plugin at the exact commit that was reviewed, to `pyproject.toml` and `uv.lock`. Commit both files. Without uv on the machine, copy the plugin's install line from the hub's page instead: it does the same through Compose.
+
+To see which of your hub plugins have a newer reviewed version:
+
+```bash
+uv run teabot hub outdated
+```
+
+It prints `uv run teabot hub add <id>` for each, which moves it to the newer commit. It also says when the hub no longer lists a plugin you have.
+
+## Install any other plugin
 
 Plugins are Python packages, usually named `teabot-` and the plugin's name. Add one by its package name, then rebuild the bot. Here `teabot-raffles` stands for the plugin you want:
 

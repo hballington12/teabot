@@ -14,6 +14,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Self-hosting
 
+- The [plugin hub](https://teabot-dev.github.io/plugin-hub/) lists reviewed plugins. `teabot hub search`, `show`, `add` and `outdated` find them, install one at its reviewed commit, and say when a newer one is reviewed.
 - `uv run teabot dev` runs the bot from the instance folder and restarts it when a plugin's code, migrations or `teabot.env` change. It reaches the Compose Postgres through `.env`.
 - `TEABOT_MESSAGE_CONTENT=true` turns on Discord's Message Content intent, for plugins that read what members write. It is in the template's `teabot.env.example`.
 - `teabot users delete <id>` deletes a member's data on their request: their rows in every plugin, and their tokens. The audit log keeps what they did, without their ID.

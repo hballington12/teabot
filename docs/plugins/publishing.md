@@ -1,6 +1,6 @@
 # Publishing a plugin
 
-At the end of this page, other people can install your plugin on their own teabot.
+At the end of this page, other people can install your plugin on their own teabot, from the plugin hub or from its own repository.
 
 A plugin in your instance's `plugins/` folder is yours alone. To share it, publish it as a Python package, on PyPI or in a git repository. Operators then add it with one command, as in [Adding plugins](../host/adding-plugins.md).
 
@@ -51,10 +51,25 @@ uv publish
 
 To publish from git instead, tag a release, and operators add it by its URL and tag.
 
+## 6. List it on the hub
+
+The [plugin hub](https://teabot-dev.github.io/plugin-hub/) lists plugins that teabot's maintainers have reviewed, and every instance can install them with `teabot hub add`. To list yours, add one file to the hub's repository, in a pull request:
+
+```text title="plugins/raffles"
+repository=https://github.com/you/teabot-raffles.git
+commit=9db374fc205c5aae1f99bd5fd127266076f40ec8
+```
+
+- The file is named for the plugin's id, and the commit is the full hash of the commit to list.
+- The pull request's checks install the plugin at that commit, run `teabot check` and its tests, and post a report. Fix anything they find in your repository, then change `commit=` in the same pull request.
+- A maintainer reads the code at that commit and merges it. The plugin then appears on the hub's page within minutes.
+- To release an update, change `commit=` in a new pull request. The report links the changes since the listed commit, which is what the maintainer reviews.
+
+The hub's [README](https://github.com/teabot-dev/plugin-hub) has the steps in full, and what review looks for.
+
 ## Keeping it working
 
 - Never edit a migration you have released. Add a new numbered file for each change.
 - Change settings only in ways older settings still fit: add new ones with defaults, and keep old names working.
 - The snapshot test catches a renamed option or job argument, which would break queued jobs and the commands members know.
 
-A curated plugin hub, where teabot's maintainers review plugins before listing them, is planned.

@@ -13,7 +13,7 @@ To run your own teabot, or to write plugins for it, see the [documentation site]
 - An MIT-licensed framework that anyone can self-host, with first-party plugins, a stable plugin SDK and a template for new instances (D41 to D48).
 - One long-running Python process to begin with, with Postgres beside it and a reverse proxy in front. The same code scales out to several processes and hosts when one is no longer enough (D40).
 - A small core that holds the Discord connection, the database, plugin config, tokens and permissions, a durable work queue and an audit trail.
-- Plugins provide every feature. Whoever runs an instance decides which plugins it runs, including ones they wrote themselves. A plugin hub may list plugins later.
+- Plugins provide every feature. Whoever runs an instance decides which plugins it runs, including ones they wrote themselves. The plugin hub lists the plugins the maintainers have reviewed (D51).
 - Three ways in:
     - Discord slash commands for members (interacting with what staff set up) and for staff (control).
     - An MCP server over HTTPS, so an LLM can do admin work for a staff member in a server that person is authorised for.
@@ -201,7 +201,7 @@ The design targets a framework that many people run and that grows to many serve
     - An instance is a small project made from the template: a `pyproject.toml` that lists the plugins it runs, a `uv.lock`, an env file and deploy files. The Tea clan's instance is one such repo, and the hosted service is another.
     - Choosing third-party plugins, pinning them and reviewing their updates happen in the instance, which is where D4 belongs. First-party plugins are installed with teabot, and each server turns on the ones it wants.
 43. **The instance template supports both a quick and a careful setup.** It ships a Docker Compose file with the bot and Postgres, for anyone who wants a working bot in minutes, and the Tea droplet's bare-metal files as a second example (D37). `teabot init` creates the database roles, generates the secrets in the env file and prints the Discord application settings to use. The README walks through creating the Discord application, the intents to turn on, and the rule of one teabot per server.
-44. **Anyone can write plugins for their own instance without approval from the teabot maintainers.** A plugin is a package with a `teabot.plugins` entry point, kept inside the instance's repo, in its own repo or on PyPI. The operator who installs it is the one who reviews it. The maintainers' review applies only to the hosted service's catalogue (D47) and to listings in a future plugin hub.
+44. **Anyone can write plugins for their own instance without approval from the teabot maintainers.** A plugin is a package with a `teabot.plugins` entry point, kept inside the instance's repo, in its own repo or on PyPI. The operator who installs it is the one who reviews it. The maintainers' review applies only to the hosted service's catalogue (D47) and to listings in the plugin hub (D51).
 45. **Plugins build against `teabot.sdk`, which follows semantic versioning.**
     - `teabot.sdk` holds everything a plugin uses: the `Plugin` class and its decorators, `Context`, the Discord protocols, the `*Ref` and `LongText` types, typed queries and the lower-level specs and registrar. Everything else in `teabot` is internal and may change in any release.
     - `teabot.testing` provides guild and member fakes, a harness that loads a plugin through the real loader and migrations, a test clock and snapshots, so plugin authors test the way the core does.
@@ -211,7 +211,7 @@ The design targets a framework that many people run and that grows to many serve
     - An id matches `[a-z][a-z0-9_]{1,31}`, which fits Discord's command names and the Postgres schema and role names of D9.
     - The ids `core`, `admin`, `teabot` and `plugin` are reserved, as are `plugins`, `audit` and `tokens`, the admin plugin's command groups.
     - When two installed packages declare the same id, the loader loads neither and names both packages in the error. A local `giveaways` plugin and a later first-party one therefore never share a schema or a command group by accident.
-    - A future plugin hub reserves ids across its listings.
+    - The plugin hub reserves ids across its listings, and refuses one that a plugin inside teabot uses (D51).
 47. **The hosted service is an instance run by the teabot maintainers.** Server admins sign up by adding its bot, and they enable plugins from a catalogue of plugins the maintainers have reviewed. Custom plugins need a self-hosted instance, because plugins are not sandboxed (D5). Before it opens, the hosted service needs the deferred work for strangers sharing one instance: per-server quotas and fair queue claims, OAuth (D16), member data deletion (D11), egress consent and enforcement (D12), and a privacy policy and terms of service for Discord verification.
 48. **The repository carries the files an open-source project needs.** `LICENSE`, `CONTRIBUTING.md`, `SECURITY.md` with a private way to report a vulnerability, through GitHub's private reporting, a code of conduct, a changelog kept per release, and release notes that call out any manual step for operators.
 49. **When the bot leaves a server, that server's data is deleted after a grace period.**
@@ -222,3 +222,10 @@ The design targets a framework that many people run and that grows to many serve
 ### The first plugin
 
 50. **The first plugin is an announcements proof of concept.** It posts an embed to a channel, and it exercises a slash command with a `LongText` body, an MCP tool, a service-API call, the permission check and the audit log.
+51. **The plugin hub lists reviewed plugins, each at the commit that was reviewed, as the RuneLite Plugin Hub does.**
+    - It is its own repository, `teabot-dev/plugin-hub`. A listing is a file `plugins/<id>` with two lines, `repository=` and `commit=`. Adding a plugin, and updating one, is a pull request that adds or changes that file.
+    - A pull request's checks clone the plugin at the commit, read its package, README and licence, then install it and run `teabot check` and its tests against Postgres. They run with no rights and no secrets, since they run a stranger's code, and a separate workflow posts their report. A maintainer reviews the code, and for an update the difference since the listed commit, then merges.
+    - Merging rebuilds the hub's catalogue, `catalogue.json`, and its page on GitHub Pages. The plugin is installed as a git requirement pinned to the commit, so an instance runs exactly what was reviewed, and no package index is needed.
+    - `teabot hub search`, `show`, `add` and `outdated` read the catalogue. `add` runs `uv add` in the instance's folder, and the page gives the same line through Compose for an operator without uv.
+    - The plugins inside teabot are not listed, and their ids are refused, as are the reserved ones (D46).
+    - The maintainers delist a plugin that proves harmful, breaks and stays broken, or whose author asks. An instance keeps what it installed, and `teabot hub outdated` says the plugin is no longer listed.
