@@ -311,6 +311,20 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 - A job can run twice: after a crash, its lease runs out and another worker takes it. Check state first, so that a second run changes nothing, and test it with `harness.run_job`.
 - A failing job is retried after 2, 4, 8 and 16 seconds, five attempts in all, then stays failed with its error, which `/admin job_status` shows. Raise `ActionError` to give that error in your words.
 
+A job can also run on its own, on a schedule:
+
+```python
+@plugin.job(every=timedelta(days=1))
+async def digest(ctx: Ctx) -> None:
+    ...
+```
+
+- It runs in each server where the plugin is on, the first time one interval after teabot starts or the server turns the plugin on, then once an interval.
+- It takes nothing after `ctx`. Read what it needs from the database or `ctx.config`.
+- A run queues the next before it starts, so a run that fails never ends the schedule. The shortest interval is a minute.
+- While the plugin is off in a server, its runs there wait, and the next runs when it is turned back on.
+- In tests, `await harness.advance(days=1)` then `await harness.run_jobs()` runs it.
+
 ## Testing
 
 - The scaffold's `pyproject.toml` sets the tests up: it depends on `teabot[testing]` and adds `-p teabot.testing.fixtures` to pytest's options. Run them with `uv run --package teabot-<id> pytest plugins/<id>`.

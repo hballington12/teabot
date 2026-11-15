@@ -22,6 +22,7 @@ from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Plans
 from teabot.core.plugin_jobs import register_plugin_jobs
 from teabot.core.queue import APPLY_HANDLER, JobContext, Queue
+from teabot.core.recurring import Recurring
 from teabot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
 from teabot.db.pool import Pools
 from teabot.sdk.plans import Diff
@@ -41,6 +42,7 @@ class Core:
     queue: Queue
     events: Events
     outbox: Outbox
+    recurring: Recurring
 
 
 def assemble(
@@ -76,8 +78,14 @@ def assemble(
     queue.register("core", APPLY_HANDLER, apply)
     outbox = Outbox(pools.core_db(), client)
     queue.register("core", POST_MESSAGE, outbox)
-    register_plugin_jobs(queue, report.loaded, pools, client)
+    recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})
+    register_plugin_jobs(queue, report.loaded, pools, client, recurring)
     listeners = {plugin_id: loaded.events for plugin_id, loaded in report.loaded.items() if loaded.events}
     events = Events(pools.core_db(), queue, listeners)
-    admin.on_enabled = events.enabled
-    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox)
+
+    async def enabled(guild_id: int, plugin_id: str, user_id: int) -> None:
+        await recurring.ensure(guild_id, plugin_id)
+        await events.enabled(guild_id, plugin_id, user_id)
+
+    admin.on_enabled = enabled
+    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox, recurring)

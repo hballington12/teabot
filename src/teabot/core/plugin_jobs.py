@@ -11,6 +11,7 @@ from teabot.core.config import ConfigStore
 from teabot.core.loader import Loaded
 from teabot.core.queue import JobContext as CoreJobContext
 from teabot.core.queue import Queue
+from teabot.core.recurring import Recurring
 from teabot.db.pool import GuildPluginDatabase, Pools
 from teabot.sdk import JobHandler
 
@@ -33,7 +34,19 @@ class PluginJobContext:
         await self.core.report(dict(progress))
 
 
-def _adapt(plugin_id: str, handler: JobHandler, pools: Pools, client: Any, config: type[BaseModel]) -> Any:
+@dataclass(frozen=True)
+class _Runtime:
+    """What every plugin job runs with: the pools, the Discord client, and the recurring jobs."""
+
+    pools: Pools
+    client: Any
+    recurring: Recurring | None = None
+
+
+def _adapt(
+    plugin_id: str, handler: JobHandler, runtime: _Runtime, config: type[BaseModel], recurs: bool
+) -> Any:
+    pools, client, recurring = runtime.pools, runtime.client, runtime.recurring if recurs else None
     store = ConfigStore(pools.core_db())
 
     async def run(core: CoreJobContext) -> None:
@@ -47,6 +60,8 @@ def _adapt(plugin_id: str, handler: JobHandler, pools: Pools, client: Any, confi
                 extra={"job_id": core.job.id, "guild_id": guild_id},
             )
             return
+        if recurring is not None:
+            await recurring.next_run(guild_id, plugin_id, core.job.handler, core.job.id)
         started_by = core.job.started_by
         db = pools.guild_plugin_db(plugin_id, guild_id, started_by)
         settings = await store.load(guild_id, plugin_id, config)
@@ -55,9 +70,14 @@ def _adapt(plugin_id: str, handler: JobHandler, pools: Pools, client: Any, confi
     return run
 
 
-def register_plugin_jobs(queue: Queue, loaded: Mapping[str, Loaded], pools: Pools, client: Any) -> None:
+def register_plugin_jobs(
+    queue: Queue, loaded: Mapping[str, Loaded], pools: Pools, client: Any, recurring: Recurring | None = None
+) -> None:
+    """Register every loaded plugin's jobs. A recurring one queues its next run as it starts."""
     for plugin_id, plugin in loaded.items():
+        config = plugin.plugin.manifest.config
+        runtime = _Runtime(pools, client, recurring)
         for name, handler in plugin.jobs.items():
             queue.register(
-                plugin_id, name, _adapt(plugin_id, handler, pools, client, plugin.plugin.manifest.config)
+                plugin_id, name, _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
             )

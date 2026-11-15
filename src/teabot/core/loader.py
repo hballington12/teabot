@@ -12,6 +12,7 @@ import sys
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
 from dataclasses import dataclass, field
+from datetime import timedelta
 from importlib.metadata import entry_points
 from typing import Any, Literal, Protocol
 
@@ -56,6 +57,7 @@ class Loaded:
     actions: dict[str, ActionSpec[Any, Any]] = field(default_factory=dict[str, ActionSpec[Any, Any]])
     jobs: dict[str, JobHandler] = field(default_factory=dict[str, JobHandler])
     events: frozenset[EventName] = frozenset()
+    recurring: dict[str, timedelta] = field(default_factory=dict[str, timedelta])
 
 
 @dataclass
@@ -163,6 +165,12 @@ class _Registrar:
         self.actions: dict[str, ActionSpec[Any, Any]] = {}
         self.jobs: dict[str, JobHandler] = {}
         self.events: set[EventName] = set()
+        self.every: dict[str, timedelta] = {}
+
+    def recurring(self, name: str, every: timedelta) -> None:
+        if name not in self.jobs:
+            raise ValueError(f"job {name} recurs but is not registered")
+        self.every[name] = every
 
     def action(self, spec: ActionSpec[Any, Any]) -> None:
         if spec.plugin_id != self.plugin_id:
@@ -223,7 +231,9 @@ def _setup(plugin_id: str, plugin: LoadablePlugin, report: LoadReport) -> bool:
     except Exception as exc:
         report.fail(plugin_id, "failed", f"setup failed: {exc!r}")
         return False
-    report.loaded[plugin_id] = Loaded(plugin, registrar.actions, registrar.jobs, frozenset(registrar.events))
+    report.loaded[plugin_id] = Loaded(
+        plugin, registrar.actions, registrar.jobs, frozenset(registrar.events), registrar.every
+    )
     report.statuses[plugin_id] = LOADED
     return True
 

@@ -6,6 +6,7 @@ plugins keep working.
 
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -104,6 +105,11 @@ class Registrar(Protocol):
 
     def job(self, name: str, handler: JobHandler) -> None:
         """Handle the plugin's jobs called `name`, which its actions queue with `ctx.queue.schedule`."""
+        ...
+
+    def recurring(self, name: str, every: timedelta) -> None:
+        """Run the plugin's job `name`, which takes no payload, every `every` in each server where the plugin is
+        enabled, the first time one `every` after it is turned on or teabot starts."""
         ...
 
     def event(self, name: "EventName", handler: JobHandler) -> None:

@@ -22,6 +22,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 - Plugin code sees only the current server's rows: every plugin table gets a row-level security policy on `guild_id`, and the current server as `guild_id`'s default, so an insert may leave it out. Plugin code runs as a new runtime role, which cannot create tables or other objects; migrations keep the owner role, which sees every server. Existing tables gain the policy and the default at the first start on this release.
 - A column of members' IDs has the type `teabot.member_id`, or `teabot.member_id[]`, so deleting a member's data finds it. A migration that leaves such a column `bigint`, named like `member_id`, `user_id` or `winner_ids`, is refused with the type to use; alter it in a new migration. The giveaways and polls tables use it.
+- `@plugin.job(every=timedelta(...))` runs a job on its own, once an interval, in each server where the plugin is on.
 - `@plugin.on_enable` runs when a server turns the plugin on, such as to create a channel or a role it needs. `harness.enable()` runs it in tests.
 - `Select(..., defaults=(id, ...))` opens a role, channel or member picker with those chosen.
 - `@plugin.on_message`, `on_reaction_add`, `on_reaction_remove`, `on_member_roles` and `on_voice` handle messages, reactions, role changes and voice moves, each as a job, like joins and leaves. A message's text needs `TEABOT_MESSAGE_CONTENT=true`. The harness fires them with `post`, `react`, `change_roles` and `voice`.

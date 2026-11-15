@@ -264,6 +264,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     client.events = core.events
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await core.sync.startup()})
+    log.info("recurring jobs queued", extra={"servers": await core.recurring.startup()})
     client.router = InteractionRouter(core.registry, pools.core_db())
     health = Health(
         teabot.__version__,

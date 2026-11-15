@@ -8,6 +8,7 @@ with the difference until the author accepts it with `pytest --teabot-accept`.
 import difflib
 import json
 from collections.abc import Callable
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ class _Collector:
         self.actions: list[ActionSpec[Any, Any]] = []
         self.jobs: dict[str, JobHandler] = {}
         self.events: list[EventName] = []
+        self.every: dict[str, timedelta] = {}
 
     def action(self, spec: ActionSpec[Any, Any]) -> None:
         self.actions.append(spec)
@@ -34,6 +36,9 @@ class _Collector:
 
     def event(self, name: EventName, handler: JobHandler) -> None:
         self.events.append(name)
+
+    def recurring(self, name: str, every: timedelta) -> None:
+        self.every[name] = every
 
 
 def plugin_snapshot(plugin: LoadablePlugin) -> dict[str, Any]:
@@ -50,6 +55,8 @@ def plugin_snapshot(plugin: LoadablePlugin) -> dict[str, Any]:
     }
     if collected.events:
         found["events"] = sorted(collected.events)
+    if collected.every:
+        found["recurring"] = {name: every.total_seconds() for name, every in sorted(collected.every.items())}
     return found
 
 

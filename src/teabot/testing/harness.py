@@ -440,6 +440,7 @@ async def build_harness(
         core.outbox,
     )
     await install_clock(admin, naming, plugin_id, CLOCK.offset)
+    await core.recurring.ensure(guild.id, plugin_id)
     for key, handler in list(core.queue.handlers.items()):
         core.queue.handlers[key] = _recording(f"{key[0]}.{key[1]}", handler, harness.failures)
     return harness
