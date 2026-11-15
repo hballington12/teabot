@@ -88,7 +88,7 @@ def test_risks_are_ordered() -> None:
 
 
 def test_actions_default_to_every_surface() -> None:
-    assert spec().surfaces == Surface.ALL == Surface.SLASH | Surface.MCP | Surface.SERVICE | Surface.COMPONENT
+    assert spec().surfaces == Surface.ALL == Surface.SLASH | Surface.MCP | Surface.SERVICE | Surface.COMPONENT | Surface.MENU
 
 
 def test_a_destructive_action_needs_a_plan() -> None:

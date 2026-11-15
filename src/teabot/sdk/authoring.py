@@ -44,7 +44,18 @@ from teabot.sdk._signature import (
     where,
 )
 from teabot.sdk._views import guild_view
-from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Choice, Risk, Surface
+from teabot.sdk.actions import (
+    MENU_NAME_MAX,
+    SYSTEM,
+    ActionContext,
+    ActionError,
+    ActionSpec,
+    Actor,
+    Choice,
+    Menu,
+    Risk,
+    Surface,
+)
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
 from teabot.sdk.guild import Guild, Member, Reaction, ReceivedMessage, RoleChange, User, VoiceChange
@@ -153,6 +164,7 @@ class Action[C: BaseModel, **P, R]:
     - `surfaces` are the front doors it is offered through.
     - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
     - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches.
+    - `menu` is its right-click command, if `menu=` made one.
     """
 
     func: Callable[Concatenate[Context[C], P], Awaitable[R]]
@@ -168,6 +180,7 @@ class Action[C: BaseModel, **P, R]:
         default_factory=dict[str, Callable[..., Awaitable[list[Choice[Any]]]]]
     )
     hosts: frozenset[str] = frozenset()
+    menu: Menu | None = None
 
     def autocomplete[T: (str, int)](
         self, option: str
@@ -213,6 +226,7 @@ class Action[C: BaseModel, **P, R]:
             reply=self.reply,
             surfaces=self._surfaces(),
             suggest={option: self._suggester(option) for option in self.suggesters},
+            menu=self.menu,
         )
 
     def _surfaces(self) -> Surface:
@@ -263,6 +277,24 @@ def _reason(action: str, actor: Actor) -> str:
     """What Discord's audit log shows for a change a plugin makes without its own reason."""
     who = "teabot" if actor.user_id == SYSTEM else f"member {actor.user_id}"
     return f"via teabot: {action}, for {who}"
+
+
+def _menu_of(func: Callable[..., Any], name: str, menu: str, inputs: Inputs) -> Menu:
+    """The right-click command `menu=` asks for, from the action's one input."""
+    if not 1 <= len(menu) <= MENU_NAME_MAX:
+        raise SignatureError(f"{where(func)}: {name}'s menu name is 1 to {MENU_NAME_MAX} characters")
+    fields = list(inputs.model.model_fields)
+    resolved = {r.name: r.kind for r in inputs.resolved if not r.many}
+    if len(fields) != 1:
+        raise SignatureError(
+            f"{where(func)}: {name} has a menu, so it takes one input, the member or the message"
+        )
+    (only,) = fields
+    if resolved.get(only) is Member:
+        return Menu(menu, "user", only)
+    if unalias(inputs.model.model_fields[only].annotation) is ReceivedMessage:
+        return Menu(menu, "message", only)
+    raise SignatureError(f"{where(func)}: {name} has a menu, so its input is a Member or a ReceivedMessage")
 
 
 def _context_of(ctx: ActionContext, action: str, hosts: frozenset[str]) -> _Context:
@@ -366,6 +398,7 @@ class Plugin(Generic[Cfg]):
         name: str | None = None,
         reply: Literal["private", "public"] = "private",
         surfaces: Surface = Surface.ALL,
+        menu: str | None = None,
     ) -> Callable[[Callable[Concatenate[Context[Cfg], P], Awaitable[R]]], Action[Cfg, P, R]]:
         """Make a function an action: a slash command, an MCP tool, a service route, and what a button or select
         menu runs, at once (D1).
@@ -373,12 +406,22 @@ class Plugin(Generic[Cfg]):
         Its name is the function's, without a trailing underscore, unless `name` says otherwise. Its docstring's
         first line is the summary, and its `Args:` section describes each input. `surfaces` narrows where it is
         offered: `Surface.COMPONENT` for an action only its buttons and menus reach.
+
+        `menu="Give a pet"` also makes it a right-click command, named so in Discord's Apps menu, on a member when
+        its one input is a `Member`, or on a message when it is a `ReceivedMessage`. An action on a message is not
+        a slash command, since no slash command can give one.
         """
 
         def register(func: Callable[Concatenate[Context[Cfg], P], Awaitable[R]]) -> Action[Cfg, P, R]:
             action_name = f"{self.id}.{name or func.__name__.removesuffix('_')}"
             self._check_context(func, action_name)
             inputs = read_inputs(func, action_name, injected={Context: "context"})
+            found_menu = _menu_of(func, action_name, menu, inputs) if menu is not None else None
+            offered = surfaces
+            if found_menu is not None:
+                offered = surfaces | Surface.MENU
+                if found_menu.kind == "message":
+                    offered &= ~Surface.SLASH
             built = Action(
                 func,
                 action_name,
@@ -387,8 +430,9 @@ class Plugin(Generic[Cfg]):
                 reply,
                 inputs,
                 read_output(func, action_name),
-                surfaces=surfaces,
+                surfaces=offered,
                 hosts=self.hosts,
+                menu=found_menu,
             )
             self.actions[action_name] = built
             self._module = self._module or func.__module__

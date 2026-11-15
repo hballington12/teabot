@@ -20,7 +20,8 @@ A plugin:
 - `InvalidPluginId`: what a plugin with an id that breaks D46 raises.
 
 Actions:
-- `ActionSpec`: one action, with its input and output models, `Risk`, permissions and `Surface`.
+- `ActionSpec`: one action, with its input and output models, `Risk`, permissions and `Surface`, and a `Menu`
+  when it is a right-click command.
 - `ActionContext`: what one call receives: the server, the `Actor`, the plugin's `Db`, its config and queue.
 - `Actor`: the member who made the call, and `Via`, the front door it came through. `SYSTEM` is the actor of a
   job nobody started.
@@ -63,6 +64,7 @@ from teabot.sdk.actions import (
     ActionSpec,
     Actor,
     Choice,
+    Menu,
     Risk,
     Surface,
     Via,
@@ -134,6 +136,7 @@ __all__ = [
     "Manifest",
     "Member",
     "MemberRef",
+    "Menu",
     "Message",
     "Option",
     "Outbox",

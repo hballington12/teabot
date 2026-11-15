@@ -32,17 +32,19 @@ class Risk(IntEnum):
 
 
 class Surface(Flag):
-    """The front doors an action appears on (D1): a slash command, an MCP tool, the service API, and a button or
-    select menu on a post. `Surface.COMPONENT` alone makes an action that only its buttons and menus reach."""
+    """The front doors an action appears on (D1): a slash command, an MCP tool, the service API, a button or
+    select menu on a post, and a right-click menu on a member or a message, for an action given `menu=`.
+    `Surface.COMPONENT` alone makes an action that only its buttons and menus reach."""
 
     SLASH = auto()
     MCP = auto()
     SERVICE = auto()
     COMPONENT = auto()
-    ALL = SLASH | MCP | SERVICE | COMPONENT
+    MENU = auto()
+    ALL = SLASH | MCP | SERVICE | COMPONENT | MENU
 
 
-type Via = Literal["slash", "component", "mcp", "service", "job", "event"]
+type Via = Literal["slash", "component", "menu", "mcp", "service", "job", "event"]
 """How a call came in (D1): a slash command, a button, an MCP tool or the service API; or, with no member
 behind it, a job or a Discord event."""
 
@@ -106,6 +108,19 @@ class ActionContext(Protocol):
         ...
 
 
+MENU_NAME_MAX = 32
+
+
+@dataclass(frozen=True)
+class Menu:
+    """A right-click command (D1): `name` as Discord shows it in the Apps menu, up to 32 characters; `kind`,
+    `"user"` for a member or `"message"` for a message; and `field`, the input the target fills."""
+
+    name: str
+    kind: Literal["user", "message"]
+    field: str
+
+
 @dataclass(frozen=True)
 class ActionSpec[I: BaseModel, O: BaseModel]:
     """One action, offered on every front door its `surfaces` allow (D1).
@@ -122,6 +137,7 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     - `render` turns the output into the Discord reply; without it the reply lists the output's fields.
     - `reply` is `"private"` for a reply only the member sees, or `"public"` for one the channel sees.
     - `suggest` maps an input's name to the function that suggests its values as the member types.
+    - `menu` makes it a right-click command on a member or a message, which fills one input.
     """
 
     name: str
@@ -138,13 +154,16 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
     suggest: Mapping[str, Callable[[ActionContext, str], Awaitable[list["Choice[Any]"]]]] = field(
         default_factory=dict[str, Callable[[ActionContext, str], Awaitable[list["Choice[Any]"]]]]
     )
+    menu: "Menu | None" = None
 
     def __post_init__(self) -> None:
         if not ACTION_NAME_RE.fullmatch(self.name):
             raise ValueError(f"action name {self.name!r} must be <plugin id>.<action>, in lower case")
         if self.risk is Risk.DESTRUCTIVE and self.plan is None:
             raise ValueError(f"{self.name} is destructive and needs a plan (D21)")
-        input_fields(self.input)
+        fields = input_fields(self.input)
+        if Surface.SLASH in self.surfaces and any(f.kind == "message" for f in fields):
+            raise ValueError(f"{self.name} takes a message, which no slash command can give; use menu= alone")
 
     @property
     def plugin_id(self) -> str:

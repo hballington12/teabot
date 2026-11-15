@@ -48,6 +48,7 @@ SURFACE_OF = {
     "component": Surface.COMPONENT,
     "mcp": Surface.MCP,
     "service": Surface.SERVICE,
+    "menu": Surface.MENU,
 }
 
 

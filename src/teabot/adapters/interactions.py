@@ -15,7 +15,7 @@ from typing import Any, Protocol
 import discord
 from pydantic import BaseModel
 
-from teabot.adapters.schema import field_of_option, fold_lists, slash_fields
+from teabot.adapters.schema import MESSAGE, USER, field_of_option, fold_lists, slash_fields
 from teabot.core.plans import Planned, Queued
 from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.pool import Database
@@ -91,6 +91,7 @@ def _modal_values(data: Mapping[str, Any]) -> dict[str, str]:
 CONFIRM_PREFIX = "teabot:core:confirm:"
 PLAN_GONE = "That plan no longer exists. Run the command again for a new one."
 BUTTON_GONE = "That button no longer works."
+MENU_GONE = "That command is no longer here. Discord can take a minute to update its menus."
 # Discord lets a private reply be edited for 15 minutes; following stops a little before.
 FOLLOW_SECONDS = 14 * 60
 JOB_STATE = "SELECT state, progress FROM core.jobs WHERE id = $1"
@@ -248,6 +249,9 @@ class InteractionRouter:
         if interaction.guild_id is None:
             await interaction.response.send_message(OUTSIDE, ephemeral=True)
             return
+        if interaction.data.get("type") in (USER, MESSAGE):
+            await self._menu(interaction)
+            return
         sub = interaction.data["options"][0]
         name = f"{interaction.data['name']}.{sub['name']}"
         raw = {o["name"]: o["value"] for o in sub.get("options", [])}
@@ -263,6 +267,33 @@ class InteractionRouter:
             await interaction.response.send_modal(_modal(spec, draft_id, modal_fields))
             return
         await self._run(interaction, name, raw)
+
+    async def _menu(self, interaction: Any) -> None:
+        """A right-click command on a member or a message: the action whose menu has that name fills its one
+        input with the target."""
+        kind = "user" if interaction.data["type"] == USER else "message"
+        spec = next(
+            (
+                s
+                for s in self.registry.actions.values()
+                if s.menu is not None and s.menu.kind == kind and s.menu.name == interaction.data["name"]
+            ),
+            None,
+        )
+        if spec is None or spec.menu is None:
+            await interaction.response.send_message(MENU_GONE, ephemeral=True)
+            return
+        target = str(interaction.data["target_id"])
+        value: Any = int(target)
+        if kind == "message":
+            found = interaction.data.get("resolved", {}).get("messages", {}).get(target, {})
+            value = {
+                "id": int(target),
+                "channel_id": int(found.get("channel_id", 0)),
+                "author_id": int(found.get("author", {}).get("id", 0)),
+                "content": str(found.get("content", "")),
+            }
+        await self._run(interaction, spec.name, {spec.menu.field: value}, via="menu")
 
     async def _modal_submit(self, interaction: Any) -> None:
         try:

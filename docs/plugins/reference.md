@@ -133,7 +133,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 `ctx` is for one server:
 
 - `ctx.guild`: the server, as a `Guild`. `get_text_channel(id)`, `get_channel(id)`, `get_role(id)` and `await get_member(id)` find things in it, or return `None`. [Working with the server](#working-with-the-server) lists what else it does.
-- `ctx.actor`: who asked. `user_id` is the member, `via` how the call came in (`"slash"`, `"component"` for a button, a select menu or a confirmation, `"mcp"`, `"service"`, `"job"`, or `"event"`), and `token_id` the token for MCP and service calls. In a job, it is the member who scheduled it; in an event, and a job nobody scheduled, it is `SYSTEM`.
+- `ctx.actor`: who asked. `user_id` is the member, `via` how the call came in (`"slash"`, `"component"` for a button, a select menu or a confirmation, `"menu"` for a right-click menu, `"mcp"`, `"service"`, `"job"`, or `"event"`), and `token_id` the token for MCP and service calls. In a job, it is the member who scheduled it; in an event, and a job nobody scheduled, it is `SYSTEM`.
 - `ctx.config`: the plugin's config for this server, as the plugin's own model.
 - `ctx.db`: the plugin's database, as its own role in its own schema.
 - `ctx.now`: the time. Read the clock only through it, since tests move it.
@@ -151,6 +151,36 @@ await channel.send(embed=discord.Embed(title="Results"))
 - A channel the bot may not post in raises an `ActionError` that says so.
 - `files=[File("results.csv", data)]` attaches files.
 - A post that goes with database writes, such as a draw's winners, goes through the transaction instead, with `tx.send`. See [Posting with a transaction](#posting-with-a-transaction).
+
+## Right-click menus
+
+```python
+@plugin.action(menu="Give a pet", needs="manage_roles")
+async def give_pet(ctx: Ctx, member: Member) -> str:
+    """Give a member a pet.
+
+    Args:
+        member: Who gets it.
+    """
+    ...
+
+
+@plugin.action(menu="Report")
+async def report(ctx: Ctx, message: ReceivedMessage) -> str:
+    """Report a message to the moderators.
+
+    Args:
+        message: The message.
+    """
+    ...
+```
+
+- `menu=` adds the action to Discord's **Apps** menu, under the name given, up to 32 characters: on a member when its one input is a `Member`, and on a message when it is a `ReceivedMessage`.
+- The target fills that input. A message arrives with its text, whatever the Message Content intent.
+- An action on a member stays a slash command and a tool too. An action on a message is not a slash command, since no slash command can give one.
+- It runs as the member who chose it, with `ctx.actor.via` `"menu"`, through the same permission and audit checks as a command.
+- Discord shows five menu commands of each kind in a server. Past five, the first five by action name are kept.
+- In tests, `await harness.menu(give_pet, member)` and `await harness.menu(report, message)` choose them.
 
 ## Reaching the web
 

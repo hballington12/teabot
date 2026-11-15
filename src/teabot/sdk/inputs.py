@@ -1,7 +1,8 @@
 """The input field types an action may use (D29), classified once for every front door.
 
 Allowed: `str`, `LongText`, `int`, `bool`, `Literal` of all strings or all ints, and the `*Ref` types, each
-optional or not, and a `list` of any of them but `LongText`, with `max_length` up to 10. Anything else is refused
+optional or not, and a `list` of any of them but `LongText`, with `max_length` up to 10. A `ReceivedMessage` is
+the target of a message's right-click menu, and no slash command takes one. Anything else is refused
 with the field's name, so an action cannot be built with a field a front door could not offer.
 """
 
@@ -13,8 +14,9 @@ from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from teabot.sdk.fields import Long, Ref
+from teabot.sdk.guild import ReceivedMessage
 
-type InputKind = Literal["string", "long", "integer", "boolean", "channel", "role", "member"]
+type InputKind = Literal["string", "long", "integer", "boolean", "channel", "role", "member", "message"]
 DESCRIPTION_MAX = 100
 LIST_MAX = 10
 
@@ -87,6 +89,8 @@ def _kind(name: str, base: Any, metadata: list[Any]) -> tuple[InputKind, tuple[A
         return ("long" if any(isinstance(m, Long) for m in metadata) else "string"), None
     if base in simple:
         return simple[base], None
+    if base is ReceivedMessage:
+        return "message", None
     raise InputError(f"field {name}: {base!r} is not a supported input type (D29)")
 
 

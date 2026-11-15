@@ -17,6 +17,10 @@ from teabot.sdk.inputs import InputError, InputField, input_fields
 SchemaError = InputError
 
 CHAT_INPUT = 1
+# Discord's right-click commands: on a member, and on a message. A server takes five of each.
+USER = 2
+MESSAGE = 3
+MENUS_MAX = 5
 SUB_COMMAND = 1
 OPTION_TYPES = {"string": 3, "integer": 4, "boolean": 5, "member": 6, "channel": 7, "role": 8}
 
@@ -142,7 +146,35 @@ def tool_name(spec: ActionSpec[Any, Any]) -> str:
     return spec.name.replace(".", "_")
 
 
+def menu_command(spec: ActionSpec[Any, Any]) -> dict[str, Any]:
+    """An action's right-click command, on a member or a message."""
+    assert spec.menu is not None
+    command: dict[str, Any] = {"type": USER if spec.menu.kind == "user" else MESSAGE, "name": spec.menu.name}
+    if spec.default_permissions.value:
+        command["default_member_permissions"] = str(spec.default_permissions.value)
+    return command
+
+
+def menu_commands(specs: Iterable[ActionSpec[Any, Any]]) -> list[dict[str, Any]]:
+    """The right-click commands of these actions. Discord takes five of each kind in a server, so the rest, in
+    name order, are left out, and one name is used once."""
+    chosen: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for spec in sorted(
+        (s for s in specs if s.menu is not None and Surface.MENU in s.surfaces), key=lambda s: s.name
+    ):
+        assert spec.menu is not None
+        key = (spec.menu.kind, spec.menu.name)
+        if key in seen or sum(1 for k in seen if k[0] == spec.menu.kind) >= MENUS_MAX:
+            continue
+        seen.add(key)
+        chosen.append(menu_command(spec))
+    return chosen
+
+
 def commands_for(sources: Mapping[str, ActionSource]) -> list[dict[str, Any]]:
-    """The command groups of the plugins that have at least one slash action (D32)."""
+    """The command groups of the plugins that have at least one slash action (D32), then the right-click
+    commands of every plugin's menu actions."""
     groups = [command_group(plugin_id, source.actions.values()) for plugin_id, source in sources.items()]
-    return [g for g in groups if g["options"]]
+    menus = menu_commands(spec for source in sources.values() for spec in source.actions.values())
+    return [g for g in groups if g["options"]] + menus

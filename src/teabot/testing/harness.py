@@ -154,6 +154,11 @@ class PluginHarness:
         `plan` and `confirm` instead."""
         return await self.as_member(self.member).call(action, *args, **kwargs)
 
+    async def menu[R](self, action: Action[Any, ..., R], target: Any, /) -> R:
+        """Right-click `target`, a member or a message, and choose the action's menu command, as the server's
+        first member. Returns what the action returned."""
+        return await self.as_member(self.member).menu(action, target)
+
     async def plan[**P](self, action: Action[Any, P, Any], /, *args: P.args, **kwargs: P.kwargs) -> Planned:
         """Ask a destructive action for its plan, as the server's first member."""
         return await self.as_member(self.member).plan(action, *args, **kwargs)
@@ -329,6 +334,24 @@ class MemberCalls:
         if action.risk is DESTRUCTIVE:
             raise TypeError(f"{action.name} is destructive: use harness.plan, then harness.confirm")
         out = await self._invoke(action, kwargs)
+        await self.harness.send_posts()
+        return action.output.unwrap(out)
+
+    async def menu[R](self, action: Action[Any, ..., R], target: Any, /) -> R:
+        """Choose the action's right-click command on `target`, a member or a message, as this member."""
+        if action.menu is None:
+            raise TypeError(f"{action.name} has no menu; give it one with @plugin.action(menu=...)")
+        value: Any = int(target.id)
+        if action.menu.kind == "message":
+            author = getattr(target, "author_id", 0)
+            value = {
+                "id": target.id,
+                "channel_id": target.channel_id,
+                "author_id": author,
+                "content": target.content or "",
+            }
+        call = Call(action.name, self.harness.guild.id, Actor(self.user, "menu"), {action.menu.field: value})
+        out = await self.harness.registry.invoke(call)
         await self.harness.send_posts()
         return action.output.unwrap(out)
 

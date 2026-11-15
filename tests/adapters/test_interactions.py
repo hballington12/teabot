@@ -17,7 +17,18 @@ from teabot.db.migrate import migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
-from teabot.sdk import ActionSpec, Actor, ChannelRef, Choice, LongText, Risk, UntrustedText
+from teabot.sdk import (
+    ActionSpec,
+    Actor,
+    ChannelRef,
+    Choice,
+    LongText,
+    ReceivedMessage,
+    Risk,
+    Surface,
+    UntrustedText,
+)
+from teabot.sdk.actions import Menu
 from teabot.sdk.components import BoundAction
 
 GUILD, USER, CHANNEL = 1001, 2001, 3001
@@ -511,3 +522,54 @@ async def test_a_public_actions_refusal_stays_private(router: tuple[InteractionR
         True,
     )
     assert ("delete",) not in interaction.events
+
+
+class Target(BaseModel):
+    message: ReceivedMessage
+
+
+REPORT = ActionSpec(
+    "announcements.report",
+    "Report a message",
+    Target,
+    Pong,
+    Risk.WRITE,
+    never,
+    surfaces=Surface.MENU,
+    menu=Menu("Report", "message", "message"),
+)
+
+
+async def test_a_message_menu_runs_its_action_with_the_message_through_the_menu_door(
+    router: tuple[InteractionRouter, FakeRegistry],
+) -> None:
+    handler, registry = router
+    registry.actions[REPORT.name] = REPORT
+    registry.result = Pong(ok=True)
+    data = {
+        "type": 3,
+        "name": "Report",
+        "target_id": "77",
+        "resolved": {"messages": {"77": {"channel_id": "5", "author": {"id": "9"}, "content": "spam"}}},
+    }
+    await handler.handle(FakeInteraction(discord.InteractionType.application_command, data))
+    assert registry.calls == [
+        Call(
+            "announcements.report",
+            GUILD,
+            Actor(USER, "menu"),
+            {"message": {"id": 77, "channel_id": 5, "author_id": 9, "content": "spam"}},
+        )
+    ]
+
+
+async def test_a_menu_no_action_has_is_told_to_the_member(
+    router: tuple[InteractionRouter, FakeRegistry],
+) -> None:
+    handler, registry = router
+    interaction = FakeInteraction(
+        discord.InteractionType.application_command, {"type": 2, "name": "Gone", "target_id": "1"}
+    )
+    await handler.handle(interaction)
+    assert registry.calls == []
+    assert "no longer here" in str(interaction.events[0])

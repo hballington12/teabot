@@ -119,6 +119,8 @@ max-line-length = 120
 "src/teabot/sdk/_views.py" = ["PLR0913"]
 "src/teabot/sdk/db.py" = ["PLR0913"]
 "src/teabot/sdk/http.py" = ["PLR0913"]
+# @plugin.action takes each of its options by keyword: risk, needs, name, reply, surfaces and menu.
+"src/teabot/sdk/authoring.py" = ["PLR0913"]
 "src/teabot/db/pool.py" = ["PLR0913"]
 
 [tool.ruff.lint.mccabe]
