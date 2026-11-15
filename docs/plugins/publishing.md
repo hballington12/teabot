@@ -8,6 +8,8 @@ A plugin in your instance's `plugins/` folder is yours alone. To share it, publi
 
 Copy `plugins/<id>/` into a repository of its own. It is already a complete package: `pyproject.toml`, the code, the migrations, the tests and the README.
 
+Add a `LICENSE` file, such as the MIT licence, which says others may use it. The plugin hub lists open-source plugins only.
+
 ## 2. Depend on a range of teabot
 
 In `pyproject.toml`, depend on the teabot versions your plugin works with. The scaffold writes the range of the teabot it was made with:
