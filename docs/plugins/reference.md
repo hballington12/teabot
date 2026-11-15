@@ -190,9 +190,9 @@ await channel.send(
 - Discord's own role, channel and member pickers cannot be limited to some roles. To offer a chosen few, use a menu of `Option`s whose values are the IDs, as strings.
 - A menu's options are fixed when it is posted, and a post can outlive the roles or settings it was made from, so the action checks the choices again when it runs.
 
-## Member events
+## Events
 
-Added in 1.3.
+Joins and leaves were added in 1.3, and the others in 1.4.
 
 ```python
 @plugin.on_member_join
@@ -208,6 +208,34 @@ async def farewell(ctx: Ctx, user: User) -> None:
 - They run in the servers where the plugin is enabled, as the bot: `ctx.actor` is `SYSTEM`, with `via` `"event"`.
 - Each runs as one of the plugin's jobs, `on_member_join` or `on_member_leave`, so a failure is retried, up to three attempts, and shows in `/admin job_status`. A member who has left again by the time a join runs is skipped.
 - A leave gets a `User`, with the `id` and the `name` they had, since they are no longer a member to look up.
+
+The other events work the same way:
+
+```python
+@plugin.on_message
+async def count(ctx: Ctx, message: ReceivedMessage) -> None:
+    await ctx.db.execute(COUNT, ctx.guild.id, message.author_id)
+
+
+@plugin.on_reaction_add
+async def starred(ctx: Ctx, reaction: Reaction) -> None:
+    if reaction.emoji == "⭐":
+        await ctx.db.execute(STAR, ctx.guild.id, reaction.message_id)
+```
+
+| Decorator | The handler receives | When |
+|---|---|---|
+| `@plugin.on_message` | `ReceivedMessage`: `id`, `channel_id`, `author_id`, `content`, `jump_url` | A person posts in a server. |
+| `@plugin.on_reaction_add` | `Reaction`: `message_id`, `channel_id`, `user_id`, `emoji` | A person reacts to any message. |
+| `@plugin.on_reaction_remove` | `Reaction` | A person takes a reaction off. |
+| `@plugin.on_member_roles` | `RoleChange`: `member`, and the role IDs `added` and `removed` | A member's roles change. |
+| `@plugin.on_voice` | `VoiceChange`: `member`, and the channel IDs `left` and `joined` | A member joins, leaves or moves between voice channels. |
+
+- Messages and reactions from bots, teabot's own among them, are not heard, so plugins cannot set each other off in a loop.
+- A message's `content` is empty unless the operator turns on the Message Content intent, with `TEABOT_MESSAGE_CONTENT=true` (see [Settings](../host/settings.md)). Messages that mention the bot carry their text anyway. Say in the plugin's README when it needs the intent.
+- Every message in a busy server queues one job for each listening plugin, so keep the handler quick, such as one statement.
+- A role change is heard for members teabot has seen since it started, such as by a command, a join or a lookup. Discord tells it of others only once they are seen.
+- `emoji` is the character, such as `"⭐"`, or a server emoji as `"<:raids:123>"`, as a `Button`'s `emoji` takes it.
 
 ## The database
 
@@ -309,6 +337,10 @@ async def announce_winner(ctx: Ctx, raffle: int) -> None:
 | `harness.press(message.buttons[0])` | presses a button on a fake message, through the real call path, returning the reply the member sees; `as_member(m).press(...)` presses as someone else |
 | `harness.choose(message.select, values)` | chooses from a select menu: option values, or roles, channels or members |
 | `harness.join(member)`, `harness.leave(member)` | fire a member joining or leaving, and run the jobs they queue |
+| `harness.post(channel, member, text)` | post a message as `member`, fire it, and return it, to react to |
+| `harness.react(message, member, emoji)` | fire a reaction; `remove=True` takes it off |
+| `harness.change_roles(member, added=[...], removed=[...])` | change a member's roles and fire it |
+| `harness.voice(member, joined=channel, left=channel)` | fire a voice move |
 | `harness.autocomplete(action, "option", typed)` | the suggestions a member sees after typing `typed`; `as_member(m).autocomplete(...)` as someone else, who sees none if they may not run the action |
 | `harness.run_job(job.bind(...))` | runs the job now, as if scheduled again; use it after the job's first run, then check that nothing changed again |
 | `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |

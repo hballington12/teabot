@@ -35,6 +35,7 @@ from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, connect, create_pools
 from teabot.health import Health
 from teabot.runtime import Runtime, serve_until_stopped
+from teabot.sdk.plugin import EventName
 from teabot.settings import Settings
 from teabot.web import build_app
 
@@ -74,10 +75,11 @@ def token_or_exit(token: str) -> str:
 class TeabotClient(discord.AutoShardedClient):
     """The Discord client. Members are cached lazily (D25); interactions are routed by the core (D32)."""
 
-    def __init__(self, lock: LockConnection) -> None:
+    def __init__(self, lock: LockConnection, *, message_content: bool = False) -> None:
         intents = discord.Intents.default()
         intents.members = True
-        intents.message_content = False
+        # Privileged: the operator turns it on in the developer portal first, or Discord refuses the connection.
+        intents.message_content = message_content
         super().__init__(
             intents=intents,
             chunk_guilds_at_startup=False,
@@ -116,12 +118,66 @@ class TeabotClient(discord.AutoShardedClient):
 
     async def on_member_join(self, member: discord.Member) -> None:
         if self.events is not None:
-            await self.events.fire(member.guild.id, "member_join", member.id)
+            await self.events.fire(member.guild.id, "member_join", {"user_id": member.id})
 
     async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent) -> None:
         """Raw, so a member who left while not cached is still heard."""
-        if self.events is not None:
-            await self.events.fire(payload.guild_id, "member_leave", payload.user.id, payload.user.name)
+        await self._fire(
+            payload.guild_id, "member_leave", {"user_id": payload.user.id, "name": payload.user.name}
+        )
+
+    async def _fire(self, guild_id: int | None, event: EventName, payload: dict[str, Any]) -> None:
+        if self.events is not None and guild_id is not None and self.events.hears(event):
+            await self.events.fire(guild_id, event, payload)
+
+    async def on_message(self, message: discord.Message) -> None:
+        """Messages in servers, from people: a bot's, teabot's own among them, is never heard, so plugins
+        cannot answer each other in a loop."""
+        if message.guild is None or message.author.bot:
+            return
+        payload = {
+            "message_id": message.id,
+            "channel_id": message.channel.id,
+            "author_id": message.author.id,
+            "content": message.content,
+        }
+        await self._fire(message.guild.id, "message", payload)
+
+    async def _reaction(self, payload: discord.RawReactionActionEvent, event: EventName) -> None:
+        member = payload.member
+        if (self.user is not None and payload.user_id == self.user.id) or (member is not None and member.bot):
+            return
+        data = {
+            "message_id": payload.message_id,
+            "channel_id": payload.channel_id,
+            "user_id": payload.user_id,
+            "emoji": str(payload.emoji),
+        }
+        await self._fire(payload.guild_id, event, data)
+
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent) -> None:
+        await self._reaction(payload, "reaction_add")
+
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent) -> None:
+        await self._reaction(payload, "reaction_remove")
+
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+        """Role changes. Discord's gateway sends the change for any member, but discord.py tells only of the
+        members in its cache, which holds those seen since startup (D25)."""
+        old, new = {r.id for r in before.roles}, {r.id for r in after.roles}
+        if old == new:
+            return
+        payload = {"user_id": after.id, "added": sorted(new - old), "removed": sorted(old - new)}
+        await self._fire(after.guild.id, "member_roles", payload)
+
+    async def on_voice_state_update(
+        self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
+    ) -> None:
+        left = before.channel.id if before.channel is not None else None
+        joined = after.channel.id if after.channel is not None else None
+        if left == joined or member.bot:
+            return
+        await self._fire(member.guild.id, "voice", {"user_id": member.id, "left": left, "joined": joined})
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         if self.lifecycle is not None:
@@ -202,7 +258,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     runnable = ["core", *report.loaded]
     workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
-    client = TeabotClient(lock)
+    client = TeabotClient(lock, message_content=settings.message_content)
     core = assemble(report, pools, queue, client, settings.public_url)
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     client.events = core.events

@@ -47,7 +47,7 @@ from teabot.sdk._views import guild_view
 from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, Actor, Choice, Risk, Surface
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
-from teabot.sdk.guild import Guild, Member, User
+from teabot.sdk.guild import Guild, Member, Reaction, ReceivedMessage, RoleChange, User, VoiceChange
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
@@ -430,6 +430,41 @@ class Plugin(Generic[Cfg]):
         the `User` they were: their ID and username, since they are no longer a member. It runs as a job."""
         return self._listen("member_leave", func)
 
+    def on_message(
+        self, func: Callable[[Context[Cfg], ReceivedMessage], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], ReceivedMessage], Awaitable[None]]:
+        """Run `func` for each message posted in a server where the plugin is enabled. Messages from bots,
+        teabot's own among them, are not heard. Its text arrives only with the Message Content intent on. It
+        runs as a job, so keep it quick: every message in a busy server queues one."""
+        return self._listen("message", func)
+
+    def on_reaction_add(
+        self, func: Callable[[Context[Cfg], Reaction], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], Reaction], Awaitable[None]]:
+        """Run `func` when someone other than a bot adds a reaction to any message, in a server where the
+        plugin is enabled. It runs as a job."""
+        return self._listen("reaction_add", func)
+
+    def on_reaction_remove(
+        self, func: Callable[[Context[Cfg], Reaction], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], Reaction], Awaitable[None]]:
+        """Run `func` when someone takes a reaction off a message. It runs as a job."""
+        return self._listen("reaction_remove", func)
+
+    def on_member_roles(
+        self, func: Callable[[Context[Cfg], RoleChange], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], RoleChange], Awaitable[None]]:
+        """Run `func` when a member's roles change, with the roles added and removed. Discord reports a change
+        only for members teabot has seen since it started, such as by a command or a join. It runs as a job."""
+        return self._listen("member_roles", func)
+
+    def on_voice(
+        self, func: Callable[[Context[Cfg], VoiceChange], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], VoiceChange], Awaitable[None]]:
+        """Run `func` when a member joins, leaves or moves between voice channels. Muting and deafening are not
+        heard. It runs as a job."""
+        return self._listen("voice", func)
+
     def _listen[F: Callable[..., Awaitable[None]]](self, event: EventName, func: F) -> F:
         if event in self.listeners:
             raise SignatureError(f"{where(func)}: {self.id} already handles {event}")
@@ -449,15 +484,52 @@ class Plugin(Generic[Cfg]):
             context = _Context(
                 guild_view(guild, _reason(name, actor)), actor, job.config, lambda: job.db, job.report
             )
-            user_id = int(job.payload["user_id"])
-            if event == "member_leave":
-                await func(context, User(user_id, str(job.payload.get("name") or user_id)))
-                return
-            member = await context.guild.get_member(user_id)
-            if member is not None:
-                await func(context, member)
+            received = await _received(event, context.guild, job.payload)
+            if received is not None:
+                await func(context, received)
 
         return handle
+
+
+def _role_ids(values: Any) -> tuple[int, ...]:
+    return tuple(int(v) for v in values or ())
+
+
+def _id(value: Any) -> int | None:
+    return None if value is None else int(value)
+
+
+async def _received(event: EventName, guild: Guild, payload: Mapping[str, Any]) -> Any:
+    """What a handler for `event` receives, from the event's job payload, or None when there is nothing to hand
+    it, such as a member who has left since."""
+    if event == "message":
+        return ReceivedMessage(
+            int(payload["message_id"]),
+            int(payload["channel_id"]),
+            int(payload["author_id"]),
+            str(payload["content"]),
+        )
+    if event in ("reaction_add", "reaction_remove"):
+        return Reaction(
+            int(payload["message_id"]),
+            int(payload["channel_id"]),
+            int(payload["user_id"]),
+            str(payload["emoji"]),
+        )
+    user_id = int(payload["user_id"])
+    if event == "member_leave":
+        return User(user_id, str(payload.get("name") or user_id))
+    member = await guild.get_member(user_id)
+    return None if member is None else _about_member(event, member, payload)
+
+
+def _about_member(event: EventName, member: Member, payload: Mapping[str, Any]) -> Any:
+    """What a handler for an event about a member who is still here receives."""
+    if event == "member_roles":
+        return RoleChange(member, _role_ids(payload.get("added")), _role_ids(payload.get("removed")))
+    if event == "voice":
+        return VoiceChange(member, _id(payload.get("left")), _id(payload.get("joined")))
+    return member
 
 
 @dataclass(frozen=True)

@@ -27,8 +27,9 @@ The server (D45):
 - `Guild`: the server, to find a `TextChannel`, any `Channel`, a `Role` or a `Member`, and to ban. A channel's `send`
   returns a `Message`, and mentions nobody unless asked. Members can be given roles, renamed, timed out, kicked and
   sent a direct message, as the bot. `File` attaches a file; `Ban` is one of the server's bans, and `User` someone
-  who is no longer a member. `ChannelKind` is what
-  sort of channel a `Channel` is.
+  who is no longer a member. `ChannelKind` is what sort of channel a `Channel` is.
+- The event handlers receive a `Member` on a join, a `User` on a leave, a `ReceivedMessage`, a `Reaction`, a
+  `RoleChange` or a `VoiceChange`.
 - `Button`: a button on a post, which runs an action as the member who presses it; `action.bind(...)` makes its
   `BoundAction`, and `ButtonStyle` is its colour. `Select` is a select menu, of `Option`s or of Discord's own
   role, channel or member pickers (its `SelectKind`), which fills a list input with what is chosen. A `Message`
@@ -66,7 +67,22 @@ from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job,
 from teabot.sdk.components import BoundAction, Button, ButtonStyle, Option, Select, SelectKind
 from teabot.sdk.db import Bound, Db, Outbox, Post, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
-from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel, User
+from teabot.sdk.guild import (
+    Ban,
+    Channel,
+    ChannelKind,
+    File,
+    Guild,
+    Member,
+    Message,
+    Reaction,
+    ReceivedMessage,
+    Role,
+    RoleChange,
+    TextChannel,
+    User,
+    VoiceChange,
+)
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
 from teabot.sdk.permissions import Permission
@@ -116,9 +132,12 @@ __all__ = [
     "Plugin",
     "Post",
     "Queries",
+    "Reaction",
+    "ReceivedMessage",
     "Registrar",
     "Risk",
     "Role",
+    "RoleChange",
     "RoleRef",
     "Row",
     "Scheduler",
@@ -130,4 +149,5 @@ __all__ = [
     "UntrustedText",
     "User",
     "Via",
+    "VoiceChange",
 ]

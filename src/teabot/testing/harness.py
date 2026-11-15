@@ -30,7 +30,18 @@ from teabot.sdk._clock import CLOCK
 from teabot.sdk.actions import Via
 from teabot.sdk.components import parse_custom_id, parse_select_id
 from teabot.sdk.db import Bound
-from teabot.testing.fakes import FakeButton, FakeClient, FakeGuild, FakeMember, FakeSelect
+from teabot.sdk.plugin import EventName
+from teabot.testing.fakes import (
+    FakeButton,
+    FakeChannel,
+    FakeClient,
+    FakeGuild,
+    FakeMember,
+    FakeMessage,
+    FakeRole,
+    FakeSelect,
+    next_id,
+)
 
 ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
@@ -178,7 +189,7 @@ class PluginHarness:
         """Fire a member joining the server, as Discord would, and run the jobs it queues. Add the member to
         `harness.guild` first."""
         assert self.events is not None
-        await self.events.fire(self.guild.id, "member_join", member.id)
+        await self.events.fire(self.guild.id, "member_join", {"user_id": member.id})
         await self.run_jobs()
 
     async def leave(self, member: FakeMember) -> None:
@@ -186,8 +197,55 @@ class PluginHarness:
         assert self.events is not None
         self.guild.members.pop(member.id, None)
         self.guild.fetchable.pop(member.id, None)
-        await self.events.fire(self.guild.id, "member_leave", member.id, member.name)
+        await self.events.fire(self.guild.id, "member_leave", {"user_id": member.id, "name": member.name})
         await self.run_jobs()
+
+    async def _fire(self, event: EventName, payload: Mapping[str, Any]) -> None:
+        assert self.events is not None
+        await self.events.fire(self.guild.id, event, payload)
+        await self.run_jobs()
+
+    async def post(self, channel: FakeChannel, author: FakeMember, content: str) -> FakeMessage:
+        """Post a message in a fake channel as `author`, fire it, as Discord would, and run the jobs it queues.
+        Returns the message, to react to."""
+        message = FakeMessage(next_id(), channel.id, content, None, author_id=author.id)
+        channel.sent.append(message)
+        payload = {
+            "message_id": message.id,
+            "channel_id": channel.id,
+            "author_id": author.id,
+            "content": content,
+        }
+        await self._fire("message", payload)
+        return message
+
+    async def react(
+        self, message: FakeMessage, member: FakeMember, emoji: str, *, remove: bool = False
+    ) -> None:
+        """Add `member`'s reaction to a fake message, or with `remove` take it off, fire it and run its jobs."""
+        payload = {
+            "message_id": message.id,
+            "channel_id": message.channel_id,
+            "user_id": member.id,
+            "emoji": emoji,
+        }
+        await self._fire("reaction_remove" if remove else "reaction_add", payload)
+
+    async def change_roles(
+        self, member: FakeMember, *, added: Sequence[FakeRole] = (), removed: Sequence[FakeRole] = ()
+    ) -> None:
+        """Give and take roles as Discord would when someone else changes them, fire it and run its jobs."""
+        gone = {r.id for r in removed}
+        member.roles = [r for r in member.roles if r.id not in gone] + [
+            r for r in added if r not in member.roles
+        ]
+        payload = {"user_id": member.id, "added": [r.id for r in added], "removed": [r.id for r in removed]}
+        await self._fire("member_roles", payload)
+
+    async def voice(self, member: FakeMember, *, joined: Any = None, left: Any = None) -> None:
+        """Move `member` into the voice channel `joined`, out of `left`, or both, fire it and run its jobs."""
+        payload = {"user_id": member.id, "joined": _id_or_none(joined), "left": _id_or_none(left)}
+        await self._fire("voice", payload)
 
     async def autocomplete(
         self, action: Action[Any, ..., Any], option: str, typed: str = ""
@@ -316,6 +374,10 @@ class MemberCalls:
     async def _invoke(self, action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> BaseModel:
         call = Call(action.name, self.harness.guild.id, Actor(self.user, "slash"), _raw(action, kwargs))
         return await self.harness.registry.invoke(call)
+
+
+def _id_or_none(channel: Any) -> int | None:
+    return None if channel is None else int(getattr(channel, "id", channel))
 
 
 def _raw(action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> dict[str, Any]:

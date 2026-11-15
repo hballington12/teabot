@@ -5,6 +5,7 @@ objects, so plugin code types the same against Discord and against `teabot.testi
 - `TextChannel`: a channel that takes messages. Its `send` mentions nobody unless `ping` names them.
 - `Channel`: any channel, of any kind, to read.
 - `Member`, `Role` and `Message`: what those lookups and sends return.
+- `User`, `ReceivedMessage`, `Reaction`, `RoleChange` and `VoiceChange`: what the event handlers receive.
 
 Every operation acts with the bot's own power; the plugin decides who may use it. Before calling Discord, each one
 checks what Discord would refuse, such as a role above the bot's own, and raises `ActionError` with the reason in
@@ -195,6 +196,68 @@ class User:
     def mention(self) -> str:
         """The user as a mention, such as `<@123>`."""
         return f"<@{self.id}>"
+
+
+@dataclass(frozen=True)
+class ReceivedMessage:
+    """A message someone posted, as `@plugin.on_message` receives it.
+
+    - `id`, `channel_id` and `author_id` are its Discord IDs, its channel's and its author's.
+    - `content` is its text. Discord sends it only when the operator turns on the Message Content intent
+      (`TEABOT_MESSAGE_CONTENT=true`); otherwise it is empty, except in messages that mention the bot.
+    """
+
+    id: int
+    channel_id: int
+    author_id: int
+    content: str
+
+    @property
+    def jump_url(self) -> str:
+        """A link to the message, for any server: Discord finds the server from the channel."""
+        return f"https://discord.com/channels/@me/{self.channel_id}/{self.id}"
+
+
+@dataclass(frozen=True)
+class Reaction:
+    """A reaction added to or taken off a message.
+
+    - `message_id` and `channel_id` say which message, and `user_id` who reacted.
+    - `emoji` is the emoji as text: the character, such as `"👍"`, or a server emoji as Discord writes it,
+      `"<:raids:123>"`.
+    """
+
+    message_id: int
+    channel_id: int
+    user_id: int
+    emoji: str
+
+
+@dataclass(frozen=True)
+class RoleChange:
+    """A member's roles changing.
+
+    - `member` is the member, as they are now.
+    - `added` and `removed` are the IDs of the roles they gained and lost.
+    """
+
+    member: Member
+    added: tuple[int, ...]
+    removed: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class VoiceChange:
+    """A member moving between voice channels.
+
+    - `member` is who moved, as they are now.
+    - `left` is the ID of the channel they left, and `joined` the one they joined. Joining has `left` None,
+      leaving voice has `joined` None, and moving has both.
+    """
+
+    member: Member
+    left: int | None
+    joined: int | None
 
 
 @dataclass(frozen=True)
