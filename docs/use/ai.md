@@ -64,6 +64,6 @@ If the reply says the address works only on the machine running teabot, the oper
 /tokens revoke token_id:ab12cd34
 ```
 
-`/tokens list` shows your tokens with their ids. `/tokens revoke` ends one at once. With Manage Server, `/tokens list everyone:true` shows everyone's, and you can revoke any of them.
+`/tokens list` shows your tokens with their ids. `/tokens revoke` ends one at once, and its `token_id` option suggests your tokens by label as you type. With Manage Server, `/tokens list everyone:true` shows everyone's, and you can revoke any of them.
 
 **Next:** [Built-in commands](commands.md).

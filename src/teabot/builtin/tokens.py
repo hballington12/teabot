@@ -12,8 +12,9 @@ from pydantic import BaseModel, Field
 
 from teabot.auth.tokens import NewToken, TokenRow, Tokens
 from teabot.builtin.config import AdminConfig
+from teabot.builtin.suggest import matching
 from teabot.core.registry import ActionSource, member_permissions
-from teabot.sdk import ActionContext, ActionError, ActionSpec, Risk, Surface
+from teabot.sdk import ActionContext, ActionError, ActionSpec, Choice, Risk, Surface
 
 type RiskName = Literal["read", "write", "destructive"]
 
@@ -132,6 +133,11 @@ class TokenCommands:
         await self.tokens.revoke(data.token_id, ctx.guild.id)
         return Revoked(token_id=data.token_id)
 
+    async def suggest_revoke(self, ctx: ActionContext, typed: str) -> list[Choice[str]]:
+        """The live tokens the member may revoke: their own, or everyone's with Manage Server."""
+        rows = await self.tokens.list(ctx.guild.id, None if await manages_server(ctx) else ctx.actor.user_id)
+        return matching((Choice(f"{r.label} ({r.token_id})", r.token_id) for r in rows), typed)
+
     def sources(self) -> dict[str, ActionSource]:
         table: list[tuple[str, str, type[BaseModel], type[BaseModel], Risk, Any, Any]] = [
             (
@@ -154,8 +160,19 @@ class TokenCommands:
             ),
             ("tokens.revoke", "Revoke a token", Revoke, Revoked, Risk.WRITE, self.revoke, render_revoked),
         ]
+        suggest: dict[str, dict[str, Any]] = {"tokens.revoke": {"token_id": self.suggest_revoke}}
         specs = {
-            name: ActionSpec(name, summary, inp, out, risk, run, surfaces=Surface.SLASH, render=render)
+            name: ActionSpec(
+                name,
+                summary,
+                inp,
+                out,
+                risk,
+                run,
+                surfaces=Surface.SLASH,
+                render=render,
+                suggest=suggest.get(name, {}),
+            )
             for name, summary, inp, out, risk, run, render in table
         }
         return {"tokens": ActionSource(AdminConfig, specs, builtin=True)}

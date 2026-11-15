@@ -26,7 +26,7 @@ A plugin may say `not loaded`, with a reason. That is for the operator to fix, a
 /plugins enable plugin:giveaways
 ```
 
-teabot replies `giveaways is now enabled here.`, and the plugin's commands appear under `/giveaways`. Discord can take a minute to show new commands. If they do not appear, reload Discord with ++ctrl+r++, or ++cmd+r++ on macOS.
+The `plugin` option suggests the plugins that are off here as you type. teabot replies `giveaways is now enabled here.`, and the plugin's commands appear under `/giveaways`. Discord can take a minute to show new commands. If they do not appear, reload Discord with ++ctrl+r++, or ++cmd+r++ on macOS.
 
 ## Turn one off
 
@@ -51,7 +51,7 @@ See a plugin's settings:
 }
 ```
 
-Change one:
+Change one. The `plugin` and `setting` options suggest names as you type:
 
 ```text
 /plugins config plugin:giveaways setting:default_minutes value:90

@@ -44,6 +44,8 @@ These help AI assistants and programs find their way around a server. They work 
 | `/admin find_members` | Finds members whose name starts with what you type. | nothing |
 | `/admin job_status` | Shows the progress of a job, such as a confirmed change. | nothing for your own jobs; Manage Server for others' |
 
+Options that name a plugin, a setting, a token or a job suggest them as you type, so you rarely need an id.
+
 AI assistants see these three as the tools `admin_describe_guild`, `admin_find_members` and `admin_job_status`. The other built-in commands work only in Discord.
 
 **Next:** [Announcements](plugins/announcements.md).

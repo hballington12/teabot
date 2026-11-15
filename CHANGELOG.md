@@ -9,6 +9,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 ### Using teabot
 
 - A confirmed change's reply follows it as it applies, showing its progress, such as `Applying: 3 of 10.`, and ends with `Done.` or the failure, instead of pointing at `/admin job_status`.
+- The built-in commands suggest as you type: `/plugins enable` the plugins that are off, `/plugins disable` those that are on, `/plugins config` plugins and settings, `/tokens revoke` your tokens, and `/admin job_status` your latest jobs.
 - Replies show times as Discord timestamps, in each member's own time zone, and channels, roles and members as mentions, where they showed raw values before. `/giveaways list` shows its end times this way.
 
 ### Self-hosting

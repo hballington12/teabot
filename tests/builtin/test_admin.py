@@ -222,3 +222,23 @@ async def test_enabling_or_disabling_queues_a_command_sync_here(harness: PluginH
     await harness.invoke(action, {"plugin": "echo"})
     queued = await harness.admin.fetch("SELECT guild_id FROM core.jobs WHERE handler = 'sync_commands'")
     assert [r["guild_id"] for r in queued] == [harness.guild.id]
+
+
+async def suggested(harness: PluginHarness, action: str, option: str, typed: str = "") -> list[Any]:
+    choices = await harness.registry.suggest(action, harness.guild.id, harness.member.id, option, typed)
+    return [c.value for c in choices]
+
+
+async def test_enable_suggests_the_plugins_that_are_off_and_disable_those_that_are_on(
+    harness: PluginHarness,
+) -> None:
+    assert await suggested(harness, "plugins.disable", "plugin") == ["echo"]
+    assert await suggested(harness, "plugins.enable", "plugin") == []
+    await harness.invoke("plugins.disable", {"plugin": "echo"})
+    assert await suggested(harness, "plugins.enable", "plugin", "ec") == ["echo"]
+    assert await suggested(harness, "plugins.enable", "plugin", "zz") == []
+
+
+async def test_config_suggests_plugins_and_their_settings(harness: PluginHarness) -> None:
+    assert await suggested(harness, "plugins.config", "plugin") == ["echo"]
+    assert await suggested(harness, "plugins.config", "setting", "rep") == ["repeat"]

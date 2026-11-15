@@ -12,10 +12,11 @@ import discord
 from pydantic import BaseModel, Field, ValidationError
 
 from teabot.builtin.config import AdminConfig
+from teabot.builtin.suggest import matching
 from teabot.core.config import ConfigStore
 from teabot.core.registry import ActionSource
 from teabot.db.pool import Database
-from teabot.sdk import ActionContext, ActionError, ActionSpec, ChannelRef, Risk, Surface
+from teabot.sdk import ActionContext, ActionError, ActionSpec, ChannelRef, Choice, Risk, Surface
 
 MANAGE_SERVER = discord.Permissions(manage_guild=True)
 ADMIN = "admin"
@@ -173,6 +174,34 @@ class Admin:
             ]
         )
 
+    async def _enabled_here(self, ctx: ActionContext) -> set[str]:
+        return {r["plugin_id"] for r in await self.db.fetch(STATES, ctx.guild.id) if r["enabled"]}
+
+    def _loaded(self) -> list[str]:
+        return sorted(p for p, label in self.statuses.items() if label == "loaded" and p != ADMIN)
+
+    async def suggest_enable(self, ctx: ActionContext, typed: str) -> list[Choice[str]]:
+        """The loaded plugins that are off here."""
+        on = await self._enabled_here(ctx)
+        return matching((Choice(p, p) for p in self._loaded() if p not in on), typed)
+
+    async def suggest_disable(self, ctx: ActionContext, typed: str) -> list[Choice[str]]:
+        """The plugins that are on here."""
+        return matching((Choice(p, p) for p in sorted(await self._enabled_here(ctx))), typed)
+
+    async def suggest_plugin(self, ctx: ActionContext, typed: str) -> list[Choice[str]]:
+        """The plugins with settings: every loaded one."""
+        return matching((Choice(p, p) for p in self._loaded()), typed)
+
+    async def suggest_setting(self, ctx: ActionContext, typed: str) -> list[Choice[str]]:
+        """Every loaded plugin's settings, each named with its plugin."""
+        choices = (
+            Choice(f"{name} ({plugin})", name)
+            for plugin in self._loaded()
+            for name in self.configs[plugin].model_fields
+        )
+        return matching(choices, typed)
+
     def specs(self) -> list[ActionSpec[Any, Any]]:
         table: list[tuple[str, str, type[BaseModel], type[BaseModel], Risk, Any, Any]] = [
             (
@@ -230,6 +259,11 @@ class Admin:
                 render_recent,
             ),
         ]
+        suggest: dict[str, dict[str, Any]] = {
+            "plugins.enable": {"plugin": self.suggest_enable},
+            "plugins.disable": {"plugin": self.suggest_disable},
+            "plugins.config": {"plugin": self.suggest_plugin, "setting": self.suggest_setting},
+        }
         return [
             ActionSpec(
                 name,
@@ -241,6 +275,7 @@ class Admin:
                 default_permissions=MANAGE_SERVER,
                 surfaces=Surface.SLASH,
                 render=render,
+                suggest=suggest.get(name, {}),
             )
             for name, summary, inp, out, risk, run, render in table
         ]

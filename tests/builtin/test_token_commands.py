@@ -153,3 +153,15 @@ def test_the_list_reply_names_each_token_and_says_when_there_are_none() -> None:
     )
     assert render_list(TokenList(tokens=[row])) == "`ab` claude by <@5>, up to write, until 2026-12-13"
     assert render_list(TokenList(tokens=[])) == "No live tokens."
+
+
+async def test_revoke_suggests_the_members_own_tokens(harness: PluginHarness) -> None:
+    member = harness.guild.add_member(discord.Permissions.none())
+    theirs = await create(harness, user=member.id)
+    await create(harness)
+    choices = await harness.registry.suggest("tokens.revoke", harness.guild.id, member.id, "token_id", "cla")
+    assert [(c.name, c.value) for c in choices] == [(f"claude ({theirs.token_id})", theirs.token_id)]
+    everyone = await harness.registry.suggest(
+        "tokens.revoke", harness.guild.id, harness.member.id, "token_id", ""
+    )
+    assert len(everyone) == 2

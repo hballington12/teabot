@@ -156,3 +156,12 @@ async def test_job_status_names_what_the_job_does_and_who_started_it(harness: Pl
     job_id = await job(harness, started_by=harness.member.id)
     out = dumped(await harness.invoke("admin.job_status", {"job_id": job_id}))
     assert (out["label"], out["started_by"]) == ("echo.draw", str(harness.member.id))
+
+
+async def test_job_status_suggests_the_members_own_jobs_newest_first(harness: PluginHarness) -> None:
+    member = harness.guild.add_member(discord.Permissions.none())
+    first, second = await job(harness, started_by=member.id), await job(harness, started_by=member.id)
+    await job(harness, started_by=harness.member.id)
+    choices = await harness.registry.suggest("admin.job_status", harness.guild.id, member.id, "job_id", "")
+    assert [c.value for c in choices] == [second, first]
+    assert choices[0].name == f"{second} echo.draw (pending)"

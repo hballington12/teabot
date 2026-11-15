@@ -18,6 +18,7 @@ import discord
 from pydantic import BaseModel, Field
 
 from teabot.builtin.config import AdminConfig
+from teabot.builtin.suggest import matching
 from teabot.core.registry import ActionSource, find_member, member_permissions
 from teabot.db.pool import Database
 from teabot.sdk import (
@@ -25,6 +26,7 @@ from teabot.sdk import (
     ActionError,
     ActionSpec,
     ChannelRef,
+    Choice,
     MemberRef,
     Risk,
     RoleRef,
@@ -32,6 +34,13 @@ from teabot.sdk import (
 )
 
 PAGE = 50
+# The member's latest jobs here, for suggestions.
+THEIR_JOBS = """
+SELECT j.id, j.state,
+       coalesce((SELECT a.action FROM core.audit_log a WHERE a.job_id = j.id ORDER BY a.id LIMIT 1),
+                j.plugin_id || '.' || j.handler) AS label
+FROM core.jobs j WHERE j.guild_id = $1 AND j.started_by = $2 ORDER BY j.id DESC LIMIT 25
+"""
 JOB = """
 SELECT j.id, j.plugin_id, j.handler, j.state, j.attempts, j.progress, j.last_error, j.run_at, j.started_by,
        coalesce((SELECT a.action FROM core.audit_log a WHERE a.job_id = j.id ORDER BY a.id LIMIT 1),
@@ -158,6 +167,11 @@ class Lookups:
             run_at=row["run_at"],
         )
 
+    async def suggest_job(self, ctx: ActionContext, typed: str) -> list[Choice[int]]:
+        """The member's latest jobs here, newest first."""
+        rows = await self.db.fetch(THEIR_JOBS, ctx.guild.id, ctx.actor.user_id)
+        return matching((Choice(f"{r['id']} {r['label']} ({r['state']})", int(r["id"])) for r in rows), typed)
+
     def sources(self) -> dict[str, ActionSource]:
         table: list[tuple[str, str, type[BaseModel], type[BaseModel], Any]] = [
             (
@@ -177,7 +191,15 @@ class Lookups:
             ("admin.job_status", "The progress of a job here", JobStatus, JobInfo, self.job_status),
         ]
         specs = {
-            name: ActionSpec(name, summary, inp, out, Risk.READ, run)
+            name: ActionSpec(
+                name,
+                summary,
+                inp,
+                out,
+                Risk.READ,
+                run,
+                suggest={"job_id": self.suggest_job} if name == "admin.job_status" else {},
+            )
             for name, summary, inp, out, run in table
         }
         return {"admin": ActionSource(AdminConfig, specs, builtin=True)}
