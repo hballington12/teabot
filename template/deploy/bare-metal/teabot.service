@@ -16,6 +16,8 @@ Environment=PYTHONUNBUFFERED=1
 # A lost lock connection or a crash exits with an error; systemd starts it again.
 Restart=on-failure
 RestartSec=5
+# A leaking process is stopped here, before it starves Postgres on the same machine, and started again.
+MemoryMax=1G
 # teabot stops its shards, workers and HTTP server on SIGTERM; give it time to finish a job's step.
 TimeoutStopSec=30
 

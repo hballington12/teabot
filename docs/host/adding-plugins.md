@@ -77,7 +77,7 @@ TEABOT_DISABLED_PLUGINS=giveaways
 docker compose up -d --force-recreate bot
 ```
 
-Its data is kept, so removing the name turns it back on as it was.
+Its data is kept, so removing the name turns it back on as it was. A blocked plugin is not even imported, so none of its code runs, which makes this the quick fix for a plugin that hangs or crashes the bot. To be rid of a plugin you no longer trust, remove it, as below.
 
 ## Remove a plugin
 

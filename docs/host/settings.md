@@ -40,4 +40,6 @@ TEABOT_GID=1000
 
 To use other ports on this machine, add `TEABOT_HTTP_PORT` (default `8780`) or `TEABOT_DB_PORT` (default `55432`) to `.env`, not to `teabot.env`, then run `docker compose up -d`.
 
+The bot may use up to 1 GB of memory, and is restarted if it goes past, so a leak cannot starve Postgres. Set `TEABOT_MEMORY_LIMIT` in `.env`, such as `TEABOT_MEMORY_LIMIT=2g`, to change it. On a bare-metal host, it is `MemoryMax=` in `teabot.service`.
+
 **Next:** [Adding plugins](adding-plugins.md).

@@ -48,6 +48,32 @@ The log says why. The two usual causes are the same as at setup: a token that wa
 docker compose up -d --force-recreate bot
 ```
 
+## The log says `event loop blocked`
+
+A plugin held teabot for more than a second, and the log line names it, with the file and line. Past thirty seconds teabot stops, logs every thread's traceback, and Compose or systemd starts it again. A job that does this on every attempt is failed, so it does not stop teabot over and over. If one plugin keeps doing it, block it with `TEABOT_DISABLED_PLUGINS` (see [Turn a plugin off everywhere](adding-plugins.md#turn-a-plugin-off-everywhere)) and tell its author.
+
+## A plugin you installed may be harmful
+
+A plugin runs inside the bot, with everything the bot can reach: its Discord token and its database passwords. If you think one has misused them:
+
+1. Remove the plugin and deploy, as in [Remove a plugin](adding-plugins.md#remove-a-plugin). Blocking it is not enough, since its code may already have taken the secrets.
+2. Reset the bot's token in the Discord developer portal, under **Bot**, then **Reset Token**. Put the new one in `teabot.env`.
+3. Give the database new passwords, and restart the bot:
+
+    ```bash
+    docker compose run --rm bot teabot init --rotate
+    docker compose up -d --force-recreate bot
+    ```
+
+4. Give the owner role a new password too. Set it in Postgres, put the same value in `.env` as `TEABOT_DB_OWNER_PASSWORD`, and recreate both services:
+
+    ```bash
+    docker compose exec postgres psql -U teabot_owner -d teabot -c "ALTER ROLE teabot_owner PASSWORD 'the-new-password'"
+    docker compose up -d --force-recreate
+    ```
+
+5. If it came from the [plugin hub](https://teabot-dev.github.io/plugin-hub/), report it there, so it can be delisted for everyone.
+
 ## `Permission denied` reading `/app/teabot.env`
 
 `TEABOT_UID` and `TEABOT_GID` in `.env` must be the ids of the user who owns `teabot.env`. Compare:

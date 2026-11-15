@@ -41,16 +41,17 @@ def discord_settings(token: str) -> list[str]:
     found = application_id(token)
     return [
         "Discord application settings:",
-        "- Bot tab: turn on the Server Members Intent. Leave Message Content off; teabot never asks for it.",
+        "- Bot tab: turn on the Server Members Intent. Turn on Message Content only for TEABOT_MESSAGE_CONTENT=true.",
         f"- Invite: {INVITE.format('<application id>' if found is None else found)}",
         "- In each server, drag the bot's role below the owner's and senior staff roles (D26).",
         "- Invite one teabot instance to a server, never two: both would answer its commands.",
     ]
 
 
-def _fill_missing_passwords(env_file: Path) -> list[str]:
+def _fill_missing_passwords(env_file: Path, *, rotate: bool = False) -> list[str]:
+    """Generate the database passwords the env file lacks, or with `rotate` all of them."""
     present = read_values(env_file)
-    missing = [name for name in PASSWORD_SETTINGS if not present.get(name)]
+    missing = [name for name in PASSWORD_SETTINGS if rotate or not present.get(name)]
     if missing:
         set_values(env_file, {name: secrets.token_urlsafe(32) for name in missing})
     return missing
@@ -83,10 +84,14 @@ def init(
         str | None, typer.Option(help="A superuser for the set_config revoke. Defaults to the owner.")
     ] = None,
     admin_password: Annotated[str | None, typer.Option(help="The superuser's password.")] = None,
+    rotate: Annotated[
+        bool, typer.Option("--rotate", help="Replace the app and plugins passwords, such as after a leak.")
+    ] = False,
 ) -> None:
-    """Generate missing database passwords into the env file, then create the database roles."""
-    for name in _fill_missing_passwords(env_file):
-        typer.echo(f"generated {name} in {env_file}")
+    """Generate missing database passwords into the env file, then create the database roles, or give them the
+    new passwords."""
+    for name in _fill_missing_passwords(env_file, rotate=rotate):
+        typer.echo(f"{'replaced' if rotate else 'generated'} {name} in {env_file}")
     settings = load_settings(env_file)
     report = asyncio.run(_bootstrap(settings, admin_user, admin_password))
     for role in report.created_roles:
@@ -96,5 +101,7 @@ def init(
             "warning: set_config is still executable by PUBLIC; rerun with --admin-user as a superuser"
         )
     typer.echo("database ready")
+    if rotate:
+        typer.echo("Restart teabot now: it still holds the old passwords, which no longer work.")
     for line in discord_settings(settings.discord_token.get_secret_value()):
         typer.echo(line)

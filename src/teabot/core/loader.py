@@ -121,6 +121,8 @@ def _candidate(ep: EntryPointLike) -> Candidate:
 
 
 SKIPPED_MODULES = ("tests", "test", "__main__")
+# A blocked plugin's candidate, never imported.
+BLOCKED = "blocked by TEABOT_DISABLED_PLUGINS, so not imported"
 
 
 def _import_package(module: str) -> None:
@@ -148,9 +150,13 @@ def installed(group: str) -> Iterable[EntryPointLike]:
     return entry_points(group=group)
 
 
-def discover(find: Finder = installed) -> list[Candidate]:
-    """Every `teabot.plugins` entry point, loaded or with the reason it could not be."""
-    return [_candidate(ep) for ep in find(GROUP)]
+def discover(find: Finder = installed, blocked: Collection[str] = ()) -> list[Candidate]:
+    """Every `teabot.plugins` entry point, loaded or with the reason it could not be. A plugin in `blocked` is
+    not imported at all, so none of its code runs (D13); its entry point's name is its id."""
+    return [
+        Candidate(ep.name, ep.name, None, BLOCKED) if ep.name in blocked else _candidate(ep)
+        for ep in find(GROUP)
+    ]
 
 
 def from_plugins(plugins: Iterable[LoadablePlugin]) -> list[Candidate]:
@@ -199,7 +205,9 @@ def _unique(candidates: Sequence[Candidate], report: LoadReport) -> dict[str, Lo
     """Plugins whose id only one candidate declares. Unimportable and duplicated ones are reported."""
     by_id: defaultdict[str, list[Candidate]] = defaultdict(list)
     for candidate in candidates:
-        if candidate.plugin is None:
+        if candidate.error == BLOCKED:
+            report.fail(candidate.name, "blocked")
+        elif candidate.plugin is None:
             report.fail(candidate.name, "failed", candidate.error)
         else:
             by_id[candidate.name].append(candidate)

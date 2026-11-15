@@ -40,6 +40,9 @@ services:
         condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
+    # A leaking bot is stopped here, before it starves Postgres, and started again. TEABOT_MEMORY_LIMIT in .env
+    # changes it.
+    mem_limit: ${TEABOT_MEMORY_LIMIT:-1g}
 
   # uv, for changing the instance's plugins without installing uv: `docker compose run --rm uv add teabot-foo`.
   # It is in the tools profile, so `docker compose up` never starts it. It runs as your user, so the files it

@@ -6,10 +6,17 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### For operators
+
+- The template's `compose.yaml` and `teabot.service` gain a memory limit, and `teabot.env.example` the watchdog's settings. Take them from the template to have them, as in [Upgrade](production.md#upgrade).
+
 ### Self-hosting
 
 - A watchdog logs a plugin that holds the event loop for a second, as `event loop blocked` with the plugin, file and line, and stops the process after thirty seconds held, for Compose or systemd to restart it. `TEABOT_LOOP_WARN_SECONDS`, `TEABOT_LOOP_LIMIT_SECONDS` and `TEABOT_STARTUP_LIMIT_SECONDS` set the limits.
 - A job that stops the process on every attempt is failed, with "the process stopped while running it", where it used to run again after every restart.
+- A plugin in `TEABOT_DISABLED_PLUGINS` is no longer imported, so none of its code runs.
+- `teabot init --rotate` gives the app and plugins roles new passwords, such as after a leak. The troubleshooting page has the steps for a plugin that may be harmful.
+- The template caps the bot's memory at 1 GB, restarting it past that: `mem_limit` in `compose.yaml`, which `TEABOT_MEMORY_LIMIT` in `.env` changes, and `MemoryMax=` in the bare-metal unit.
 - `/healthz` reports the memory the process uses now, as `memory_mb`. Action and job log lines carry `duration_ms`.
 
 ### Writing plugins

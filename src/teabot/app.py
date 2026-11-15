@@ -226,7 +226,8 @@ async def _load_plugins(
         return await migrate(conn, naming, plugins)
 
     try:
-        return await load(discover(), disabled=settings.disabled_plugins, migrate_with=migrator, lock=lock)
+        found = discover(blocked=settings.disabled_plugins)
+        return await load(found, disabled=settings.disabled_plugins, migrate_with=migrator, lock=lock)
     finally:
         await conn.close()
 

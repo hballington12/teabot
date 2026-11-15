@@ -2,12 +2,14 @@
 
 import importlib
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
-from teabot.core.loader import discover
+from teabot.core.loader import BLOCKED, discover, load
+from teabot.db.migrate import MigrationReport, PluginMigrations
 from teabot.sdk import Plugin
 
 PACKAGE_INIT = """
@@ -74,3 +76,22 @@ def test_a_plugin_learns_its_version_and_imports_its_whole_package(
     assert candidate.error is None and candidate.plugin is target
     assert (target.manifest.version, target.manifest.migrations) == ("2.5.0", package / "migrations")
     assert list(target.actions) == ["pkgd.hello"]
+
+
+async def no_migrations(plugins: Sequence[PluginMigrations]) -> MigrationReport:
+    return MigrationReport()
+
+
+async def test_a_blocked_plugin_is_never_imported() -> None:
+    class Exploding:
+        name = "boom"
+        dist = Dist("teabot-boom", "1.0.0")
+        module = "teabot_boom"
+
+        def load(self) -> object:
+            raise AssertionError("a blocked plugin's code ran")
+
+    (candidate,) = discover(lambda _group: [Exploding()], blocked=["boom"])  # type: ignore[list-item]
+    assert candidate.plugin is None and candidate.error == BLOCKED
+    report = await load([candidate], disabled=["boom"], migrate_with=no_migrations)
+    assert report.statuses["boom"].reason == "blocked"

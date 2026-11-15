@@ -5,6 +5,7 @@ import base64
 from pathlib import Path
 from typing import Any
 
+import asyncpg
 import pytest
 from typer.testing import CliRunner
 
@@ -34,6 +35,26 @@ async def test_init_twice_keeps_passwords(env_file: Path) -> None:
     assert second_run.exit_code == 0, second_run.output
     assert read_values(env_file) == first
     assert "generated" not in second_run.output
+
+
+async def test_rotate_replaces_both_passwords_and_the_roles_take_them(
+    env_file: Path, admin: Conn, naming: Naming
+) -> None:
+    runner = CliRunner()
+    await asyncio.to_thread(runner.invoke, app, ["init", "--env-file", str(env_file)])
+    first = read_values(env_file)
+    rotated = await asyncio.to_thread(runner.invoke, app, ["init", "--env-file", str(env_file), "--rotate"])
+    assert rotated.exit_code == 0, rotated.output
+    now = read_values(env_file)
+    for name in ("TEABOT_DB_APP_PASSWORD", "TEABOT_DB_PLUGINS_PASSWORD"):
+        assert now[name] != first[name]
+    assert "Restart teabot now" in rotated.output
+    host, port = admin._addr  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+    database = admin._params.database  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+    conn = await asyncpg.connect(
+        host=host, port=port, database=database, user=naming.app_role, password=now["TEABOT_DB_APP_PASSWORD"]
+    )
+    await conn.close()
 
 
 async def test_init_accepts_an_admin_user_and_does_not_warn(
