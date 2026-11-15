@@ -42,6 +42,7 @@ from teabot.testing.fakes import (
     FakeSelect,
     next_id,
 )
+from teabot.testing.web import FakeWeb
 
 ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
@@ -108,6 +109,7 @@ class PluginHarness:
     plugin_id: str = ""
     events: Events | None = None
     outbox: Outbox | None = None
+    web: FakeWeb = field(default_factory=FakeWeb)
     failures: list[JobFailed] = field(default_factory=list[JobFailed])
     _plans: dict[str, tuple[str, dict[str, Any], int]] = field(
         default_factory=dict[str, tuple[str, dict[str, Any], int]]
@@ -441,6 +443,7 @@ async def build_harness(
     )
     await install_clock(admin, naming, plugin_id, CLOCK.offset)
     await core.recurring.ensure(guild.id, plugin_id)
+    harness.web.install()
     for key, handler in list(core.queue.handlers.items()):
         core.queue.handlers[key] = _recording(f"{key[0]}.{key[1]}", handler, harness.failures)
     return harness

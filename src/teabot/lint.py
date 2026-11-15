@@ -4,7 +4,8 @@
 - Plugin SQL never runs `SET`, `RESET` or `set_config`, which could change the role or the server it acts for.
 - Times come from `ctx.now` and SQL's `now()`, which tests can move, never from `datetime.now()`,
   `CURRENT_TIMESTAMP` and the like, which they cannot.
-- The plugin's README lists its external connections (D12).
+- The plugin's README lists its external connections (D12), and its code reaches them through `ctx.http`, not
+  an HTTP library of its own.
 
 The harness runs these when it loads a plugin, and `teabot check` runs them from the command line. A problem
 fails a test or the command; it never stops a running bot.
@@ -36,6 +37,7 @@ PYTHON_CLOCKS = {
     ("date", "today"),
     ("time", "time"),
 }
+HTTP_LIBRARIES = ("requests", "httpx", "aiohttp", "urllib.request", "http.client", "urllib3", "pycurl")
 COMMENTS = re.compile(r"--[^\n]*|/\*.*?\*/", re.DOTALL)
 
 
@@ -84,6 +86,12 @@ def _check_python(path: Path, allowed: tuple[str, ...]) -> list[Problem]:
                 problems.append(
                     Problem(path, line, f"imports {module}; plugins import only {' and '.join(allowed)}")
                 )
+            if allowed == ALLOWED_IN_CODE and _is_http_library(module):
+                problems.append(
+                    Problem(
+                        path, line, f"imports {module}; reach the web through ctx.http, for declared hosts"
+                    )
+                )
         if isinstance(node, ast.Call) and _clock_call(node):
             problems.append(
                 Problem(path, node.lineno, "reads the clock directly, which tests cannot move; use ctx.now")
@@ -91,6 +99,10 @@ def _check_python(path: Path, allowed: tuple[str, ...]) -> list[Problem]:
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             problems += _check_sql(path, node.value, node.lineno, strict=False)
     return problems
+
+
+def _is_http_library(module: str) -> bool:
+    return any(module == name or module.startswith(f"{name}.") for name in HTTP_LIBRARIES)
 
 
 def _imported(node: ast.AST) -> Iterator[str]:

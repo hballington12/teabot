@@ -152,6 +152,24 @@ await channel.send(embed=discord.Embed(title="Results"))
 - `files=[File("results.csv", data)]` attaches files.
 - A post that goes with database writes, such as a draw's winners, goes through the transaction instead, with `tx.send`. See [Posting with a transaction](#posting-with-a-transaction).
 
+## Reaching the web
+
+```python
+plugin = Plugin("wom", hosts=["api.wiseoldman.net"])
+
+
+@plugin.action()
+async def rank(ctx: Ctx, name: str) -> str:
+    found = await ctx.http.get(f"https://api.wiseoldman.net/v2/players/{name}")
+    return found.json()["type"] if found.ok else "Not found."
+```
+
+- `ctx.http.get(url, params=...)` and `ctx.http.post(url, json=...)` reach the hosts in `Plugin(..., hosts=[...])`, by their exact names, and nothing else. Another host raises `HostNotDeclared`.
+- They return a `Response`: `status`, `ok`, `headers`, `text` and `json()`. A request waits 10 seconds, or `wait=` seconds.
+- Redirects are not followed, so a reply cannot send a request to a host the plugin did not declare.
+- List the same hosts in the README's "External connections". `teabot check` refuses an HTTP library of the plugin's own, such as `requests`, `httpx` or `aiohttp`.
+- In tests, `harness.web.reply(url, json_body=...)` sets what a URL answers, and `harness.web.requests` holds what was sent. A URL without a reply fails the test.
+
 ## Working with the server
 
 Added in 1.3, except finding channels, roles and members, and sending.
@@ -427,7 +445,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 - Imports only `teabot.sdk`, and tests only `teabot.sdk` and `teabot.testing`.
 - Reads the time through `ctx.now` and `now()`, never `datetime.now()`, `time.time()` or `CURRENT_TIMESTAMP`.
 - No `SET`, `RESET` or `set_config` in SQL.
-- External connections listed in the README, and nothing else contacted.
+- External connections listed in the README and in `Plugin(..., hosts=[...])`, reached through `ctx.http`, and nothing else contacted.
 - Every table has `guild_id`, and released migrations are unchanged.
 - No Discord or HTTP awaits inside transaction blocks, and no blocking I/O.
 - No dynamic SQL built from member input.

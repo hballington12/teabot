@@ -22,7 +22,7 @@ import importlib.metadata
 import inspect
 import json
 import sys
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -48,6 +48,7 @@ from teabot.sdk.actions import SYSTEM, ActionContext, ActionError, ActionSpec, A
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
 from teabot.sdk.guild import Guild, Member, Reaction, ReceivedMessage, RoleChange, User, VoiceChange
+from teabot.sdk.http import Http
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
@@ -99,6 +100,11 @@ class Context[C: BaseModel](Protocol):
         """Record how far a long change has got, which `/admin job_status` shows."""
         ...
 
+    @property
+    def http(self) -> Http:
+        """The shared HTTP client, for the hosts the plugin declares in `Plugin(..., hosts=[...])` (D12)."""
+        ...
+
 
 type Suggester[C: BaseModel, T: (str, int)] = Callable[[Context[C], str], Awaitable[list[Choice[T]]]]
 """What `@action.autocomplete(...)` decorates: it takes the context and what the member has typed."""
@@ -116,10 +122,16 @@ class _Context:
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]]
     diff: Diff = field(default_factory=Diff)
     now: datetime = field(default_factory=clock.now)
+    plugin_id: str = ""
+    hosts: frozenset[str] = frozenset()
 
     @property
     def db(self) -> Db:
         return self.open_db()
+
+    @property
+    def http(self) -> Http:
+        return Http(self.plugin_id, self.hosts)
 
     async def report(self, progress: Mapping[str, Any], /) -> None:
         await self.reporter(progress)
@@ -140,6 +152,7 @@ class Action[C: BaseModel, **P, R]:
     - `planner` is the plan `.plan` attached, if any.
     - `surfaces` are the front doors it is offered through.
     - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
+    - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches.
     """
 
     func: Callable[Concatenate[Context[C], P], Awaitable[R]]
@@ -154,6 +167,7 @@ class Action[C: BaseModel, **P, R]:
     suggesters: dict[str, Callable[..., Awaitable[list[Choice[Any]]]]] = field(
         default_factory=dict[str, Callable[..., Awaitable[list[Choice[Any]]]]]
     )
+    hosts: frozenset[str] = frozenset()
 
     def autocomplete[T: (str, int)](
         self, option: str
@@ -211,7 +225,7 @@ class Action[C: BaseModel, **P, R]:
         func = self.suggesters[option]
 
         async def suggest(ctx: ActionContext, typed: str) -> list[Choice[Any]]:
-            return list(await func(_context_of(ctx, self.name), typed))[:25]
+            return list(await func(_context_of(ctx, self.name, self.hosts), typed))[:25]
 
         return suggest
 
@@ -226,14 +240,16 @@ class Action[C: BaseModel, **P, R]:
         return BoundAction(self.name, payload)
 
     async def _run(self, ctx: ActionContext, data: BaseModel) -> BaseModel:
-        context = _context_of(ctx, self.name)
+        context = _context_of(ctx, self.name, self.hosts)
         arguments = await _arguments(self.inputs, context, data)
         func: Callable[..., Awaitable[Any]] = self.func
         return self.output.wrap(await func(**arguments))
 
     async def _plan(self, ctx: ActionContext, data: BaseModel) -> Diff:
         assert self.planner is not None
-        return await self.planner(**await _arguments(self.inputs, _context_of(ctx, self.name), data))
+        return await self.planner(
+            **await _arguments(self.inputs, _context_of(ctx, self.name, self.hosts), data)
+        )
 
 
 def _ids(value: Any) -> Any:
@@ -249,10 +265,19 @@ def _reason(action: str, actor: Actor) -> str:
     return f"via teabot: {action}, for {who}"
 
 
-def _context_of(ctx: ActionContext, action: str) -> _Context:
+def _context_of(ctx: ActionContext, action: str, hosts: frozenset[str]) -> _Context:
     diff = getattr(ctx, "diff", None) or Diff()
     guild = guild_view(ctx.guild, _reason(action, ctx.actor))
-    return _Context(guild, ctx.actor, ctx.config, lambda: ctx.db, ctx.report, diff)
+    return _Context(
+        guild,
+        ctx.actor,
+        ctx.config,
+        lambda: ctx.db,
+        ctx.report,
+        diff,
+        plugin_id=action.split(".", maxsplit=1)[0],
+        hosts=hosts,
+    )
 
 
 async def _arguments(inputs: Inputs, context: _Context, data: BaseModel) -> dict[str, Any]:
@@ -269,12 +294,15 @@ class Job[C: BaseModel, **P]:
     - `func` is the decorated function, and `name` the job's name within the plugin.
     - `inputs` is the payload's model, read from the function's signature.
     - `every` is how often it runs on its own, or None for a job that runs when scheduled.
+    - `plugin_id` is its plugin's id, and `hosts` the hosts its plugin declared, which its `ctx.http` reaches.
     """
 
     func: Callable[Concatenate[Context[C], P], Awaitable[None]]
     name: str
     inputs: Inputs
     every: timedelta | None = None
+    plugin_id: str = ""
+    hosts: frozenset[str] = frozenset()
 
     def bind(self, *args: P.args, **kwargs: P.kwargs) -> Bound:
         """The job with its arguments fixed, for `tx.schedule` and `tx.unschedule`. Its key is the job's name and
@@ -290,7 +318,13 @@ class Job[C: BaseModel, **P]:
             raise ActionError("The bot is no longer in this job's server.")
         actor = Actor(job.started_by or SYSTEM, "job")
         context = _Context(
-            guild_view(guild, _reason(self.name, actor)), actor, job.config, lambda: job.db, job.report
+            guild_view(guild, _reason(self.name, actor)),
+            actor,
+            job.config,
+            lambda: job.db,
+            job.report,
+            plugin_id=self.plugin_id,
+            hosts=self.hosts,
         )
         data = self.inputs.model.model_validate(dict(job.payload))
         func: Callable[..., Awaitable[None]] = self.func
@@ -304,8 +338,16 @@ class Plugin(Generic[Cfg]):
     """
 
     # Python 3.12 has no syntax for a type parameter's default, so this uses Generic and typing_extensions.
-    def __init__(self, id: str, *, config: type[Cfg] = EmptyConfig, migrations: Path | None = None) -> None:
+    def __init__(
+        self,
+        id: str,
+        *,
+        config: type[Cfg] = EmptyConfig,
+        migrations: Path | None = None,
+        hosts: Iterable[str] = (),
+    ) -> None:
         self.id = id
+        self.hosts = frozenset(hosts)
         self.config = config
         self._migrations = migrations
         self._module: str | None = None
@@ -346,6 +388,7 @@ class Plugin(Generic[Cfg]):
                 inputs,
                 read_output(func, action_name),
                 surfaces=surfaces,
+                hosts=self.hosts,
             )
             self.actions[action_name] = built
             self._module = self._module or func.__module__
@@ -388,7 +431,7 @@ class Plugin(Generic[Cfg]):
                 raise SignatureError(
                     f"{where(func)}: {self.id}.{job_name} runs on its own, so it takes no parameters after ctx"
                 )
-        built = Job(func, job_name, inputs, every)
+        built = Job(func, job_name, inputs, every, self.id, self.hosts)
         self.jobs[job_name] = built
         self._module = self._module or func.__module__
         return built
@@ -524,7 +567,12 @@ class Plugin(Generic[Cfg]):
                 return
             actor = Actor(SYSTEM, "event")
             context = _Context(
-                guild_view(guild, _reason(name, actor)), actor, job.config, lambda: job.db, job.report
+                guild_view(guild, _reason(name, actor)),
+                actor,
+                job.config,
+                lambda: job.db,
+                job.report,
+                plugin_id=self.id,
             )
             if event == "enable":
                 await func(context)

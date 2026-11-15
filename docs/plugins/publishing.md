@@ -24,7 +24,7 @@ teabot keeps plugins working across a major version, so `<2` is safe. Raise the 
 The README's **External connections** says every server outside Discord your plugin contacts, or "none". Operators read it before they install a plugin, and `teabot check` refuses a README without it.
 
 ```markdown title="README.md"
-- External connections: api.example.org, to look up player scores.
+- External connections: api.example.org, to look up player scores. The same hosts go in `Plugin(..., hosts=["api.example.org"])`, which `ctx.http` keeps to.
 ```
 
 ## 4. Check it

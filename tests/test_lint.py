@@ -8,7 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from teabot.cli import app
-from teabot.lint import check_project
+from teabot.lint import check_package, check_project
 from teabot.testing import CheckFailed, HarnessFactory
 
 GOOD_CODE = '''"""A plugin that does everything the checklist asks."""
@@ -121,3 +121,12 @@ async def test_the_harness_checks_a_plugins_package_when_it_loads(
     sloppy = importlib.import_module("teabot_sloppy").plugin
     with pytest.raises(CheckFailed, match=r"__init__\.py:3: imports teabot\.db"):
         await teabot_harness(sloppy)
+
+
+def test_plugin_code_reaching_the_web_itself_is_flagged(tmp_path: Path) -> None:
+    package = tmp_path / "teabot_web"
+    package.mkdir()
+    (package / "__init__.py").write_text("import requests\nfrom aiohttp import ClientSession\n")
+    (package / "README.md").write_text("# web\n\n## External connections\n\nNone.\n")
+    problems = [p.message for p in check_package(package)]
+    assert sum("reach the web through ctx.http" in m for m in problems) == 2

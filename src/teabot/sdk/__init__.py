@@ -13,6 +13,8 @@ A plugin:
 - `Manifest`: a plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
 - `InstanceSettings`: settings for the whole instance, such as an API key, from `plugin.instance_settings(Model)`,
   read from `TEABOT_PLUGIN_<ID>_<FIELD>`.
+- `Http`: `ctx.http`, the shared HTTP client for the hosts in `Plugin(..., hosts=[...])`. A request returns a
+  `Response`; one to an undeclared host raises `HostNotDeclared`.
 - `LoadablePlugin`: what an entry point may name: a `Plugin`, or any object with a `Manifest` and a `setup`
   that registers with a `Registrar`.
 - `InvalidPluginId`: what a plugin with an id that breaks D46 raises.
@@ -85,6 +87,7 @@ from teabot.sdk.guild import (
     User,
     VoiceChange,
 )
+from teabot.sdk.http import HostNotDeclared, Http, Response
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
 from teabot.sdk.permissions import Permission
@@ -118,6 +121,8 @@ __all__ = [
     "EmptyConfig",
     "File",
     "Guild",
+    "HostNotDeclared",
+    "Http",
     "InputError",
     "InstanceSettings",
     "InvalidPluginId",
@@ -139,6 +144,7 @@ __all__ = [
     "Reaction",
     "ReceivedMessage",
     "Registrar",
+    "Response",
     "Risk",
     "Role",
     "RoleChange",

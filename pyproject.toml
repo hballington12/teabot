@@ -29,6 +29,7 @@ dependencies = [
     "typing-extensions>=4.12",
     "uvicorn>=0.35",
     "watchfiles>=1.0",
+    "httpx>=0.28",
 ]
 
 
@@ -59,7 +60,6 @@ roles = "teabot.plugins.roles:plugin"
 dev = [
     "asyncpg-stubs>=0.30",
     "coverage>=7.10",
-    "httpx>=0.28",
     "import-linter>=2.16",
     "psycopg[binary]>=3.3",
     "pyright>=1.1.414",
@@ -118,6 +118,7 @@ max-line-length = 120
 "src/teabot/sdk/guild.py" = ["PLR0913"]
 "src/teabot/sdk/_views.py" = ["PLR0913"]
 "src/teabot/sdk/db.py" = ["PLR0913"]
+"src/teabot/sdk/http.py" = ["PLR0913"]
 "src/teabot/db/pool.py" = ["PLR0913"]
 
 [tool.ruff.lint.mccabe]

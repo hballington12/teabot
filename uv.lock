@@ -2092,6 +2092,7 @@ source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
     { name = "discord-py" },
+    { name = "httpx" },
     { name = "mcp" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -2114,7 +2115,6 @@ testing = [
 dev = [
     { name = "asyncpg-stubs" },
     { name = "coverage" },
-    { name = "httpx" },
     { name = "import-linter" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pyright" },
@@ -2136,6 +2136,7 @@ duplicate-check = [
 requires-dist = [
     { name = "asyncpg", specifier = ">=0.30,<0.33" },
     { name = "discord-py", specifier = ">=2.6" },
+    { name = "httpx", specifier = ">=0.28" },
     { name = "mcp", specifier = ">=2.3,<3" },
     { name = "psycopg", extras = ["binary"], marker = "extra == 'testing'", specifier = ">=3.3" },
     { name = "pydantic", specifier = ">=2.11" },
@@ -2155,7 +2156,6 @@ provides-extras = ["testing"]
 dev = [
     { name = "asyncpg-stubs", specifier = ">=0.30" },
     { name = "coverage", specifier = ">=7.10" },
-    { name = "httpx", specifier = ">=0.28" },
     { name = "import-linter", specifier = ">=2.16" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3" },
     { name = "pyright", specifier = ">=1.1.414" },
