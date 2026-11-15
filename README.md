@@ -35,12 +35,11 @@
 | Plugin | What it does |
 |---|---|
 | [`announcements`](https://github.com/teabot-dev/teabot/tree/main/src/teabot/plugins/announcements) | Posts an announcement to a channel, now or at a set time. |
-| [`giveaways`](https://github.com/teabot-dev/teabot/tree/main/src/teabot/plugins/giveaways) | Runs giveaways: members enter, and winners are drawn when time is up. |
 | [`roles`](https://github.com/teabot-dev/teabot/tree/main/src/teabot/plugins/roles) | Posts a role picker: a button for each role, which members press to take it. |
 
 These ship with teabot. Turn one on in a server with `/plugins enable plugin:<name>`.
 
-A plugin hub for community plugins is coming. To write your own, see [Your first plugin](https://teabot-dev.github.io/teabot/plugins/).
+More, such as giveaways, are on the [plugin hub](https://teabot-dev.github.io/plugin-hub/), where teabot's maintainers review each one. To write your own, see [Your first plugin](https://teabot-dev.github.io/teabot/plugins/).
 
 ## Documentation
 

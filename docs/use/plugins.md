@@ -2,7 +2,7 @@
 
 At the end of this page, the plugins you want are on in your server, with the settings you want.
 
-A **plugin** adds a set of commands to teabot, such as `/giveaways`. Every plugin is off in your server until you turn it on. These commands need **Manage Server**.
+A **plugin** adds a set of commands to teabot, such as `/giveaways`. Announcements and roles come with teabot, and the operator can install more from the [plugin hub](https://teabot-dev.github.io/plugin-hub/). Every plugin is off in your server until you turn it on. These commands need **Manage Server**.
 
 ## See the plugins
 
@@ -61,6 +61,6 @@ Change one. The `plugin` and `setting` options suggest names as you type:
 - For a channel, role or member, type `#` or `@` and pick it from Discord's list. Its ID works too: to copy one, turn on **Developer Mode** in Discord's **Advanced** settings, then right-click the channel, role or member and choose **Copy ID**.
 - teabot checks the value, and says what is wrong if it does not fit.
 
-Each plugin's page lists its settings: [Announcements](plugins/announcements.md), [Giveaways](plugins/giveaways.md) and [Roles](plugins/roles.md).
+Each plugin lists its settings: [Announcements](plugins/announcements.md) and [Roles](plugins/roles.md) here, and a plugin from the hub in the README its hub listing links to.
 
 **Next:** [Who can use what](permissions.md).

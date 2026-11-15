@@ -31,7 +31,6 @@ Type `/plugins list` in any channel. teabot replies with the plugins it has, and
 
 ```text
 announcements disabled
-giveaways disabled
 roles disabled
 ```
 

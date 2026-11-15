@@ -43,4 +43,4 @@ None.
 
 The tools are `announcements_post` and `announcements_schedule`.
 
-**Next:** [Giveaways](giveaways.md).
+**Next:** [Roles](roles.md).

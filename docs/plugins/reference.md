@@ -20,7 +20,7 @@ flowchart LR
 - Every call takes the same path. teabot checks the input against your function's parameters, checks the member's Discord permissions, shows a plan first for a destructive action, and records the call in the audit log. Only then does your function run.
 - Your function works in one server at a time: `ctx.guild`, and the rows of that server in your own tables.
 
-Worked examples are the plugins that ship with teabot, which import only `teabot.sdk` like yours: [giveaways](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/giveaways/__init__.py) (jobs, settings, a plan) and [announcements](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/announcements/__init__.py) (posting now and later).
+Worked examples, which import only `teabot.sdk` like yours: [giveaways](https://github.com/teabot-dev/teabot-giveaways/blob/main/src/teabot_giveaways/__init__.py) from the plugin hub (jobs, settings, a plan, posting with a transaction), and [announcements](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/announcements/__init__.py) and [roles](https://github.com/teabot-dev/teabot/blob/main/src/teabot/plugins/roles/__init__.py), which ship with teabot.
 
 ## The package
 

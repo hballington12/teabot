@@ -88,9 +88,9 @@ def test_an_id_that_breaks_d46_or_is_reserved_is_refused(tmp_path: Path, plugin_
 
 
 def test_an_id_an_installed_plugin_has_is_refused(tmp_path: Path) -> None:
-    result = new_plugin(tmp_path, "giveaways")
+    result = new_plugin(tmp_path, "roles")
     assert result.exit_code == 1
-    assert "the installed package teabot already has a plugin with the id giveaways" in result.stderr
+    assert "the installed package teabot already has a plugin with the id roles" in result.stderr
     assert not (tmp_path / "plugins").exists()
 
 

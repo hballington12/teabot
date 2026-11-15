@@ -23,7 +23,6 @@ nav = [
     { "Built-in commands" = "use/commands.md" },
     { "Plugins" = [
       { "Announcements" = "use/plugins/announcements.md" },
-      { "Giveaways" = "use/plugins/giveaways.md" },
       { "Roles" = "use/plugins/roles.md" },
     ] },
     { "Troubleshooting" = "use/troubleshooting.md" },
