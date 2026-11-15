@@ -3,11 +3,15 @@
 Every setting is listed with its default in `template/teabot.env.example`.
 """
 
+import os
 from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+from teabot.envfile import read_values
+from teabot.sdk.settings import PREFIX as PLUGIN_PREFIX
 
 DEFAULT_ENV_FILE = Path("teabot.env")
 
@@ -57,6 +61,11 @@ class Settings(BaseSettings):
 
 
 def load_settings(env_file: Path | None = DEFAULT_ENV_FILE) -> Settings:
-    """Read the settings. Variables in the environment win over the env file."""
+    """Read the settings. Variables in the environment win over the env file. The env file's plugin settings,
+    `TEABOT_PLUGIN_*`, go into the environment for the plugins to read when they load."""
     path = env_file if env_file is not None and env_file.exists() else None
+    if path is not None:
+        for name, value in read_values(path).items():
+            if name.startswith(PLUGIN_PREFIX):
+                os.environ.setdefault(name, value)
     return Settings(_env_file=path)  # pyright: ignore[reportCallIssue]

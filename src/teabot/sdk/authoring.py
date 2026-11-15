@@ -51,6 +51,7 @@ from teabot.sdk.guild import Guild, Member, Reaction, ReceivedMessage, RoleChang
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
+from teabot.sdk.settings import InstanceSettings
 
 READ = Risk.READ
 WRITE = Risk.WRITE
@@ -313,6 +314,7 @@ class Plugin(Generic[Cfg]):
         self.actions: dict[str, Action[Cfg, ..., Any]] = {}
         self.jobs: dict[str, Job[Cfg, ...]] = {}
         self.listeners: dict[EventName, Callable[..., Awaitable[None]]] = {}
+        self.settings: list[InstanceSettings[Any]] = []
 
     def action[**P, R](
         self,
@@ -424,8 +426,17 @@ class Plugin(Generic[Cfg]):
         found = Path(file).parent / "migrations"
         return found if found.is_dir() else None
 
+    def instance_settings[M: BaseModel](self, model: type[M]) -> InstanceSettings[M]:
+        """Settings for the whole instance, read from `TEABOT_PLUGIN_<ID>_<FIELD>` when the plugin loads. Keep
+        what returns at module level, and call its `get()` where the settings are needed."""
+        found = InstanceSettings(self.id, model)
+        self.settings.append(found)
+        return found
+
     def setup(self, registrar: Registrar) -> None:
-        """Register every decorated action and job with the core."""
+        """Register every decorated action and job with the core, once the instance settings are read."""
+        for settings in self.settings:
+            settings.load()
         for action in self.actions.values():
             if action.risk is DESTRUCTIVE and action.planner is None:
                 raise SignatureError(

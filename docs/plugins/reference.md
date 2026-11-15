@@ -295,6 +295,30 @@ async with ctx.db.transaction() as tx:
 - Change it only in ways older stored config still validates: new fields with defaults, `AliasChoices` for renames, `extra="ignore"` for removals, `model_validator(mode="before")` for anything else.
 - Keep stored samples from earlier versions in `tests/fixtures/` and test that they still validate.
 
+### Settings for the whole instance
+
+What the operator sets once, for every server, such as an API key, goes in instance settings instead:
+
+```python
+class Keys(BaseModel):
+    api_key: SecretStr
+    timeout: float = 5.0
+
+
+keys = plugin.instance_settings(Keys)
+
+
+@plugin.action()
+async def lookup(ctx: Ctx, name: str) -> str:
+    token = keys.get().api_key.get_secret_value()
+    ...
+```
+
+- Each field is read from `TEABOT_PLUGIN_<ID>_<FIELD>`, here `TEABOT_PLUGIN_WOM_API_KEY`, in `teabot.env` or the environment. A list or an object is written as JSON, such as `[1, 2]`.
+- They are read when the plugin loads. A missing or wrong one stops the load, and `/plugins list` shows the variable's name.
+- List them in the plugin's README, so the operator knows what to set. Use `SecretStr` for secrets, so they never print.
+- In tests, set them with `monkeypatch.setenv(...)` before `teabot_harness(plugin)`.
+
 ## Jobs
 
 ```python

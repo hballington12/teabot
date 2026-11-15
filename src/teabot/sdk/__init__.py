@@ -11,6 +11,8 @@ A plugin:
 - `Context`: what an action or a job receives: the server, the actor, the config, the database and the time.
 - `READ`, `WRITE` and `DESTRUCTIVE`: an action's `Risk`. `Permission` names what a member needs.
 - `Manifest`: a plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
+- `InstanceSettings`: settings for the whole instance, such as an API key, from `plugin.instance_settings(Model)`,
+  read from `TEABOT_PLUGIN_<ID>_<FIELD>`.
 - `LoadablePlugin`: what an entry point may name: a `Plugin`, or any object with a `Manifest` and a `setup`
   that registers with a `Registrar`.
 - `InvalidPluginId`: what a plugin with an id that breaks D46 raises.
@@ -88,6 +90,7 @@ from teabot.sdk.inputs import InputError
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff, DiffEntry
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
+from teabot.sdk.settings import InstanceSettings
 
 __all__ = [
     "DESTRUCTIVE",
@@ -116,6 +119,7 @@ __all__ = [
     "File",
     "Guild",
     "InputError",
+    "InstanceSettings",
     "InvalidPluginId",
     "Job",
     "JobContext",
