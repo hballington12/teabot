@@ -150,6 +150,7 @@ await channel.send(embed=discord.Embed(title="Results"))
 - Messages mention nobody unless you name members with `ping=`.
 - A channel the bot may not post in raises an `ActionError` that says so.
 - `files=[File("results.csv", data)]` attaches files.
+- A post that goes with database writes, such as a draw's winners, goes through the transaction instead, with `tx.send`. See [Posting with a transaction](#posting-with-a-transaction).
 
 ## Working with the server
 
@@ -224,12 +225,29 @@ async def farewell(ctx: Ctx, user: User) -> None:
         await tx.schedule(announce_winner.bind(raffle=raffle), at=ends_at)
     ```
 
-    - A job queued with `tx.schedule` commits together with the writes.
+    - A job queued with `tx.schedule`, and a post sent with `tx.send`, commit together with the writes.
     - Calling `ctx.db` inside an open block raises, because it would miss the block's writes.
-    - Never await Discord or HTTP inside a block. It holds a connection and its locks across a slow call.
+    - Never await Discord or HTTP inside a block. It holds a connection and its locks across a slow call. `tx.send` is not a Discord call: it stores the post, which teabot sends after the commit.
 - Use `now()` in SQL for the time, never `CURRENT_TIMESTAMP`, since tests move `now()`.
 - Never build dynamic SQL from member input in a plpgsql function (`EXECUTE`). It is the one way an injection bug could reach another plugin's data.
 - Never block the event loop. Use async libraries for any I/O.
+
+### Posting with a transaction
+
+```python
+async with ctx.db.transaction() as tx:
+    await tx.execute(MARK_WON, ctx.guild.id, raffle, winners)
+    post = await tx.send(channel_id, f"**{prize}** goes to <@{winner}>.", ping=[winner])
+    await tx.execute(SAVE_POST, ctx.guild.id, raffle, post.id)
+```
+
+- `tx.send(channel, ...)` takes a `TextChannel` or a channel ID, and the same `content`, `embed=`, `ping=`, `buttons=` and `select=` as `channel.send`. Files are not sent this way.
+- The post goes out a moment after the commit, and never if the block rolls back. teabot retries it while Discord is down.
+- It goes out once. teabot sends it with a nonce, so Discord drops a retry within a few minutes. Only a retry after a long outage or a restart could post it twice.
+- `tx.send` returns a `Post`. Store `post.id` to change it later with `tx.edit(post, ...)`, which replaces what it shows, or `tx.delete(post)`. An edit before it has gone out changes what goes out. `Post(row.post_id)` and the plain ID both work.
+- A channel the bot may not post in, or one that is gone, does not fail the block. teabot records it on the post and does not retry.
+- Use `channel.send` when the action needs the message straight away, such as to reply with its link, or to tell the member at once that the channel refuses posts.
+- In tests, `harness.call`, `press` and `choose` send the posts an action queued before they return, so a test checks `channel.sent` straight after. `harness.run_jobs()` sends a job's posts too.
 
 ## Migrations
 

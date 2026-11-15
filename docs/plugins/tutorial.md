@@ -88,6 +88,7 @@ The queries this tutorial uses sit together near the top of the file:
 - A **job** runs later, on teabot's queue. Its parameters after `ctx` are what it is scheduled with: `close.bind(poll=poll)` in step 3, which pyright checks.
 - A job's key is its name and arguments, so scheduling the same `close` again moves it, and `tx.unschedule(close.bind(poll=...))` removes it.
 - A job can run twice, after a crash. This one locks the poll and checks it is still running first, so a second run changes nothing.
+- `tx.send` posts the results with the transaction: if the poll is closed, the results go out, and if anything fails first, neither happens. teabot posts them a moment after the commit, and retries while Discord is down.
 - Messages mention nobody unless you say so with `ping=`. An `@everyone` in a question stays plain text.
 
 ## 7. Deleting a poll: plan, then apply

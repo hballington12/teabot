@@ -34,7 +34,7 @@ MIGRATED = "SELECT count(*) FROM core.migrations WHERE plugin_id = $1"
 TABLES = "SELECT tablename FROM pg_tables WHERE schemaname = $1 ORDER BY tablename"
 SCHEMA_EXISTS = "SELECT count(*) FROM pg_namespace WHERE nspname = $1"
 ROLE_EXISTS = "SELECT count(*) FROM pg_roles WHERE rolname = $1"
-CORE_TABLES = ("guild_plugins", "jobs", "migrations")
+CORE_TABLES = ("guild_plugins", "jobs", "migrations", "posts")
 
 
 class PurgeRefused(Exception):

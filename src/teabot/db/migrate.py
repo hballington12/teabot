@@ -204,12 +204,18 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
         await conn.execute("RESET ROLE")
     # Earlier releases had a four-argument schedule_job; a new signature is a new function, so the old one goes.
     await conn.execute(f'DROP FUNCTION IF EXISTS "{schema}".schedule_job(bigint, text, timestamptz, jsonb)')
-    for definition, signature in ((SCHEDULE_JOB, SCHEDULE_SIGNATURE), (UNSCHEDULE_JOB, UNSCHEDULE_SIGNATURE)):
+    functions = (
+        (SCHEDULE_JOB, SCHEDULE_SIGNATURE),
+        (UNSCHEDULE_JOB, UNSCHEDULE_SIGNATURE),
+        (QUEUE_POST, QUEUE_POST_SIGNATURE),
+    )
+    for definition, signature in functions:
         await conn.execute(definition.format(schema=schema, plugin_id=plugin_id))
         await conn.execute(f'REVOKE ALL ON FUNCTION "{schema}".{signature} FROM PUBLIC')
         await conn.execute(f'GRANT EXECUTE ON FUNCTION "{schema}".{signature} TO "{role}"')
 
 
+QUEUE_POST_SIGNATURE = "queue_post(bigint, bigint, bigint, jsonb, boolean, bigint)"
 SCHEDULE_SIGNATURE = "schedule_job(bigint, text, timestamptz, jsonb, text, bigint)"
 UNSCHEDULE_SIGNATURE = "unschedule_job(bigint, text)"
 
@@ -243,6 +249,38 @@ RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = core, pg_temp AS
     )
     SELECT EXISTS (SELECT 1 FROM gone)
 $$
+"""
+
+
+# The outbox (tx.send): a new post, or a change to one of this plugin's posts in this server, and a core job to
+# bring Discord up to date. p_post_id is NULL for a new post; p_message NULL leaves what it shows alone.
+QUEUE_POST = """
+CREATE OR REPLACE FUNCTION "{schema}".queue_post(
+    p_guild_id bigint, p_post_id bigint, p_channel_id bigint, p_message jsonb, p_deleted boolean DEFAULT false,
+    p_started_by bigint DEFAULT NULL
+) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = core, pg_temp AS $$
+DECLARE post_id bigint; job_id bigint;
+BEGIN
+    IF p_post_id IS NULL THEN
+        INSERT INTO core.posts (guild_id, plugin_id, channel_id, message)
+        VALUES (p_guild_id, '{plugin_id}', p_channel_id, p_message)
+        RETURNING id INTO post_id;
+    ELSE
+        UPDATE core.posts
+        SET message = coalesce(p_message, message), deleted = deleted OR p_deleted, version = version + 1
+        WHERE id = p_post_id AND guild_id = p_guild_id AND plugin_id = '{plugin_id}'
+        RETURNING id INTO post_id;
+        IF post_id IS NULL THEN
+            RAISE EXCEPTION 'post % is not one of this plugin''s posts in this server', p_post_id
+                USING ERRCODE = 'no_data_found';
+        END IF;
+    END IF;
+    INSERT INTO core.jobs (guild_id, plugin_id, handler, payload, started_by)
+    VALUES (p_guild_id, 'core', 'post_message', jsonb_build_object('post_id', post_id), p_started_by)
+    RETURNING id INTO job_id;
+    PERFORM pg_notify('teabot_jobs', job_id::text);
+    RETURN post_id;
+END $$
 """
 
 

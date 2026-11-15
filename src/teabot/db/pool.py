@@ -11,7 +11,7 @@
 import json
 import logging
 import time
-from collections.abc import AsyncGenerator, Callable, Mapping
+from collections.abc import AsyncGenerator, Callable, Iterable, Mapping, Sequence
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -19,11 +19,14 @@ from datetime import datetime
 from typing import Any
 
 import asyncpg
+import discord
 from pydantic import BaseModel, TypeAdapter
 
 from teabot.db.naming import Naming
 from teabot.db.types import AnyConn, Conn, Pool, Record
-from teabot.sdk.db import Bound
+from teabot.sdk._outbox import encode
+from teabot.sdk.components import Button, Select
+from teabot.sdk.db import Bound, Post
 
 log = logging.getLogger(__name__)
 
@@ -214,8 +217,48 @@ class ServerScheduling(Queries):
         return gone
 
 
+QUEUE_POST = "SELECT queue_post($1, $2, $3, $4::jsonb, $5, $6)"
+
+
+def _post_id(post: Post | int) -> int:
+    return post.id if isinstance(post, Post) else int(post)
+
+
 class GuildTransaction(ServerScheduling, Transaction):
-    """A plugin's transaction in one server. A job queued here commits with the block's writes."""
+    """A plugin's transaction in one server. A job queued or a post sent here commits with the block's writes."""
+
+    async def send(
+        self,
+        channel: Any,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        ping: Iterable[int] = (),
+        buttons: Sequence[Button] = (),
+        select: Select | None = None,
+    ) -> Post:
+        channel_id = channel if isinstance(channel, int) else int(channel.id)
+        message = json.dumps(encode(content, embed, ping, buttons, select))
+        post_id: int = await self.fetchval(
+            QUEUE_POST, self.guild_id, None, channel_id, message, False, self.started_by
+        )
+        return Post(post_id)
+
+    async def edit(
+        self,
+        post: Post | int,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        ping: Iterable[int] = (),
+        buttons: Sequence[Button] = (),
+        select: Select | None = None,
+    ) -> None:
+        message = json.dumps(encode(content, embed, ping, buttons, select))
+        await self.fetchval(QUEUE_POST, self.guild_id, _post_id(post), 0, message, False, self.started_by)
+
+    async def delete(self, post: Post | int) -> None:
+        await self.fetchval(QUEUE_POST, self.guild_id, _post_id(post), 0, None, True, self.started_by)
 
     def __init__(self, conn: AnyConn, guild_id: int, started_by: int | None = None) -> None:
         super().__init__(conn)

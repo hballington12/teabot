@@ -167,11 +167,8 @@ async def draw(ctx: Ctx, giveaway: int) -> None:
         winners = await tx.fetch(int, PICK, ctx.guild.id, giveaway, row.winners)
         await tx.execute(MARK_WON, ctx.guild.id, giveaway, winners)
         await tx.execute(SET_STATE, ctx.guild.id, giveaway, "drawn")
-    channel = ctx.guild.get_text_channel(row.channel_id)
-    if channel is None:
-        return
-    if not winners:
-        await channel.send(f"Nobody entered the giveaway for **{row.prize}**.")
-        return
-    named = ", ".join(f"<@{w}>" for w in winners)
-    await channel.send(f"**{row.prize}** goes to {named}. Congratulations!", ping=winners)
+        if not winners:
+            await tx.send(row.channel_id, f"Nobody entered the giveaway for **{row.prize}**.")
+            return
+        named = ", ".join(f"<@{w}>" for w in winners)
+        await tx.send(row.channel_id, f"**{row.prize}** goes to {named}. Congratulations!", ping=winners)

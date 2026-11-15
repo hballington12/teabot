@@ -15,6 +15,7 @@ from teabot.assembly import assemble
 from teabot.auth.tokens import Tokens
 from teabot.core.events import Events
 from teabot.core.loader import from_plugins, load
+from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Planned
 from teabot.core.queue import Queue
 from teabot.core.registry import Call, Registry
@@ -34,6 +35,16 @@ from teabot.testing.fakes import FakeButton, FakeClient, FakeGuild, FakeMember, 
 ENABLE = """
 INSERT INTO core.guild_plugins (guild_id, plugin_id, enabled) VALUES ($1, $2, true)
 ON CONFLICT (guild_id, plugin_id) DO UPDATE SET enabled = true
+"""
+
+
+# The outbox's jobs that are due, oldest first, marked done as the harness sends them itself.
+DUE_POSTS = """
+UPDATE core.jobs SET state = 'done', finished_at = now()
+WHERE id IN (
+    SELECT id FROM core.jobs WHERE plugin_id = 'core' AND handler = $1 AND state = 'pending' AND run_at <= now()
+)
+RETURNING id, payload
 """
 
 
@@ -85,6 +96,7 @@ class PluginHarness:
     workers: Workers
     plugin_id: str = ""
     events: Events | None = None
+    outbox: Outbox | None = None
     failures: list[JobFailed] = field(default_factory=list[JobFailed])
     _plans: dict[str, tuple[str, dict[str, Any], int]] = field(
         default_factory=dict[str, tuple[str, dict[str, Any], int]]
@@ -113,10 +125,20 @@ class PluginHarness:
             raise self.failures[0]
         return ran
 
+    async def send_posts(self) -> int:
+        """Send the posts the plugin has queued with `tx.send`, `tx.edit` and `tx.delete`, and nothing else, and
+        return how many. `call`, `press` and `choose` do this before they return; `run_jobs` sends them too."""
+        assert self.outbox is not None
+        rows = await self.admin.fetch(DUE_POSTS, POST_MESSAGE)
+        for post_id in dict.fromkeys(int(json.loads(r["payload"])["post_id"]) for r in rows):
+            await self.outbox.deliver(post_id)
+        return len(rows)
+
     async def call[**P, R](self, action: Action[Any, P, R], /, *args: P.args, **kwargs: P.kwargs) -> R:
         """Run a decorated action as the server's owner, its first member, who has Administrator, through the
-        real call path. Returns what the action's function returned. A refusal raises `Refused`, and an
-        `ActionError` raises `ActionFailed`. A destructive action goes through `plan` and `confirm` instead."""
+        real call path. Returns what the action's function returned, once the posts it queued are sent. A
+        refusal raises `Refused`, and an `ActionError` raises `ActionFailed`. A destructive action goes through
+        `plan` and `confirm` instead."""
         return await self.as_member(self.member).call(action, *args, **kwargs)
 
     async def plan[**P](self, action: Action[Any, P, Any], /, *args: P.args, **kwargs: P.kwargs) -> Planned:
@@ -234,6 +256,7 @@ class MemberCalls:
         if action.risk is DESTRUCTIVE:
             raise TypeError(f"{action.name} is destructive: use harness.plan, then harness.confirm")
         out = await self._invoke(action, kwargs)
+        await self.harness.send_posts()
         return action.output.unwrap(out)
 
     async def plan[**P](self, action: Action[Any, P, Any], /, *args: P.args, **kwargs: P.kwargs) -> Planned:
@@ -256,7 +279,9 @@ class MemberCalls:
         if bound is None:
             raise ValueError(f"{button.custom_id!r} is not one of teabot's buttons")
         call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), dict(bound.input))
-        return self._shown(bound.action, await self.harness.registry.invoke(call))
+        out = await self.harness.registry.invoke(call)
+        await self.harness.send_posts()
+        return self._shown(bound.action, out)
 
     async def choose(self, select: FakeSelect, values: Sequence[Any], /) -> str:
         """Choose from a select menu on a fake message as this member: option values for a menu of options, or
@@ -268,7 +293,9 @@ class MemberCalls:
         chosen = [str(getattr(v, "id", v)) for v in values]
         raw = dict(bound.input) | {into: chosen}
         call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), raw)
-        return self._shown(bound.action, await self.harness.registry.invoke(call))
+        out = await self.harness.registry.invoke(call)
+        await self.harness.send_posts()
+        return self._shown(bound.action, out)
 
     async def autocomplete(
         self, action: Action[Any, ..., Any], option: str, typed: str = ""
@@ -335,6 +362,7 @@ async def build_harness(
         workers,
         plugin_id,
         core.events,
+        core.outbox,
     )
     await install_clock(admin, naming, plugin_id, CLOCK.offset)
     for key, handler in list(core.queue.handlers.items()):

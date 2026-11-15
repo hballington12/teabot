@@ -116,6 +116,8 @@ max-line-length = 120
 # A post's send and edit take Discord's own optional parts by keyword: text, embed, pings, files, buttons, a menu.
 "src/teabot/sdk/guild.py" = ["PLR0913"]
 "src/teabot/sdk/_views.py" = ["PLR0913"]
+"src/teabot/sdk/db.py" = ["PLR0913"]
+"src/teabot/db/pool.py" = ["PLR0913"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

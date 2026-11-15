@@ -3,11 +3,16 @@
 The core implements these protocols; plugins never import its classes.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol, overload
+
+import discord
+
+from teabot.sdk.components import Button, Select
+from teabot.sdk.guild import TextChannel
 
 
 class Row(Protocol):
@@ -90,8 +95,57 @@ class Scheduler(Protocol):
         ...
 
 
-class Tx(Queries, Scheduler, Protocol):
-    """Inside `async with db.transaction() as tx:`. A job queued here commits with the writes."""
+@dataclass(frozen=True)
+class Post:
+    """A message queued with `tx.send`. Store its `id` to edit or delete it later: `Post(row["post_id"])`."""
+
+    id: int
+
+
+class Outbox(Protocol):
+    """Posting that commits with the transaction's writes, so a rollback posts nothing and a commit posts once.
+
+    The core posts within a few seconds of the commit, and retries if Discord is down. A post goes out once: a
+    retry within Discord's few-minute window for repeats is dropped, and only a retry after a long outage or a
+    restart could post it twice. Nobody is pinged unless named in `ping`. Use `channel.send` instead when the
+    action needs the message straight away, such as to reply with its link.
+    """
+
+    async def send(
+        self,
+        channel: TextChannel | int,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        ping: Iterable[int] = (),
+        buttons: Sequence[Button] = (),
+        select: Select | None = None,
+    ) -> Post:
+        """Queue a message for `channel`, a channel or its ID. Raises `ValueError` for buttons or a menu Discord
+        would refuse."""
+        ...
+
+    async def edit(
+        self,
+        post: Post | int,
+        content: str | None = None,
+        *,
+        embed: discord.Embed | None = None,
+        ping: Iterable[int] = (),
+        buttons: Sequence[Button] = (),
+        select: Select | None = None,
+    ) -> None:
+        """Replace what a queued post shows: what is given is what it shows. Editing before it has gone out
+        changes what goes out."""
+        ...
+
+    async def delete(self, post: Post | int) -> None:
+        """Delete a queued post, or stop it going out. Deleting one already gone does nothing."""
+        ...
+
+
+class Tx(Queries, Scheduler, Outbox, Protocol):
+    """Inside `async with db.transaction() as tx:`. A job queued or a post sent here commits with the writes."""
 
 
 class Db(Queries, Protocol):

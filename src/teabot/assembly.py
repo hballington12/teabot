@@ -3,7 +3,7 @@
 The registry serves the loaded plugins and the admin plugin's built-in groups (`/plugins`, `/audit`,
 `/tokens`, `/admin`). Enabling or disabling a plugin queues a command sync, `/tokens create` checks
 allow-lists against every action the registry knows, and destructive actions plan then apply (D21). The
-core's own job handlers are registered here (command syncs, audit posts, plan applies), and every loaded
+core's own job handlers are registered here (command syncs, audit posts, plan applies, outbox posts), and every loaded
 plugin's.
 """
 
@@ -18,6 +18,7 @@ from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
 from teabot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
 from teabot.core.events import Events
 from teabot.core.loader import LoadReport
+from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Plans
 from teabot.core.plugin_jobs import register_plugin_jobs
 from teabot.core.queue import APPLY_HANDLER, JobContext, Queue
@@ -39,6 +40,7 @@ class Core:
     tokens: Tokens
     queue: Queue
     events: Events
+    outbox: Outbox
 
 
 def assemble(
@@ -72,7 +74,9 @@ def assemble(
     queue.register("core", SYNC_HANDLER, sync)
     queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
     queue.register("core", APPLY_HANDLER, apply)
+    outbox = Outbox(pools.core_db(), client)
+    queue.register("core", POST_MESSAGE, outbox)
     register_plugin_jobs(queue, report.loaded, pools, client)
     listeners = {plugin_id: loaded.events for plugin_id, loaded in report.loaded.items() if loaded.events}
     events = Events(pools.core_db(), queue, listeners)
-    return Core(registry, sources, statuses, sync, tokens, queue, events)
+    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox)

@@ -172,11 +172,8 @@ async def close(ctx: Ctx, poll: int) -> None:
             return
         counts = {c.choice: c.votes for c in await tx.fetch(Count, COUNTS, ctx.guild.id, poll)}
         await tx.execute(CLOSE, ctx.guild.id, poll)
-    channel = ctx.guild.get_text_channel(found.channel_id)
-    if channel is None:
-        return
-    lines = [f"{n}. {option}: {counts.get(n, 0)}" for n, option in enumerate(found.options, start=1)]
-    await channel.send(f"**Poll {poll} has closed: {found.question}**\n" + "\n".join(lines))
+        lines = [f"{n}. {option}: {counts.get(n, 0)}" for n, option in enumerate(found.options, start=1)]
+        await tx.send(found.channel_id, f"**Poll {poll} has closed: {found.question}**\n" + "\n".join(lines))
 
 
 # --8<-- [end:close]

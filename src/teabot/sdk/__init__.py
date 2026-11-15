@@ -47,6 +47,8 @@ The database (D9, D30):
 - `Db`: the plugin's own tables. `Queries` runs SQL and returns `Row`s; `Tx` is a transaction.
 - `Scheduler`: queues jobs (D31), a `Bound` job or one named by its handler. `JobContext` is what a job
   receives, and `JobHandler` runs it.
+- `Outbox`: a transaction's posts, `tx.send`, `tx.edit` and `tx.delete`, which commit with its writes. `tx.send`
+  returns a `Post`.
 """
 
 from teabot.sdk.actions import (
@@ -62,7 +64,7 @@ from teabot.sdk.actions import (
 )
 from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Plugin
 from teabot.sdk.components import BoundAction, Button, ButtonStyle, Option, Select, SelectKind
-from teabot.sdk.db import Bound, Db, Queries, Row, Scheduler, Tx
+from teabot.sdk.db import Bound, Db, Outbox, Post, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel, User
 from teabot.sdk.ids import InvalidPluginId
@@ -109,8 +111,10 @@ __all__ = [
     "MemberRef",
     "Message",
     "Option",
+    "Outbox",
     "Permission",
     "Plugin",
+    "Post",
     "Queries",
     "Registrar",
     "Risk",

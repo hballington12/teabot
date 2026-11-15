@@ -211,6 +211,7 @@ class FakeChannel(_GuildChannel):
         ping: Iterable[int] = (),
         buttons: Sequence[Any] = (),
         select: Any = None,
+        nonce: str | int | None = None,
     ) -> FakeMessage:
         """Record the message. `allowed_mentions` and `view` are discord.py's forms, which the core uses; `ping`
         and `buttons` are the SDK's, so a fake channel can stand where an action takes a `TextChannel`."""

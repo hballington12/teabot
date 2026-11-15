@@ -11,6 +11,11 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 - A confirmed change's reply follows it as it applies, showing its progress, such as `Applying: 3 of 10.`, and ends with `Done.` or the failure, instead of pointing at `/admin job_status`.
 - Replies show times as Discord timestamps, in each member's own time zone, and channels, roles and members as mentions, where they showed raw values before. `/giveaways list` shows its end times this way.
 
+### Writing plugins
+
+- `tx.send(channel, ...)` posts with the transaction: the post goes out a moment after the commit, and never if the block rolls back. It returns a `Post`, which `tx.edit` and `tx.delete` change later. The giveaways draw and the polls tutorial post their results this way.
+- `harness.call`, `press` and `choose` send the posts an action queued before they return.
+
 ## 1.3.0 - 2026-11-15
 
 ### Using teabot
