@@ -28,6 +28,7 @@ dependencies = [
     "typer>=0.29",
     "typing-extensions>=4.12",
     "uvicorn>=0.35",
+    "watchfiles>=1.0",
 ]
 
 

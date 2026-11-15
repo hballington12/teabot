@@ -166,11 +166,13 @@ Move `plugin = Plugin(...)` and `type Ctx` into `plugin.py`, and import them fro
 ## 10. Ship it
 
 1. Update the plugin's `README.md` and the docstring at the top of `__init__.py`, which still describe `hello`, to list the poll commands.
-2. Rebuild the bot, then turn the plugin on in your server:
+2. Stop `teabot dev` with ++ctrl+c++, and rebuild the Compose bot with the plugin in it, so it runs without you:
 
     ```bash
     docker compose up -d --build
     ```
+
+    Then turn the plugin on in your server, if it is not on already:
 
     ```text
     /plugins enable plugin:polls

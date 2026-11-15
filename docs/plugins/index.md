@@ -26,7 +26,8 @@ uv run teabot new-plugin polls
 ```text
 created plugins/polls
 next: uv run --package teabot-polls pytest plugins/polls
-then rebuild the bot with docker compose up -d --build, and run /plugins enable plugin:polls
+then try it in Discord: docker compose stop bot, then uv run teabot dev
+and in your server, /plugins enable plugin:polls
 ```
 
 It writes one package, with an example action called `hello`:
@@ -89,11 +90,14 @@ Run the tests again. They still pass, since they check what the action returns, 
 
 ## 5. See it in Discord
 
-Rebuild the bot with the plugin in it, then turn the plugin on in your server:
+Run the bot from your plugin's code, so each save restarts it with your changes. Stop the Compose bot first, since only one process can run the bot:
 
 ```bash
-docker compose up -d --build
+docker compose stop bot
+uv run teabot dev
 ```
+
+`teabot dev` watches `plugins/` and `teabot.env`, and restarts the bot when a file changes. Each restart migrates the plugin and sends its commands to the servers where it is on. Stop it with ++ctrl+c++. Then turn the plugin on in your server:
 
 ```text
 /plugins enable plugin:polls

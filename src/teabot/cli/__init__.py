@@ -7,6 +7,7 @@ import typer
 import teabot
 from teabot.cli import plugins, users
 from teabot.cli.check import check
+from teabot.cli.dev import dev
 from teabot.cli.init import init
 from teabot.cli.new_plugin import new_plugin
 from teabot.cli.run import run
@@ -31,6 +32,7 @@ def main(
 
 app.command()(init)
 app.command()(run)
+app.command()(dev)
 app.command("new-plugin")(new_plugin)
 app.command()(check)
 app.add_typer(plugins.app)

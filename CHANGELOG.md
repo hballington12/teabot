@@ -13,6 +13,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Self-hosting
 
+- `uv run teabot dev` runs the bot from the instance folder and restarts it when a plugin's code, migrations or `teabot.env` change. It reaches the Compose Postgres through `.env`.
 - `teabot users delete <id>` deletes a member's data on their request: their rows in every plugin, and their tokens. The audit log keeps what they did, without their ID.
 
 ### Writing plugins
