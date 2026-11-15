@@ -6,6 +6,10 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- Replies show times as Discord timestamps, in each member's own time zone, and channels, roles and members as mentions, where they showed raw values before. `/giveaways list` shows its end times this way.
+
 ## 1.3.0 - 2026-11-15
 
 ### Using teabot

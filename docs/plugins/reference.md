@@ -110,6 +110,7 @@ async def running(ctx: Ctx, typed: str) -> list[Choice[int]]:
 
 - An action returns a Pydantic model, a list of models, or a `str`.
 - In Discord a model is shown through its `render()` method if it has one, and otherwise as an embed of its fields. A list is shown one line per item, and a string as written.
+- Without a `render()`, values show by their type: a `datetime` as a Discord timestamp, in each viewer's own time zone; a `ChannelRef`, `RoleRef` or `MemberRef` as a mention; `True` and `False` as yes and no. Added in 1.4.
 - Mark text that members wrote as `UntrustedText`, which MCP clients receive wrapped as data.
 - To tell the member what went wrong, raise `ActionError("That raffle has ended.")`. The message is shown as written and recorded in the audit log. Any other exception shows a generic reply and keeps its details in the audit log.
 

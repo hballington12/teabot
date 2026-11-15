@@ -31,10 +31,10 @@ teabot replies `You're in. Good luck!` Each member can enter once. Entering agai
 /giveaways list
 ```
 
-teabot shows the running giveaways to the whole channel, one a line: its number, prize, end time in UTC, and entrants.
+teabot shows the running giveaways to the whole channel, one a line: its number, prize, end time, and entrants. Discord shows the end time in each member's own time zone.
 
 ```text
-- 3 · Discord Nitro · 2026-11-15T12:00:00Z · 5
+- 3 · Discord Nitro · 15 November 2026 12:00 · 5
 ```
 
 ## The draw

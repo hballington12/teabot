@@ -15,6 +15,7 @@ from typing import Annotated, Any, TypeAliasType, Union, cast, get_args, get_ori
 
 from pydantic import BaseModel, Field, create_model
 
+from teabot.sdk._render import fields_shown
 from teabot.sdk.actions import ActionError
 from teabot.sdk.fields import ChannelRef, MemberRef, RoleRef
 from teabot.sdk.guild import Guild, Member, Role, TextChannel
@@ -234,5 +235,5 @@ def _render_items(out: Any) -> str:
     items: list[BaseModel] = out.items
     if not items:
         return "Nothing to show."
-    lines = (" · ".join(str(v) for v in item.model_dump(mode="json").values()) for item in items)
+    lines = (" · ".join(text for _, text in fields_shown(item)) for item in items)
     return "\n".join(f"- {line}" for line in lines)

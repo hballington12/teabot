@@ -19,6 +19,7 @@ from teabot.core.plans import Planned, Queued
 from teabot.core.registry import ActionFailed, Call, Refused
 from teabot.db.pool import Database
 from teabot.sdk import ActionSpec, Actor, Choice
+from teabot.sdk._render import fields_shown
 from teabot.sdk.actions import Via
 from teabot.sdk.components import PREFIX as BUTTON_PREFIX
 from teabot.sdk.components import SELECT_PREFIX, parse_custom_id, parse_select_id
@@ -56,10 +57,11 @@ class Invoker(Protocol):
 
 
 def default_embed(spec: ActionSpec[Any, Any], output: BaseModel) -> discord.Embed:
-    """An embed with one field per output field, for actions without their own renderer (D29)."""
+    """An embed with one field per output field, for actions without their own renderer (D29). Values show by
+    their type: times as Discord timestamps, IDs as mentions."""
     embed = discord.Embed(title=spec.summary)
-    for name, value in output.model_dump(mode="json").items():
-        embed.add_field(name=name.replace("_", " ").capitalize(), value=str(value)[:FIELD_SHOWN])
+    for name, text in fields_shown(output):
+        embed.add_field(name=name.replace("_", " ").capitalize(), value=text[:FIELD_SHOWN])
     return embed
 
 
