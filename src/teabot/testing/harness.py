@@ -19,6 +19,7 @@ from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Planned
 from teabot.core.queue import Queue
 from teabot.core.registry import Call, Registry
+from teabot.core.voice import VoiceService
 from teabot.core.worker import Workers
 from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teabot.db.naming import Naming
@@ -41,9 +42,11 @@ from teabot.testing.fakes import (
     FakeMessage,
     FakeRole,
     FakeSelect,
+    FakeVoiceChannel,
     fake_attachments,
     next_id,
 )
+from teabot.testing.voice import FakeVoice, FakeVoiceConnection
 from teabot.testing.web import FakeWeb
 
 ENABLE = """
@@ -112,6 +115,8 @@ class PluginHarness:
     events: Events | None = None
     outbox: Outbox | None = None
     web: FakeWeb = field(default_factory=FakeWeb)
+    voice_connector: FakeVoice | None = None
+    voice_service: VoiceService | None = None
     failures: list[JobFailed] = field(default_factory=list[JobFailed])
     _plans: dict[str, tuple[str, dict[str, Any], int]] = field(
         default_factory=dict[str, tuple[str, dict[str, Any], int]]
@@ -269,9 +274,47 @@ class PluginHarness:
         await self._fire("member_roles", payload)
 
     async def voice(self, member: FakeMember, *, joined: Any = None, left: Any = None) -> None:
-        """Move `member` into the voice channel `joined`, out of `left`, or both, fire it and run its jobs."""
+        """Move `member` into the voice channel `joined`, out of `left`, or both, fire it and run its jobs. A
+        `FakeVoiceChannel` is where the member is from then on, and when the bot is left with only bots in `left`,
+        the plugin holding it hears `on_voice_alone` (D54)."""
+        if isinstance(joined, FakeVoiceChannel):
+            member.voice_channel = joined
+        elif isinstance(left, FakeVoiceChannel):
+            member.voice_channel = None
+        assert self.events is not None and self.voice_service is not None
         payload = {"user_id": member.id, "joined": _id_or_none(joined), "left": _id_or_none(left)}
-        await self._fire("voice", payload)
+        await self.events.fire(self.guild.id, "voice", payload)
+        if isinstance(left, FakeVoiceChannel) and not left.listener_ids:
+            await self.voice_service.alone(self.guild.id, left.id)
+        await self.run_jobs()
+
+    @property
+    def voice_connection(self) -> FakeVoiceConnection:
+        """The bot's fake voice connection in the server, once the plugin has joined a channel (D54)."""
+        assert self.voice_connector is not None
+        connection = self.voice_connector.current(self.guild.id)
+        assert connection is not None, "the bot is in no voice channel"
+        return connection
+
+    async def end_track(self, error: BaseException | None = None) -> None:
+        """End the audio playing in the server as running out would, or failing with `error`, then run the jobs
+        that follow, such as the plugin's `on_track_end`."""
+        assert self.voice_service is not None
+        self.voice_connection.finish(error)
+        await self.voice_service.settle()
+        await self.run_jobs()
+
+    async def restart_voice(self) -> None:
+        """Drop the voice connection as a restart would, keeping its session, then run the plugin's
+        `on_voice_resume` as the next process would once it is ready."""
+        service = self.voice_service
+        assert service is not None
+        await service.close()
+        service.closing = service.resumed = False
+        service.owners.clear()
+        service.playing.clear()
+        await service.resume_sessions(None)
+        await self.run_jobs()
 
     async def autocomplete(
         self, action: Action[Any, ..., Any], option: str, typed: str = ""
@@ -457,6 +500,8 @@ async def build_harness(
     client = FakeClient({guild.id: guild})
     await admin.execute(ENABLE, guild.id, plugin_id)
     core = assemble(report, pools, Queue(pools.core_db()), client)
+    voice = FakeVoice(client)
+    core.voice.connector = voice
     workers = Workers(core.queue, lambda: ["core", plugin_id])
     harness = PluginHarness(
         core.registry,
@@ -471,6 +516,8 @@ async def build_harness(
         plugin_id,
         core.events,
         core.outbox,
+        voice_connector=voice,
+        voice_service=core.voice,
     )
     await install_clock(admin, naming, plugin_id, CLOCK.offset)
     await core.recurring.ensure(guild.id, plugin_id)

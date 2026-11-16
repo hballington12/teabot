@@ -6,6 +6,9 @@
   `FakeSelect`, which `harness.choose` chooses from.
 - `PluginHarness`: a plugin loaded through the real loader and migrations, invoked through the real call path,
   as a member (`invoke`) or with a token (`invoke_with_token`).
+- Voice (D54): the harness's `ctx.voice` connects through `FakeVoice`. `harness.voice_connection` is the
+  `FakeVoiceConnection`, whose `take(n)` reads packets as the player would and whose `tracks` list each
+  `FakeTrack` played; `harness.end_track()` and `harness.restart_voice()` run what follows.
 - What `invoke` raises and returns besides an action's output: `Refused` (with its `code`) before the action
   runs, `ActionFailed` (with its `public_message`) when it raised, and a destructive action's `Planned` and
   `Queued`. `JobFailed` is what `harness.run_jobs()` raises when a job fails, with the job's own exception as
@@ -37,6 +40,7 @@ from teabot.testing.harness import (
     build_harness,
 )
 from teabot.testing.snapshot import SnapshotCheck, plugin_snapshot
+from teabot.testing.voice import FakeTrack, FakeVoice, FakeVoiceConnection
 
 __all__ = [
     "ActionFailed",
@@ -50,7 +54,10 @@ __all__ = [
     "FakeMessage",
     "FakeRole",
     "FakeSelect",
+    "FakeTrack",
+    "FakeVoice",
     "FakeVoiceChannel",
+    "FakeVoiceConnection",
     "HarnessFactory",
     "JobFailed",
     "MemberCalls",

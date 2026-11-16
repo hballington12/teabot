@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from teabot.sdk.actions import ActionSpec
 from teabot.sdk.db import Db
 from teabot.sdk.ids import check_plugin_id_free
+from teabot.sdk.voice import Voice
 
 
 class EmptyConfig(BaseModel):
@@ -76,6 +77,11 @@ class JobContext(Protocol):
         """The member who started the job, through an action or a job of theirs, or None."""
         ...
 
+    @property
+    def voice(self) -> Voice:
+        """The server's voice connection, as this plugin sees it (D54)."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far the job has got, which `admin.job_status` shows."""
         ...
@@ -94,8 +100,14 @@ type EventName = Literal[
     "member_roles",
     "voice",
     "enable",
+    "track_end",
+    "voice_resume",
+    "voice_alone",
 ]
-"""The Discord events a plugin can handle."""
+"""The events a plugin can handle: Discord's, the plugin being turned on, and its own voice connection's (D54)."""
+
+VOICE_EVENTS: frozenset[EventName] = frozenset({"track_end", "voice_resume", "voice_alone"})
+"""The events about the plugin's own voice connection, which only the plugin holding it hears."""
 
 
 class Registrar(Protocol):
@@ -116,8 +128,9 @@ class Registrar(Protocol):
         ...
 
     def event(self, name: "EventName", handler: JobHandler) -> None:
-        """Handle a Discord event in the servers where the plugin is enabled. It runs as a job, `on_<name>`, with
-        the event's details in its payload, such as the member's ID as `user_id`."""
+        """Handle an event in the servers where the plugin is enabled. It runs as a job, `on_<name>`, with the
+        event's details in its payload, such as the member's ID as `user_id`. `track_end`'s holds `track` and
+        `error`, and `voice_resume`'s and `voice_alone`'s hold `channel_id`."""
         ...
 
 
