@@ -50,7 +50,7 @@ nav = [
 
 [project.theme]
 logo = "assets/teabot.png"
-favicon = "assets/teabot.png"
+favicon = "assets/favicon.png"
 language = "en"
 features = [
   "content.action.edit",
