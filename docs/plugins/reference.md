@@ -203,6 +203,7 @@ async def rank(ctx: Ctx, name: str) -> str:
 - They return a `Response`: `status`, `ok`, `headers`, `text` and `json()`. A request waits 10 seconds, or `wait=` seconds.
 - Redirects are not followed, so a reply cannot send a request to a host the plugin did not declare.
 - List the same hosts in the README's "External connections". `teabot check` refuses an HTTP library of the plugin's own, such as `requests`, `httpx` or `aiohttp`.
+- One exception: a plugin that streams media, such as music, may reach its media hosts through its media library, such as yt-dlp, outside `ctx.http`. Its README's "External connections" lists those hosts and the library that contacts them, and the hub reviews the library too. Everything else still goes through `ctx.http`.
 - In tests, `harness.web.reply(url, json_body=...)` sets what a URL answers, and `harness.web.requests` holds what was sent. A URL without a reply fails the test.
 
 ## Working with the server
@@ -563,7 +564,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 - Imports only `teabot.sdk`, and tests only `teabot.sdk` and `teabot.testing`.
 - Reads the time through `ctx.now` and `now()`, never `datetime.now()`, `time.time()` or `CURRENT_TIMESTAMP`.
 - No `SET`, `RESET` or `set_config` in SQL.
-- External connections listed in the README and in `Plugin(..., hosts=[...])`, reached through `ctx.http`, and nothing else contacted.
+- External connections listed in the README and in `Plugin(..., hosts=[...])`, reached through `ctx.http`, and nothing else contacted. A media-streaming plugin's media hosts may be reached through its media library instead, as [Reaching the web](#reaching-the-web) says.
 - Every table has `guild_id`, and released migrations are unchanged.
 - No Discord or HTTP awaits inside transaction blocks, and no blocking I/O.
 - No dynamic SQL built from member input.

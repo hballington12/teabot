@@ -36,6 +36,8 @@ The README's **External connections** says every server outside Discord your plu
 - External connections: api.example.org, to look up player scores. The same hosts go in `Plugin(..., hosts=["api.example.org"])`, which `ctx.http` keeps to.
 ```
 
+A plugin that streams media, such as music, may reach its media hosts through its media library instead of `ctx.http`. List those hosts too, and say which library contacts them. See [Reaching the web](reference.md#reaching-the-web).
+
 ## 4. Check it
 
 In the plugin's repository, with your instance's Postgres running:
