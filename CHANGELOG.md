@@ -4,17 +4,22 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 <!-- --8<-- [start:releases] -->
 
-## Unreleased
+## 1.6.0 - 2026-11-16
 
 ### Using teabot
 
 - The documentation has a new home page: three paths, Guild admins, Self-hosters and Plugin developers, with a button that adds Teabot to your guild, and a slowly turning fractal behind them. Every page's header has Plugin hub and Add Teabot buttons, and the home page a wide banner into the hub.
 - The plugin hub is part of the documentation, in its style: a card for each plugin and a page for each, with an Enable in your server button. It follows the hub within the hour.
+- Each plugin's card shows its icon, name and version, its description, and its author. The home page's three paths show Teabot's mascots, and the site has Teabot's new logo and favicon.
 
 ### Self-hosting
 
 - `teabot hub outdated` and `sync` find a hub plugin that `teabot hub add` installed, which uv records as its name in `dependencies` and its commit in `[tool.uv.sources]`. They missed it before, and `sync` offered to install it again.
 - The template download holds no `uv.lock`. `setup.sh` locks the newest teabot when there is none, and on a bare-metal host you run `docker compose run --rm uv lock` once before the first deploy, as the bare-metal guide says. A release's template is then on GitHub the moment the release is.
+
+### Writing plugins
+
+- The plugin hub requires a plugin to name its author in its `pyproject.toml` `authors`, and shows it on the plugin's card. See [Publishing a plugin](https://teabot-dev.github.io/teabot/plugins/publishing/).
 
 ## 1.5.0 - 2026-11-16
 
