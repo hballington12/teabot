@@ -34,7 +34,8 @@ jobs:
           version: "0.9.9"
           python-version: "3.12"
       # The plugin hub's pages, from its live catalogue; without it, the section says the hub could not be read.
-      - run: uv run --no-project python scripts/docs/hub.py
+      # A release from before the hub section has no generator, and its docs no hub section to fill.
+      - run: if [ -f scripts/docs/hub.py ]; then uv run --no-project python scripts/docs/hub.py; fi
       - run: uv run --locked --group docs zensical build --strict
       - uses: actions/upload-pages-artifact@v5.0.0
         with:
