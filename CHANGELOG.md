@@ -8,6 +8,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Self-hosting
 
+- `teabot hub outdated` and `sync` find a hub plugin that `teabot hub add` installed, which uv records as its name in `dependencies` and its commit in `[tool.uv.sources]`. They missed it before, and `sync` offered to install it again.
 - The template download holds no `uv.lock`. `setup.sh` locks the newest teabot when there is none, and on a bare-metal host you run `docker compose run --rm uv lock` once before the first deploy, as the bare-metal guide says. A release's template is then on GitHub the moment the release is.
 
 ## 1.5.0 - 2026-11-16

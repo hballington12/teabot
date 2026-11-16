@@ -9,7 +9,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
@@ -19,6 +19,7 @@ import teabot
 
 DEFAULT_HUB = "https://teabot-dev.github.io/plugin-hub/catalogue.json"
 HUB_PAGE = "https://teabot-dev.github.io/plugin-hub/"
+COMMIT = re.compile(r"[0-9a-f]{40}")
 GIT_REQUIREMENT = re.compile(
     r"^(?P<package>teabot-[a-z0-9_-]+)\s*@\s*git\+(?P<repository>\S+?)@(?P<commit>[0-9a-f]{40})$"
 )
@@ -109,15 +110,24 @@ async def fetch_async(
 
 def installed(pyproject: Path) -> dict[str, str]:
     """The plugins an instance installed from git at a commit, as the hub installs them: each one's commit, by
-    package."""
+    package. `uv add` writes such a plugin as its name in `dependencies` and its commit in `[tool.uv.sources]`;
+    a requirement written out in full, `teabot-x @ git+...@<commit>`, counts too."""
     if not pyproject.exists():
         return {}
-    project: dict[str, Any] = tomllib.loads(pyproject.read_text()).get("project", {})
+    data: dict[str, Any] = tomllib.loads(pyproject.read_text())
     found: dict[str, str] = {}
-    for dependency in project.get("dependencies", []):
+    for dependency in data.get("project", {}).get("dependencies", []):
         matched = GIT_REQUIREMENT.match(str(dependency).strip())
         if matched is not None:
             found[matched.group("package")] = matched.group("commit")
+    sources: dict[str, Any] = data.get("tool", {}).get("uv", {}).get("sources", {})
+    for package, source in sources.items():
+        if not isinstance(source, dict) or not str(package).startswith("teabot-"):
+            continue
+        entry = cast(dict[str, Any], source)
+        rev = str(entry.get("rev", ""))
+        if entry.get("git") and COMMIT.fullmatch(rev):
+            found[str(package)] = rev
     return found
 
 

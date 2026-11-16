@@ -106,3 +106,12 @@ def test_outdated_compares_installed_commits_with_the_catalogue(
     shown = CliRunner().invoke(app, ["hub", "outdated"]).output
     assert f"{OLD[:12]} -> {NEW[:12]}: uv run teabot hub add wom" in shown
     assert "teabot-gone" in shown and "no longer listed" in shown
+
+
+def test_a_plugin_uv_add_wrote_into_its_sources_is_found(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname = 'mine'\ndependencies = ['teabot>=1.4,<2', 'teabot-wom']\n\n"
+        f"[tool.uv.sources]\nteabot-wom = {{ git = 'https://github.com/someone/teabot-wom.git', rev = '{OLD}' }}\n"
+        "teabot-local = { workspace = true }\n"
+    )
+    assert catalogue.installed(tmp_path / "pyproject.toml") == {"teabot-wom": OLD}
