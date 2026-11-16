@@ -12,6 +12,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Self-hosting
 
+- `teabot hub sync` installs every plugin the hub lists, each at the newest reviewed version this teabot runs, for an instance that offers the whole hub to its servers. `--check` says what would change. `teabot hub add`, `show` and `outdated` also pick the newest reviewed version this teabot runs, since the hub's catalogue now lists every reviewed version with the teabot range it needs.
 - A watchdog logs a plugin that holds the event loop for a second, as `event loop blocked` with the plugin, file and line, and stops the process after thirty seconds held, for Compose or systemd to restart it. `TEABOT_LOOP_WARN_SECONDS`, `TEABOT_LOOP_LIMIT_SECONDS` and `TEABOT_STARTUP_LIMIT_SECONDS` set the limits.
 - A job that stops the process on every attempt is failed, with "the process stopped while running it", where it used to run again after every restart.
 - A plugin in `TEABOT_DISABLED_PLUGINS` is no longer imported, so none of its code runs.

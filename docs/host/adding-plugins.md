@@ -24,7 +24,7 @@ uv run teabot hub add wom
 docker compose up -d --build
 ```
 
-`teabot hub add` adds the plugin at the exact commit that was reviewed, to `pyproject.toml` and `uv.lock`. Commit both files. Without uv on the machine, copy the plugin's install line from the hub's page instead: it does the same through Compose.
+`teabot hub add` adds the newest reviewed version of the plugin that runs on your teabot, pinned to the exact commit that was reviewed, to `pyproject.toml` and `uv.lock`. Commit both files. Without uv on the machine, copy the plugin's install line from the hub's page instead: it does the same through Compose.
 
 To see which of your hub plugins have a newer reviewed version:
 
@@ -33,6 +33,19 @@ uv run teabot hub outdated
 ```
 
 It prints `uv run teabot hub add <id>` for each, which moves it to the newer commit. It also says when the hub no longer lists a plugin you have.
+
+## Offer the whole hub to your servers
+
+An instance that serves many servers can install every plugin the hub lists, and let each server's admins turn on the ones they want:
+
+```bash
+uv run teabot hub sync
+docker compose up -d --build
+```
+
+`teabot hub sync` installs each listed plugin at the newest reviewed version your teabot runs, and moves the ones you have to newer reviewed versions. A plugin whose every reviewed version needs a newer teabot is left out, and named. `--skip <id>` leaves one out on purpose. Nothing is turned on: each server still chooses with `/plugins enable`.
+
+To keep up with the hub, run `uv run teabot hub sync --check` on a schedule. It changes nothing, and exits 1 when there is something to sync.
 
 ## Install any other plugin
 

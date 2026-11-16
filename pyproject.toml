@@ -30,6 +30,7 @@ dependencies = [
     "uvicorn>=0.35",
     "watchfiles>=1.0",
     "httpx>=0.28",
+    "packaging>=24",
 ]
 
 
@@ -162,6 +163,7 @@ forbidden_modules = [
     "teabot.assembly",
     "teabot.auth",
     "teabot.builtin",
+    "teabot.catalogue",
     "teabot.cli",
     "teabot.core",
     "teabot.db",
@@ -187,6 +189,7 @@ forbidden_modules = [
     "teabot.assembly",
     "teabot.auth",
     "teabot.builtin",
+    "teabot.catalogue",
     "teabot.cli",
     "teabot.core",
     "teabot.db",
@@ -210,6 +213,7 @@ source_modules = [
     "teabot.assembly",
     "teabot.auth",
     "teabot.builtin",
+    "teabot.catalogue",
     "teabot.cli",
     "teabot.core",
     "teabot.db",
