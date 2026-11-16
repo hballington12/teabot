@@ -1,4 +1,4 @@
-"""The instance's own website (D53): its home page, its plugin browser, and its operator's privacy policy and terms.
+"""The instance's own website (D52): its home page, its plugin browser, and its operator's privacy policy and terms.
 
 A server's admins sign in with Discord, choose a server, and turn its plugins on and off or change their settings
 in place, with no commands. Every instance serves it at its public address; the official Teabot is one instance.

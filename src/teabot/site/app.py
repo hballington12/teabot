@@ -1,4 +1,4 @@
-"""The site's routes (D53): the home page, the plugin browser, sign-in with Discord, choosing a server, and turning
+"""The site's routes (D52): the home page, the plugin browser, sign-in with Discord, choosing a server, and turning
 its plugins on and off or changing their settings in place.
 
 Every change goes through the registry as the signed-in member, through the `web` door, so it checks their live

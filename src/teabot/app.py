@@ -329,7 +329,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
 def site_for(
     settings: Settings, registry: Registry, pools: Pools, client: Any, report: LoadReport
 ) -> Site | None:
-    """The instance's site (D53), when it has a public address. Members can sign in when the operator also gives
+    """The instance's site (D52), when it has a public address. Members can sign in when the operator also gives
     the OAuth2 client secret of its application, for Discord to send them back to `/auth/callback`."""
     if not settings.public_url:
         return None

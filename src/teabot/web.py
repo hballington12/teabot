@@ -1,5 +1,5 @@
 """The HTTP app (D28, D36): `/healthz` for anyone; `/mcp` and `/api` behind the bearer-token check; and the
-instance's site (D53), when it has a public address, with sign-in when it also has an OAuth2 client secret.
+instance's site (D52), when it has a public address, with sign-in when it also has an OAuth2 client secret.
 
 The MCP session manager lives for the app's lifespan, so uvicorn runs with its lifespan on: startup and
 shutdown happen in one task, which the SDK's task group needs.

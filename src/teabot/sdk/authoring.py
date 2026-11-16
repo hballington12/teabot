@@ -708,6 +708,7 @@ class Plugin(Generic[Cfg]):
                 job.report,
                 lambda: job.voice,
                 plugin_id=self.id,
+                hosts=self.hosts,
             )
             if event == "enable":
                 await func(context)

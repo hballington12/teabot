@@ -3,8 +3,8 @@
 import pytest
 
 from teabot.core.registry import ActionFailed
-from teabot.sdk import Context, EmptyConfig, Plugin
-from teabot.testing import HarnessFactory, PluginHarness
+from teabot.sdk import Context, EmptyConfig, Plugin, ReceivedMessage
+from teabot.testing import FakeChannel, HarnessFactory, PluginHarness
 
 plugin = Plugin("wom", hosts=["api.wiseoldman.net"])
 type Ctx = Context[EmptyConfig]
@@ -31,6 +31,15 @@ async def elsewhere(ctx: Ctx, url: str) -> str:
     return (await ctx.http.get(url)).text
 
 
+heard: list[str] = []
+
+
+@plugin.on_message
+async def lookup(ctx: Ctx, message: ReceivedMessage) -> None:
+    found = await ctx.http.get(f"https://api.wiseoldman.net/v2/players/{message.content}")
+    heard.append(str(found.json()["type"]))
+
+
 @pytest.fixture
 async def harness(teabot_harness: HarnessFactory) -> PluginHarness:
     return await teabot_harness(plugin)
@@ -51,3 +60,11 @@ async def test_any_other_host_is_refused(harness: PluginHarness, url: str) -> No
     with pytest.raises(ActionFailed, match=r"HostNotDeclared.*may not reach"):
         await harness.call(elsewhere, url=url)
     assert harness.web.requests == []
+
+
+async def test_an_event_handler_reaches_the_plugins_hosts(harness: PluginHarness) -> None:
+    heard.clear()
+    harness.web.reply("https://api.wiseoldman.net/v2/players/zezima", json_body={"type": "regular"})
+    channel = harness.guild.add_channel(FakeChannel(name="chat"))
+    await harness.post(channel, harness.member, "zezima")
+    assert heard == ["regular"]
