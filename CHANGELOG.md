@@ -8,7 +8,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Using teabot
 
-- The documentation has a new home page: three paths, Guild admins, Self-hosters and Plugin developers, with a button that adds Teabot to your guild, and a slowly turning fractal behind them. Every page's header has an Add Teabot button.
+- The documentation has a new home page: three paths, Guild admins, Self-hosters and Plugin developers, with a button that adds Teabot to your guild, and a slowly turning fractal behind them. Every page's header has Plugin hub and Add Teabot buttons, and the home page a wide banner into the hub.
 - The plugin hub is part of the documentation, in its style: a card for each plugin and a page for each, with an Enable in your server button. It follows the hub within the hour.
 
 ### Self-hosting

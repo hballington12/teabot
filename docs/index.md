@@ -34,6 +34,19 @@ Teabot is an open-source, plugin-based Discord bot. You run its commands in Disc
 
 </div>
 
+<div class="teabot-banner" markdown>
+
+:lucide-puzzle:{ .teabot-badge }
+
+<div class="teabot-banner-text" markdown>
+[Browse the plugin hub](hub/index.md)
+<span>Plugins that add to what Teabot does, each one reviewed. Turn them on in your guild in a click.</span>
+</div>
+
+:lucide-arrow-right:{ .teabot-banner-arrow }
+
+</div>
+
 <div class="teabot-why" markdown>
 
 ## Why Teabot?

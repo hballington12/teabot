@@ -117,8 +117,33 @@
   color: var(--md-primary-fg-color--light);
   transform: translateY(-1px);
 }
+/* The header's hub button: the same pill, outlined in amber, so it stands beside Add Teabot without competing
+   with it, on the dark header and the light one alike. */
+.teabot-header-hub {
+  margin: 0 0 0 0.6rem;
+  padding: calc(0.3rem - 1px) 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--md-primary-fg-color);
+  color: var(--md-primary-fg-color);
+  font-weight: 700;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+.teabot-header-hub:hover,
+.teabot-header-hub:focus-visible {
+  color: var(--md-primary-fg-color);
+  background: color-mix(in srgb, var(--md-primary-fg-color) 14%, transparent);
+  transform: translateY(-1px);
+}
+.teabot-header-hub + .teabot-header-invite { margin-left: 0.4rem; }
 @media screen and (max-width: 29.9375em) {
-  .teabot-header-invite { display: none; }
+  .teabot-header-invite,
+  .teabot-header-hub { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .teabot-header-hub, .teabot-header-invite { transition: none; }
+  .teabot-header-hub:hover, .teabot-header-invite:hover { transform: none; }
 }
 
 /* The home page's intro, frosted like the panels, so it reads easily over the background. */
@@ -268,4 +293,71 @@
 .md-typeset .grid.cards.teabot-hub > ul > li:focus-within {
   outline: 2px solid var(--md-primary-fg-color);
   outline-offset: 2px;
+}
+
+/* The home page's wide hub banner: frosted, with an amber edge, wholly clickable through its title. */
+.md-typeset .teabot-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.4rem 0 0.4rem;
+  padding: 1.1rem 1.4rem;
+  border-radius: 1.2rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-left: 4px solid var(--md-primary-fg-color);
+  background: color-mix(in srgb, var(--md-default-bg-color) 55%, transparent);
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.md-typeset .teabot-banner:hover,
+.md-typeset .teabot-banner:focus-within {
+  transform: translateY(-2px);
+  border-color: var(--md-primary-fg-color);
+  box-shadow: 0 0.6rem 1.6rem #00000029;
+}
+.md-typeset .teabot-banner:focus-within { outline: 2px solid var(--md-primary-fg-color); outline-offset: 2px; }
+.md-typeset .teabot-banner > p { margin: 0; }
+.md-typeset .teabot-banner .teabot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 0.8rem;
+  color: var(--md-primary-fg-color);
+  background: color-mix(in srgb, var(--md-primary-fg-color) 14%, transparent);
+}
+.md-typeset .teabot-banner .teabot-badge svg { width: 1.5rem; height: 1.5rem; }
+.md-typeset .teabot-banner-text { flex: 1; }
+.md-typeset .teabot-banner-text a {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color);
+  text-decoration: none;
+}
+.md-typeset .teabot-banner-text a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.md-typeset .teabot-banner-text span { color: var(--md-default-fg-color--light); font-size: 0.75rem; }
+.md-typeset .teabot-banner .teabot-banner-arrow { flex: none; color: var(--md-primary-fg-color); }
+.md-typeset .teabot-banner .teabot-banner-arrow,
+.md-typeset .teabot-banner .teabot-banner-arrow svg {
+  width: 1.8rem;
+  height: 1.8rem;
+  max-height: none;
+}
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .teabot-banner { gap: 0.8rem; padding: 0.9rem 1rem; }
+  .md-typeset .teabot-banner .teabot-banner-arrow { display: none; }
+  .md-typeset .teabot-banner .teabot-badge { width: 2.3rem; height: 2.3rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .md-typeset .teabot-banner { transition: none; }
+  .md-typeset .teabot-banner:hover, .md-typeset .teabot-banner:focus-within { transform: none; }
 }
