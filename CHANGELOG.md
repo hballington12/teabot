@@ -4,7 +4,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 <!-- --8<-- [start:releases] -->
 
-## Unreleased
+## 1.7.0 - 2026-11-16
 
 ### Writing plugins
 
