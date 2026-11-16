@@ -35,7 +35,7 @@ class Cfg(BaseModel):
     voter_role: RoleRef | None = None
 
 
-plugin = Plugin("polls", config=Cfg)
+plugin = Plugin("polls", config=Cfg, description="Polls that members vote in with buttons.")
 type Ctx = Context[Cfg]
 # --8<-- [end:plugin]
 
