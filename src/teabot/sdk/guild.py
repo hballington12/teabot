@@ -4,6 +4,7 @@ objects, so plugin code types the same against Discord and against `teabot.testi
 - `Guild`: the server, to find its channels, roles and members, and to ban.
 - `TextChannel`: a channel that takes messages. Its `send` mentions nobody unless `ping` names them.
 - `Channel`: any channel, of any kind, to read.
+- `VoiceChannel`: a voice channel, for `ctx.voice.join` (D54).
 - `Member`, `Role` and `Message`: what those lookups and sends return.
 - `User`, `ReceivedMessage`, `Reaction`, `RoleChange` and `VoiceChange`: what the event handlers receive.
   `TextChannel.read_message` returns a `ReceivedMessage` too, with its `Attachment`s.
@@ -135,6 +136,11 @@ class Member(Protocol):
     @property
     def timed_out_until(self) -> datetime | None:
         """When their timeout ends, or None when they are not timed out."""
+        ...
+
+    @property
+    def voice_channel_id(self) -> int | None:
+        """The voice channel the member is in now, or None when they are in none."""
         ...
 
     async def add_role(self, role: Role, /, *, reason: str | None = None) -> None:
@@ -421,6 +427,31 @@ class TextChannel(Protocol):
         ...
 
 
+class VoiceChannel(Protocol):
+    """A voice channel, which the bot can join to play audio (D54). A stage is not one: on a stage the bot would
+    join as an audience member, and nobody would hear it."""
+
+    @property
+    def id(self) -> int:
+        """The channel's Discord ID."""
+        ...
+
+    @property
+    def name(self) -> str:
+        """The channel's name."""
+        ...
+
+    @property
+    def mention(self) -> str:
+        """The channel as a link, such as `<#123>`."""
+        ...
+
+    @property
+    def listener_ids(self) -> frozenset[int]:
+        """The members in the channel now, other than bots, the bot itself included."""
+        ...
+
+
 class Guild(Protocol):
     """The server an action or job is about."""
 
@@ -470,6 +501,10 @@ class Guild(Protocol):
 
     def get_channel(self, channel_id: int, /) -> Channel | None:
         """The channel with this ID, of any kind, or None."""
+        ...
+
+    def get_voice_channel(self, channel_id: int, /) -> VoiceChannel | None:
+        """The voice channel with this ID, or None when there is none, or it is another kind."""
         ...
 
     def get_role(self, role_id: int, /) -> Role | None:
