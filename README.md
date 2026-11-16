@@ -39,12 +39,12 @@
 
 These ship with teabot. Turn one on in a server with `/plugins enable plugin:<name>`.
 
-More, such as giveaways, are on the [plugin hub](https://teabot-dev.github.io/plugin-hub/), where teabot's maintainers review each one. To write your own, see [Your first plugin](https://teabot-dev.github.io/teabot/plugins/).
+More, such as giveaways, are on the [plugin hub](https://teabot-dev.github.io/teabot/hub/), where teabot's maintainers review each one. To write your own, see [Your first plugin](https://teabot-dev.github.io/teabot/plugins/).
 
 ## Documentation
 
 Everything is on the [documentation site](https://teabot-dev.github.io/teabot/):
-- [Using Teabot](https://teabot-dev.github.io/teabot/use/): adding it to your server, plugins, permissions and AI assistants.
+- [Using Teabot](https://teabot-dev.github.io/teabot/use/plugins/): plugins, permissions, the dashboard and AI assistants. To add it, [connect](https://discord.com/oauth2/authorize?client_id=1570928156100264097&scope=bot+applications.commands&permissions=8) to our public service.
 - [Self-hosting](https://teabot-dev.github.io/teabot/host/): running your own, from nothing to a live bot.
 - [Writing plugins](https://teabot-dev.github.io/teabot/plugins/): your first plugin, a tutorial, and the reference.
 - [Release notes](https://teabot-dev.github.io/teabot/host/changelog/).

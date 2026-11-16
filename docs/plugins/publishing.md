@@ -55,7 +55,7 @@ To publish from git instead, tag a release, and operators add it by its URL and 
 
 ## 6. List it on the hub
 
-The [plugin hub](https://teabot-dev.github.io/plugin-hub/) lists plugins that teabot's maintainers have reviewed, and every instance can install them with `teabot hub add`. To list yours, add one file to the hub's repository, in a pull request:
+The [plugin hub](../hub/index.md) lists plugins that teabot's maintainers have reviewed, and every instance can install them with `teabot hub add`. To list yours, add one file to the hub's repository, in a pull request:
 
 ```text title="plugins/raffles"
 repository=https://github.com/you/teabot-raffles.git

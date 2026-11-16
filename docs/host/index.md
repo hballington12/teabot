@@ -56,6 +56,6 @@ Invite it to your server with this link:
 
 ## 4. Invite it
 
-Open the link `setup.sh` printed, and follow [Add teabot to your server](../use/index.md). It asks for Administrator, and that page explains why and how the bot's role limits it.
+Open the link `setup.sh` printed, choose your server, and authorize. It asks for Administrator; [Place teabot's role](../use/permissions.md#place-teabots-role) explains why, and how the bot's role limits it.
 
 **Next:** [Turn on plugins](../use/plugins.md), then [Settings](settings.md), and [Run it in production](production.md) before a live server depends on it.

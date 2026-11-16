@@ -2,7 +2,7 @@
 
 The numbered decisions behind teabot, with their reasons. Code and docs cite them as (D21) and so on; [architecture.md](architecture.md) has the concrete shape of each.
 
-teabot is an open-source framework for a general Discord bot built from plugins, in the spirit of Carl-bot. Anyone can run their own teabot for their own servers, write their own plugins for it, and grow it from one process to many. A hosted teabot, for people who just want a bot that works, is planned on the same code.
+Teabot is an open-source framework for a general Discord bot built from plugins, in the spirit of Carl-bot. Anyone can run their own teabot for their own servers, write their own plugins for it, and grow it from one process to many. A hosted teabot, for people who just want a bot that works, is planned on the same code.
 
 The Tea clan runs the first instance, on its droplet, and is the source of the first requirements. Staff use it through Discord slash commands, and LLM clients such as Claude Code use it through an authenticated MCP server.
 
@@ -233,7 +233,7 @@ The design targets a framework that many people run and that grows to many serve
 51. **The plugin hub lists reviewed plugins, each at the commit that was reviewed, as the RuneLite Plugin Hub does.**
     - It is its own repository, `teabot-dev/plugin-hub`. A listing is a file `plugins/<id>` with two lines, `repository=` and `commit=`. Adding a plugin, and updating one, is a pull request that adds or changes that file.
     - A pull request's checks clone the plugin at the commit, read its package, README and licence, then install it and run `teabot check` and its tests against Postgres. They run with no rights and no secrets, since they run a stranger's code, and a separate workflow posts their report. A maintainer reviews the code, and for an update the difference since the listed commit, then merges.
-    - Merging rebuilds the hub's catalogue, `catalogue.json`, and its page on GitHub Pages. The plugin is installed as a git requirement pinned to the commit, so an instance runs exactly what was reviewed, and no package index is needed.
+    - Merging rebuilds the hub's catalogue, `catalogue.json`, on GitHub Pages. Teabot's documentation builds the hub's pages from it, a card for each plugin and a page for each, in the docs' own style, every hour and on every release. Those pages use only the catalogue's fields, with every author's words escaped, so no plugin's README can put HTML or links on the site. The plugin is installed as a git requirement pinned to the commit, so an instance runs exactly what was reviewed, and no package index is needed.
     - Each merged change to a listing is a reviewed version. The catalogue lists every one, newest first, with the teabot range it needs, so services on different teabot releases read one catalogue and each picks, per plugin, the newest version it runs.
     - `teabot hub search`, `show`, `add` and `outdated` read the catalogue. `add` runs `uv add` in the instance's folder, and the page gives the same line through Compose for an operator without uv.
     - `teabot hub sync` installs every listed plugin a service's teabot runs, so the service offers the whole hub, and each server's admins turn on what they want. `--check` lets a scheduled job see when the hub has moved on.

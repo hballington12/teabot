@@ -10,7 +10,7 @@ A plugin is installed on your instance by you, the operator, and then turned on 
 
 ## Install a plugin from the hub
 
-The [plugin hub](https://teabot-dev.github.io/plugin-hub/) lists the plugins teabot's maintainers have reviewed, each with what it does and every server outside Discord it contacts. Find one there, or from your instance's folder:
+The [plugin hub](../hub/index.md) lists the plugins teabot's maintainers have reviewed, each with what it does and every server outside Discord it contacts. Find one there, or from your instance's folder:
 
 ```bash
 uv run teabot hub search

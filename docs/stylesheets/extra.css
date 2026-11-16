@@ -20,25 +20,218 @@
   --md-typeset-a-color: #8a6a12;
 }
 
-/* The home page's three paths: an accent edge, the icon in the accent colour, and a lift on hover. */
+/* The home page's three paths: square, rounded buttons side by side, each wholly clickable. The title is the
+   link, and its ::after covers the card, so the click area is the card while keyboards and screen readers still
+   meet one plain link. Each card's picture is an icon for now, and becomes a mascot image with the same class. */
+/* The theme lays the cards out on the .grid itself, its list being display: contents. */
+.md-typeset .grid.cards.teabot-paths {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+}
 .md-typeset .grid.cards.teabot-paths > ul > li {
-  border-top: 3px solid var(--md-primary-fg-color);
-  border-radius: 0.6rem;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.6rem 1.2rem;
+  border-radius: 1.2rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  /* Frosted over the background, so the text stays easy to read. */
+  background: color-mix(in srgb, var(--md-default-bg-color) 55%, transparent);
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
-.md-typeset .grid.cards.teabot-paths > ul > li:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0.4rem 1.2rem #0000001f;
+.md-typeset .grid.cards.teabot-paths > ul > li > p { margin: 0.4rem 0; }
+.md-typeset .grid.cards.teabot-paths > ul > li:hover,
+.md-typeset .grid.cards.teabot-paths > ul > li:focus-within {
+  transform: translateY(-3px);
+  border-color: var(--md-primary-fg-color);
+  box-shadow: 0 0.6rem 1.6rem #00000029;
 }
-.md-typeset .grid.cards.teabot-paths .lg {
+.md-typeset .grid.cards.teabot-paths .teabot-mascot,
+.md-typeset .grid.cards.teabot-paths img.teabot-mascot {
+  width: 4.5rem;
+  height: 4.5rem;
   color: var(--md-primary-fg-color);
-  vertical-align: -0.35em;
-  margin-right: 0.3em;
 }
-.md-typeset .grid.cards.teabot-paths a {
-  font-weight: 600;
+.md-typeset .grid.cards.teabot-paths .teabot-mascot svg { width: 100%; height: 100%; }
+.md-typeset .grid.cards.teabot-paths a:not(.md-button) {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color);
+  text-decoration: none;
+}
+.md-typeset .grid.cards.teabot-paths a:not(.md-button)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.md-typeset .grid.cards.teabot-paths a:not(.md-button):focus-visible { outline: none; }
+.md-typeset .grid.cards.teabot-paths > ul > li:focus-within {
+  outline: 2px solid var(--md-primary-fg-color);
+  outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
   .md-typeset .grid.cards.teabot-paths > ul > li { transition: none; }
-  .md-typeset .grid.cards.teabot-paths > ul > li:hover { transform: none; }
+  .md-typeset .grid.cards.teabot-paths > ul > li:hover,
+  .md-typeset .grid.cards.teabot-paths > ul > li:focus-within { transform: none; }
 }
+
+/* The home page's background (javascripts/fractal.js): fixed behind everything, never in the way of a click. */
+.teabot-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* The invite button inside the Guild admins panel: above the panel's own link, so it takes its own clicks. */
+.md-typeset .grid.cards.teabot-paths .teabot-invite {
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  margin-top: 0.4rem;
+  border-radius: 999px;
+}
+
+/* The header's invite button, on every page (javascripts/invite.js). */
+.teabot-header-invite {
+  margin: 0 0.6rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: var(--md-primary-bg-color);
+  color: var(--md-primary-fg-color);
+  font-weight: 700;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  transition: transform 0.15s ease;
+}
+.teabot-header-invite:hover,
+.teabot-header-invite:focus-visible {
+  color: var(--md-primary-fg-color--light);
+  transform: translateY(-1px);
+}
+@media screen and (max-width: 29.9375em) {
+  .teabot-header-invite { display: none; }
+}
+
+/* The home page's intro, frosted like the panels, so it reads easily over the background. */
+.md-typeset .teabot-intro {
+  padding: 0.2rem 1.4rem 0.6rem;
+  margin: 0 0 1.2rem;
+  border-radius: 1.2rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: color-mix(in srgb, var(--md-default-bg-color) 60%, transparent);
+  backdrop-filter: blur(4px);
+}
+.md-typeset .teabot-intro h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.8rem 0 0.4rem;
+}
+.md-typeset .teabot-logo {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+/* Why Teabot?: four feature cards, each with its icon in a tinted badge. The heading gets a frosted backing of its
+   own, since the section has no panel around it. */
+.md-typeset .teabot-why { margin-top: 2rem; }
+.md-typeset .teabot-why > h2 {
+  display: inline-block;
+  margin: 0 0 0.4rem;
+  padding: 0.2rem 0.9rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--md-default-bg-color) 60%, transparent);
+  backdrop-filter: blur(4px);
+}
+.md-typeset .grid.cards.teabot-features {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media screen and (max-width: 76.1875em) {
+  .md-typeset .grid.cards.teabot-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .grid.cards.teabot-features { grid-template-columns: 1fr; }
+}
+.md-typeset .grid.cards.teabot-features > ul > li {
+  padding: 1.1rem 1.1rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: color-mix(in srgb, var(--md-default-bg-color) 60%, transparent);
+  backdrop-filter: blur(4px);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.md-typeset .grid.cards.teabot-features > ul > li:hover {
+  transform: translateY(-2px);
+  border-color: var(--md-primary-fg-color);
+  box-shadow: 0 0.5rem 1.4rem #00000024;
+}
+.md-typeset .grid.cards.teabot-features > ul > li > p { margin: 0.35rem 0; }
+.md-typeset .grid.cards.teabot-features > ul > li > p:last-child {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+.md-typeset .grid.cards.teabot-features strong { font-size: 0.85rem; }
+.md-typeset .grid.cards.teabot-features .teabot-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.7rem;
+  color: var(--md-primary-fg-color);
+  background: color-mix(in srgb, var(--md-primary-fg-color) 14%, transparent);
+}
+.md-typeset .grid.cards.teabot-features .teabot-badge svg { width: 1.25rem; height: 1.25rem; }
+@media (prefers-reduced-motion: reduce) {
+  .md-typeset .grid.cards.teabot-features > ul > li { transition: none; }
+  .md-typeset .grid.cards.teabot-features > ul > li:hover { transform: none; }
+}
+
+/* The home page has no page to edit worth offering, and the button sat on the intro panel's corner. */
+.md-content:has(.teabot-intro) .md-content__button,
+.md-content:has(.teabot-generated) .md-content__button { display: none; }
+
+/* Below about 960 px, three squares are too narrow for their titles: the panels stack, and size to their content.
+   Last in the file, so it wins over the square panels' own rule. */
+@media screen and (max-width: 59.9375em) {
+  .md-typeset .grid.cards.teabot-paths { grid-template-columns: 1fr; gap: 0.9rem; }
+  .md-typeset .grid.cards.teabot-paths > ul > li { aspect-ratio: auto; padding: 1.4rem 1.2rem; }
+}
+
+/* The plugin hub's cards (scripts/docs/hub.py): the feature cards' look, each wholly clickable through its title. */
+.md-typeset .grid.cards.teabot-hub { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media screen and (max-width: 76.1875em) {
+  .md-typeset .grid.cards.teabot-hub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .grid.cards.teabot-hub { grid-template-columns: 1fr; }
+}
+.md-typeset .grid.cards.teabot-hub > ul > li { position: relative; }
+.md-typeset .grid.cards.teabot-hub > ul > li a {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color);
+  text-decoration: none;
+}
+.md-typeset .grid.cards.teabot-hub > ul > li a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.md-typeset .grid.cards.teabot-hub > ul > li:focus-within {
+  outline: 2px solid var(--md-primary-fg-color);
+  outline-offset: 2px;
+}
+.md-typeset .grid.cards.teabot-hub small { color: var(--md-default-fg-color--light); }

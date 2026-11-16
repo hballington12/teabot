@@ -57,7 +57,7 @@ For the [dashboard](production.md#the-dashboard), put the application's OAuth2 c
 ssh -t root@host /opt/teabot/deploy/bare-metal/set-client-secret.sh
 ```
 
-It asks for the token, starts the bot, and prints the invite link. Open it and follow [Add teabot to your server](../use/index.md).
+It asks for the token, starts the bot, and prints the invite link. Open it, choose your server, and authorize, then [place teabot's role](../use/permissions.md#place-teabots-role).
 
 ## 4. Turn on backups
 

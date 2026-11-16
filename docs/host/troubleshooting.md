@@ -72,7 +72,7 @@ A plugin runs inside the bot, with everything the bot can reach: its Discord tok
     docker compose up -d --force-recreate
     ```
 
-5. If it came from the [plugin hub](https://teabot-dev.github.io/plugin-hub/), report it there, so it can be delisted for everyone.
+5. If it came from the [plugin hub](../hub/index.md), report it in the [hub's issues](https://github.com/teabot-dev/plugin-hub/issues), so it can be delisted for everyone.
 
 ## `Permission denied` reading `/app/teabot.env`
 

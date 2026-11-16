@@ -2,7 +2,7 @@
 
 At the end of this page, the plugins you want are on in your server, with the settings you want.
 
-A **plugin** adds a set of commands to teabot, such as `/giveaways`. Announcements and roles come with teabot, and the operator can install more from the [plugin hub](https://teabot-dev.github.io/plugin-hub/). Every plugin is off in your server until you turn it on. These commands need **Manage Server**.
+A **plugin** adds a set of commands to teabot, such as `/giveaways`. Announcements and roles come with teabot, and the operator can install more from the [plugin hub](../hub/index.md). Every plugin is off in your server until you turn it on. These commands need **Manage Server**.
 
 ## See the plugins
 

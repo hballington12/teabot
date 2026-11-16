@@ -18,7 +18,7 @@ from packaging.version import InvalidVersion, Version
 import teabot
 
 DEFAULT_HUB = "https://teabot-dev.github.io/plugin-hub/catalogue.json"
-HUB_PAGE = "https://teabot-dev.github.io/plugin-hub/"
+HUB_PAGE = "https://teabot-dev.github.io/teabot/hub/"
 COMMIT = re.compile(r"[0-9a-f]{40}")
 GIT_REQUIREMENT = re.compile(
     r"^(?P<package>teabot-[a-z0-9_-]+)\s*@\s*git\+(?P<repository>\S+?)@(?P<commit>[0-9a-f]{40})$"

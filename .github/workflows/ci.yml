@@ -49,4 +49,6 @@ jobs:
           version: "0.9.9"
           python-version: "3.12"
       # --strict fails on a broken link, anchor or included file, so none can reach main unnoticed.
+      # The plugin hub's pages, from its live catalogue; without it, the section says the hub could not be read.
+      - run: uv run --no-project python scripts/docs/hub.py
       - run: uv run --locked --group docs zensical build --strict

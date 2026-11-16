@@ -38,3 +38,5 @@ target/
 site/
 # the documentation build's cache
 .cache/
+# the plugin hub's pages, which scripts/docs/hub.py writes from the hub's catalogue
+docs/hub/

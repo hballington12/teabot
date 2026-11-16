@@ -1,7 +1,9 @@
-# The documentation site, built from docs/ with Zensical: `uv run --group docs zensical serve` previews it, and
-# `uv run --group docs zensical build --strict` builds it, failing on a broken link, anchor or included file.
+# The documentation site, built from docs/ with Zensical. `uv run --no-project python scripts/docs/hub.py` first
+# writes the plugin hub's pages from its catalogue into docs/hub/, which is not committed. Then
+# `uv run --group docs zensical serve` previews the site, and `uv run --group docs zensical build --strict` builds
+# it, failing on a broken link, anchor or included file.
 [project]
-site_name = "teabot"
+site_name = "Teabot"
 site_description = "An open-source, plugin-based Discord bot."
 site_url = "https://teabot-dev.github.io/teabot/"
 repo_url = "https://github.com/teabot-dev/teabot"
@@ -9,12 +11,12 @@ repo_name = "teabot-dev/teabot"
 edit_uri = "edit/main/docs/"
 docs_dir = "docs"
 extra_css = ["stylesheets/extra.css"]
+extra_javascript = ["javascripts/fractal.js", "javascripts/invite.js"]
 copyright = 'MIT licensed. <a href="https://github.com/teabot-dev/teabot/blob/main/CONTRIBUTING.md">Contributing to teabot</a>'
 
 nav = [
   { "Home" = "index.md" },
   { "Guild admins" = [
-    { "Add teabot to your server" = "use/index.md" },
     { "Turn on plugins" = "use/plugins.md" },
     { "The dashboard" = "use/dashboard.md" },
     { "Who can use what" = "use/permissions.md" },
@@ -37,6 +39,7 @@ nav = [
     { "Release notes" = "host/changelog.md" },
     { "Troubleshooting" = "host/troubleshooting.md" },
   ] },
+  { "Plugin hub" = "hub/index.md" },
   { "Plugin developers" = [
     { "Your first plugin" = "plugins/index.md" },
     { "Tutorial: a polls plugin" = "plugins/tutorial.md" },

@@ -1,10 +1,13 @@
 name: Docs
 
 # Builds the documentation site from the latest release tag and publishes it to GitHub Pages. It runs on main, which
-# Pages deploys from: the release workflow starts it as its last job, and it runs by hand too. The site therefore
-# describes the latest release, never unreleased work on main. A docs fix ships in a patch release.
+# Pages deploys from: the release workflow starts it as its last job, it runs by hand too, and it runs every hour, so
+# a plugin the hub lists appears in its section within the hour. The site therefore describes the latest release,
+# never unreleased work on main, with the hub as it is now. A docs fix ships in a patch release.
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "23 * * * *"
 
 permissions:
   contents: read
@@ -30,6 +33,8 @@ jobs:
           # The uv the template's Compose file runs, so CI and instances resolve alike.
           version: "0.9.9"
           python-version: "3.12"
+      # The plugin hub's pages, from its live catalogue; without it, the section says the hub could not be read.
+      - run: uv run --no-project python scripts/docs/hub.py
       - run: uv run --locked --group docs zensical build --strict
       - uses: actions/upload-pages-artifact@v5.0.0
         with:
