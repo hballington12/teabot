@@ -21,9 +21,10 @@ The template's `deploy/bare-metal/` folder installs and sets up:
 
 ## 1. Put your instance on GitHub
 
-[Download the template](index.md#1-download-the-template), then push it to a new, private GitHub repository:
+[Download the template](index.md#1-download-the-template), lock it to the newest teabot, then push it to a new, private GitHub repository:
 
 ```bash
+TEABOT_UID=$(id -u) TEABOT_GID=$(id -g) docker compose run --rm uv lock
 git init
 git add .
 git commit -m "My teabot instance"

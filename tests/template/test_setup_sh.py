@@ -71,6 +71,7 @@ def test_a_first_run_writes_both_files_starts_the_bot_and_prints_the_invite(inst
     assert INVITE in done.stdout.split("teabot is running")[1]
     steps = [c for c in calls(instance) if c.startswith("docker compose") and "version" not in c]
     assert steps == [
+        "docker compose run --rm uv lock -q",
         "docker compose build -q bot",
         "docker compose up -d --wait postgres",
         "docker compose run --rm bot teabot init",

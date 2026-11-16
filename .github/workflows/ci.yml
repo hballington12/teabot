@@ -29,6 +29,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.3.3
         with:
+          # The uv the template's Compose file runs, so CI and instances resolve alike.
+          version: "0.9.9"
           python-version: ${{ matrix.python }}
       - run: uv sync --locked
       - run: uv run ruff check
@@ -43,6 +45,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v10.3.3
         with:
+          # The uv the template's Compose file runs, so CI and instances resolve alike.
+          version: "0.9.9"
           python-version: "3.12"
       # --strict fails on a broken link, anchor or included file, so none can reach main unnoticed.
       - run: uv run --locked --group docs zensical build --strict

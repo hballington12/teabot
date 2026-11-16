@@ -27,6 +27,8 @@ jobs:
           git checkout --quiet "$tag"
       - uses: astral-sh/setup-uv@v10.3.3
         with:
+          # The uv the template's Compose file runs, so CI and instances resolve alike.
+          version: "0.9.9"
           python-version: "3.12"
       - run: uv run --locked --group docs zensical build --strict
       - uses: actions/upload-pages-artifact@v5.0.0

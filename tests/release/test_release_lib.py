@@ -74,20 +74,13 @@ def test_the_template_ranges_are_read_by_package(tmp_path: Path) -> None:
     assert template_ranges(repo(tmp_path) / "template/pyproject.toml") == {"teabot": ">=1.0,<2"}
 
 
-def test_the_template_archive_holds_its_files_at_the_root_with_a_lock(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_template_archive_holds_its_files_at_the_root_and_no_lock_or_secrets(tmp_path: Path) -> None:
     root = repo(tmp_path / "repo")
     (root / "template/.env").write_text("secret")
+    (root / "template/uv.lock").write_text("stale")
     (root / "template/plugins").mkdir()
     (root / "template/plugins/README.md").write_text("- yours")
-    lock = '[[package]]\nname = "teabot"\nversion = "1.2.0"\n'
-
-    def fake_lock(staging: Path, version: str, attempts: int, wait: float) -> None:
-        (staging / "uv.lock").write_text(lock)
-
-    monkeypatch.setattr("release_lib.lock_template", fake_lock)
     out = tmp_path / "teabot-template.tar.gz"
-    build_template("1.2.0", out, root=root)
+    build_template(out, root=root)
     with tarfile.open(out) as archive:
-        assert sorted(archive.getnames()) == ["plugins/README.md", "pyproject.toml", "uv.lock"]
+        assert sorted(archive.getnames()) == ["plugins/README.md", "pyproject.toml"]

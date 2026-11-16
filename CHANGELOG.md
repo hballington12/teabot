@@ -6,6 +6,10 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Self-hosting
+
+- The template download holds no `uv.lock`. `setup.sh` locks the newest teabot when there is none, and on a bare-metal host you run `docker compose run --rm uv lock` once before the first deploy, as the bare-metal guide says. A release's template is then on GitHub the moment the release is.
+
 ## 1.5.0 - 2026-11-16
 
 ### Using teabot

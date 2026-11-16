@@ -16,4 +16,5 @@ package = false
 [tool.uv.workspace]
 members = ["plugins/*"]
 
-# uv.lock pins the exact versions. Upgrade with `uv lock --upgrade-package teabot`, then rebuild or deploy.
+# uv.lock pins the exact versions. setup.sh makes it, or `uv lock` does; commit it. Upgrade with
+# `uv lock --upgrade-package teabot`, then rebuild or deploy.

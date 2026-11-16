@@ -83,6 +83,10 @@ fi
 write_compose_env
 write_teabot_env
 
+if [ ! -f uv.lock ]; then
+    say "Locking the newest teabot and your plugins"
+    docker compose run --rm uv lock -q
+fi
 say "Building the bot's image"
 docker compose build -q bot
 say "Starting Postgres"

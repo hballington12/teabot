@@ -7,7 +7,7 @@ This folder is your own teabot: which plugins it runs, your own plugins, and how
 - `setup.sh`: sets up and starts the instance with Docker Compose. Safe to run again.
 - `compose.yaml`: the bot and Postgres on one machine, and a `uv` service for changing plugins (`docker compose run --rm uv add teabot-foo`).
 - `Dockerfile`: the bot's image, with the locked dependencies.
-- `pyproject.toml`: the plugins this instance runs. `uv.lock` pins their exact versions; commit it.
+- `pyproject.toml`: the plugins this instance runs. `uv.lock`, which `setup.sh` makes, pins their exact versions; commit it.
 - `teabot.env.example`: every setting, explained. `setup.sh` copies it to `teabot.env`, which never goes into git.
 - `.env`: the database password and your user and group ids, for Compose. Written by `setup.sh`; never goes into git.
 - `plugins/`: plugins you write for this instance, made with `uv run teabot new-plugin <id>`.

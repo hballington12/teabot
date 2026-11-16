@@ -1,15 +1,13 @@
 """What a release checks and makes: the scripts beside this file run these, and tests/release tests them.
 
 A release is a tag `v<version>`. `teabot`, with its first-party plugins inside it, carries that version, the
-changelog has a section for it, and the template's dependency accepts it. The template ships with a `uv.lock`
-made against the published package.
+changelog has a section for it, and the template's dependency accepts it. The template ships without a lock,
+which each instance makes at setup.
 """
 
 import re
 import shutil
-import subprocess
 import tarfile
-import time
 import tomllib
 from pathlib import Path
 
@@ -64,38 +62,12 @@ def problems(tag: str, root: Path = ROOT) -> list[str]:
     return found
 
 
-def locked_versions(lock: Path) -> dict[str, str]:
-    return {
-        p["name"]: p["version"] for p in tomllib.loads(lock.read_text()).get("package", []) if "version" in p
-    }
-
-
-def lock_template(staging: Path, version: str, attempts: int, wait: float) -> None:
-    """Lock the template until it resolves to the release. On GitHub's runners PyPI's index can lag the upload by
-    over fifteen minutes, as it did for 1.0.1 and 1.0.2, while other machines see it at once."""
-    error = ""
-    for attempt in range(1, attempts + 1):
-        done = subprocess.run(
-            ["uv", "lock", "--refresh", "-q"], cwd=staging, capture_output=True, text=True, check=False
-        )
-        error = done.stderr
-        if done.returncode == 0:
-            locked = locked_versions(staging / "uv.lock")
-            if locked.get(CORE) == version:
-                return
-            error = f"it locked {CORE} {locked.get(CORE)}"
-        print(f"attempt {attempt} of {attempts}: {error.strip() or 'no lock'}", flush=True)
-        if attempt < attempts:
-            time.sleep(wait)
-    raise RuntimeError(f"the template did not lock to {version} after {attempts} attempts: {error}")
-
-
-def build_template(version: str, out: Path, root: Path = ROOT, attempts: int = 60, wait: float = 60) -> None:
-    """`teabot-template.tar.gz`: the template with its lock, its files at the archive's root."""
+def build_template(out: Path, root: Path = ROOT) -> None:
+    """`teabot-template.tar.gz`: the template's files at the archive's root. It holds no lock: an instance makes
+    its own at setup, so building it never has to read PyPI's index, which GitHub's runners see late."""
     staging = out.parent / "template-staging"
     shutil.rmtree(staging, ignore_errors=True)
     shutil.copytree(root / "template", staging, ignore=SKIPPED)
-    lock_template(staging, version, attempts, wait)
     with tarfile.open(out, "w:gz") as archive:
         for path in sorted(staging.rglob("*")):
             if path.is_file():
