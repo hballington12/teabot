@@ -14,19 +14,19 @@ Teabot is an open-source, plugin-based Discord bot. You run its commands in Disc
 
 <div class="grid cards teabot-paths" markdown>
 
--   :lucide-shield-user:{ .teabot-mascot }
+-   ![](assets/mascots/guild-admins.png){ .teabot-mascot }
 
     [Guild admins](use/plugins.md)
 
     [Add Teabot to your guild](https://discord.com/oauth2/authorize?client_id=1570928156100264097&scope=bot+applications.commands&permissions=8){ .md-button .md-button--primary .teabot-invite }
 
--   :lucide-server:{ .teabot-mascot }
+-   ![](assets/mascots/self-hosters.png){ .teabot-mascot }
 
     [Self-hosters](host/index.md)
 
     Set up your own teabot, and customise it as you like.
 
--   :lucide-code-xml:{ .teabot-mascot }
+-   ![](assets/mascots/plugin-developers.png){ .teabot-mascot }
 
     [Plugin developers](plugins/index.md)
 
