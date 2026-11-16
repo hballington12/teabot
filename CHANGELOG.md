@@ -4,7 +4,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 <!-- --8<-- [start:releases] -->
 
-## Unreleased
+## 1.5.0 - 2026-11-16
 
 ### Using teabot
 
@@ -12,7 +12,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### For operators
 
-- The template's `compose.yaml` and `teabot.service` gain a memory limit, and `teabot.env.example` the watchdog's settings. Take them from the template to have them, as in [Upgrade](production.md#upgrade).
+- The template's `compose.yaml` and `teabot.service` gain a memory limit, `teabot.env.example` the watchdog's and the dashboard's settings, and `teabot.caddy` a route for `/dashboard`. Take them from the template to have them, as in [Upgrade](production.md#upgrade).
 
 ### Self-hosting
 
