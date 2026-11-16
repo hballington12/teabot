@@ -123,6 +123,23 @@ async def test_a_scheduled_job_runs_once_time_passes_it(teabot_harness: HarnessF
     assert await notes(harness) == ["later"]
 
 
+async def test_a_job_scheduled_after_the_clock_moved_runs_when_time_passes_it(
+    teabot_harness: HarnessFactory,
+) -> None:
+    harness = await teabot_harness(plugin)
+    await harness.advance(days=1)
+    await harness.call(later, minutes=30)
+    await harness.advance(minutes=29)
+    await harness.run_jobs()
+    assert await notes(harness) == []
+    await harness.advance(minutes=2)
+    await harness.run_jobs()
+    assert await notes(harness) == ["later"]
+    await harness.call(later, minutes=0)
+    await harness.run_jobs()
+    assert await notes(harness) == ["later", "later"]
+
+
 async def test_plan_and_confirm_run_a_destructive_action(teabot_harness: HarnessFactory) -> None:
     harness = await teabot_harness(plugin)
     await harness.call(later, minutes=0)

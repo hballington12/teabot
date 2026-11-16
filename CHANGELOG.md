@@ -13,6 +13,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 - A `Channel` says whether it is age-restricted, `nsfw`.
 - `harness.post` takes `files=`, and `harness.react` records the reaction on the fake message, so `reactors` sees it.
 - `Guild.get_channel` and `get_text_channel` find threads. They did not, so a message or reaction in a thread led nowhere.
+- In tests, a job a plugin schedules after `harness.advance` falls due when the clock passes its time. It came due later by the whole time advanced so far, so `run_jobs` missed it.
 
 ## 1.6.0 - 2026-11-16
 

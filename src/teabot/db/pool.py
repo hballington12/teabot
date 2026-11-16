@@ -188,7 +188,11 @@ class PluginDatabase(Database):
                     await conn.execute("RESET ROLE; RESET search_path; RESET teabot.guild_id")
 
 
-SCHEDULE = "SELECT schedule_job($1, $2, coalesce($3, now()), $4::jsonb, $5, $6)"
+# A time the plugin gives is on its clock, `now()`, which a test moves; the queue keeps Postgres's own,
+# `pg_catalog.now()`. The difference is nothing outside tests.
+SCHEDULE = """
+SELECT schedule_job($1, $2, coalesce($3, now()) - (now() - pg_catalog.now()), $4::jsonb, $5, $6)
+"""
 UNSCHEDULE = "SELECT unschedule_job($1, $2)"
 
 
