@@ -6,6 +6,7 @@ bot's own, a managed role, or a member who outranks the bot.
 """
 
 import itertools
+import mimetypes
 from collections.abc import AsyncIterator, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -13,6 +14,8 @@ from typing import Any, cast
 
 import discord
 
+from teabot.sdk._views import TextChannelView
+from teabot.sdk.guild import ReceivedMessage
 from teabot.sdk.permissions import Permission
 
 _ids = itertools.count(900_000_000_000_000_000)
@@ -46,6 +49,27 @@ def not_found(text: str) -> discord.NotFound:
 class FakeAttachment:
     filename: str
     data: bytes
+
+    @property
+    def url(self) -> str:
+        return f"https://cdn.discordapp.com/attachments/0/0/{self.filename}"
+
+    @property
+    def content_type(self) -> str:
+        return mimetypes.guess_type(self.filename)[0] or ""
+
+
+@dataclass
+class FakeReaction:
+    """One emoji's reactions on a fake message: who gave them, oldest first, as discord.py's `Reaction` lists
+    them."""
+
+    emoji: str
+    givers: list["FakeMember"] = field(default_factory=list["FakeMember"])
+
+    async def users(self) -> AsyncIterator["FakeMember"]:
+        for giver in self.givers:
+            yield giver
 
 
 @dataclass
@@ -133,6 +157,18 @@ class FakeMessage:
     select: FakeSelect | None = None
     deleted: bool = False
     edits: int = 0
+    reactions: list[FakeReaction] = field(default_factory=list[FakeReaction])
+
+    def react(self, member: "FakeMember", emoji: str, *, remove: bool = False) -> None:
+        """Add `member`'s reaction, or take it off, as Discord records it; `harness.react` also fires the event."""
+        reaction = next((r for r in self.reactions if r.emoji == emoji), None)
+        if reaction is None:
+            reaction = FakeReaction(emoji)
+            self.reactions.append(reaction)
+        reaction.givers = [g for g in reaction.givers if g.id != member.id]
+        if not remove:
+            reaction.givers.append(member)
+        self.reactions = [r for r in self.reactions if r.givers]
 
     @property
     def jump_url(self) -> str:
@@ -159,7 +195,7 @@ class FakeMessage:
         self.content, self.embed = content, embed
         self.buttons = _buttons(view, buttons)
         self.select = _select(view, select)
-        self.attachments = _attachments(attachments or files)
+        self.attachments = fake_attachments(attachments or files)
         self.edits += 1
 
     async def delete(self) -> None:
@@ -168,7 +204,7 @@ class FakeMessage:
         self.deleted = True
 
 
-def _attachments(files: Sequence[Any] | None) -> list[FakeAttachment]:
+def fake_attachments(files: Sequence[Any] | None) -> list[FakeAttachment]:
     """discord.py's `File`s, as the views send them, or the SDK's, when a test sends to a fake directly."""
     out: list[FakeAttachment] = []
     for f in files or ():
@@ -189,6 +225,10 @@ class _GuildChannel:
     hidden_from: set[int] = field(default_factory=set[int])
     category: "FakeCategory | None" = None
     guild: "FakeGuild | None" = None
+    nsfw: bool = False
+
+    def is_nsfw(self) -> bool:
+        return self.nsfw
 
     @property
     def category_id(self) -> int | None:
@@ -237,7 +277,7 @@ class FakeChannel(_GuildChannel):
             content,
             embed,
             allowed_mentions,
-            _attachments(files),
+            fake_attachments(files),
             _buttons(view, buttons),
             author,
             select=_select(view, select),
@@ -254,6 +294,14 @@ class FakeChannel(_GuildChannel):
     async def get_message(self, message_id: int, /) -> FakeMessage | None:
         """The SDK's name, for a test that uses a fake channel directly."""
         return next((m for m in self.sent if m.id == message_id and not m.deleted), None)
+
+    async def read_message(self, message_id: int, /) -> "ReceivedMessage | None":
+        """The SDK's reading of any message, for a test that uses a fake channel directly."""
+        return await TextChannelView(self).read_message(message_id)
+
+    async def reactors(self, message_id: int, emoji: str, /) -> tuple[int, ...]:
+        """The SDK's list of who reacted, for a test that uses a fake channel directly."""
+        return await TextChannelView(self).reactors(message_id, emoji)
 
 
 @dataclass
@@ -404,7 +452,7 @@ class FakeMember:
     ) -> FakeMessage:
         if self.dms_closed:
             raise forbidden("Cannot send messages to this user")
-        message = FakeMessage(next_id(), 0, content, embed, allowed_mentions, _attachments(files))
+        message = FakeMessage(next_id(), 0, content, embed, allowed_mentions, fake_attachments(files))
         self.dms.append(message)
         return message
 

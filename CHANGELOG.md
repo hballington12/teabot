@@ -6,6 +6,14 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Writing plugins
+
+- A plugin reads anyone's message with `TextChannel.read_message(id)`, and finds who reacted with an emoji, bots left out, with `TextChannel.reactors(message_id, emoji)`.
+- `ReceivedMessage` carries the message's `attachments`, each with its `filename`, `url`, `content_type` and whether it is an `image`, and says when it was posted, `created_at`. `on_message` and message menus fill them in too.
+- A `Channel` says whether it is age-restricted, `nsfw`.
+- `harness.post` takes `files=`, and `harness.react` records the reaction on the fake message, so `reactors` sees it.
+- `Guild.get_channel` and `get_text_channel` find threads. They did not, so a message or reaction in a thread led nowhere.
+
 ## 1.6.0 - 2026-11-16
 
 ### Using teabot

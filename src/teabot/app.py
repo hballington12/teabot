@@ -40,6 +40,7 @@ from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, connect, create_pools
 from teabot.health import Health
 from teabot.runtime import Runtime, serve_until_stopped
+from teabot.sdk._views import attachments
 from teabot.sdk.plugin import EventName
 from teabot.settings import Settings
 from teabot.watchdog import watching
@@ -146,6 +147,7 @@ class TeabotClient(discord.AutoShardedClient):
             "channel_id": message.channel.id,
             "author_id": message.author.id,
             "content": message.content,
+            "attachments": attachments(message),
         }
         await self._fire(message.guild.id, "message", payload)
 

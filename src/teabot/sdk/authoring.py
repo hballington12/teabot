@@ -59,7 +59,16 @@ from teabot.sdk.actions import (
 )
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
-from teabot.sdk.guild import Guild, Member, Reaction, ReceivedMessage, RoleChange, User, VoiceChange
+from teabot.sdk.guild import (
+    Attachment,
+    Guild,
+    Member,
+    Reaction,
+    ReceivedMessage,
+    RoleChange,
+    User,
+    VoiceChange,
+)
 from teabot.sdk.http import Http
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
@@ -681,6 +690,7 @@ async def _received(event: EventName, guild: Guild, payload: Mapping[str, Any]) 
             int(payload["channel_id"]),
             int(payload["author_id"]),
             str(payload["content"]),
+            tuple(Attachment(**a) for a in payload.get("attachments", ())),
         )
     if event in ("reaction_add", "reaction_remove"):
         return Reaction(

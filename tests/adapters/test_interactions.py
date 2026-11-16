@@ -550,7 +550,18 @@ async def test_a_message_menu_runs_its_action_with_the_message_through_the_menu_
         "type": 3,
         "name": "Report",
         "target_id": "77",
-        "resolved": {"messages": {"77": {"channel_id": "5", "author": {"id": "9"}, "content": "spam"}}},
+        "resolved": {
+            "messages": {
+                "77": {
+                    "channel_id": "5",
+                    "author": {"id": "9"},
+                    "content": "spam",
+                    "attachments": [
+                        {"filename": "a.png", "url": "https://cdn.example/a.png", "content_type": "image/png"}
+                    ],
+                }
+            }
+        },
     }
     await handler.handle(FakeInteraction(discord.InteractionType.application_command, data))
     assert registry.calls == [
@@ -558,7 +569,17 @@ async def test_a_message_menu_runs_its_action_with_the_message_through_the_menu_
             "announcements.report",
             GUILD,
             Actor(USER, "menu"),
-            {"message": {"id": 77, "channel_id": 5, "author_id": 9, "content": "spam"}},
+            {
+                "message": {
+                    "id": 77,
+                    "channel_id": 5,
+                    "author_id": 9,
+                    "content": "spam",
+                    "attachments": [
+                        {"filename": "a.png", "url": "https://cdn.example/a.png", "content_type": "image/png"}
+                    ],
+                }
+            },
         )
     ]
 

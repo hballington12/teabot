@@ -212,12 +212,14 @@ Every operation acts with the bot's own power, so **the plugin decides who may u
 |---|---|---|
 | `Member` | `name`, `display_name`, `roles` (highest first), `top_role`, `role_ids`, `joined_at`, `avatar_url`, `bot`, `timed_out_until` | `add_role`, `remove_role`, `set_nickname`, `timeout(timedelta)` up to 28 days, `remove_timeout`, `kick`, `send` a direct message |
 | `Role` | `name`, `position`, `permissions` (as `needs=` names them), `colour`, `managed`, `mentionable`, `hoisted` | |
-| `Guild` | `name`, `icon_url`, `owner_id`, `member_count`, `me` (the bot), `roles`, `channels` (any kind, each with its `kind` and `parent_id`) | `find_members(prefix)`, `ban(user_id, delete_message_days=)`, `unban`, `bans()` |
+| `Guild` | `name`, `icon_url`, `owner_id`, `member_count`, `me` (the bot), `roles`, `channels` (any kind, each with its `kind`, `parent_id` and `nsfw`) | `find_members(prefix)`, `ban(user_id, delete_message_days=)`, `unban`, `bans()` |
 | `Message` the bot sent | `id`, `channel_id`, `jump_url` | `edit`, which replaces its text, embed, buttons and files; `delete` |
-| `TextChannel` | `name`, `mention` | `send`, `get_message(id)` for one of the bot's own posts |
+| `TextChannel` | `name`, `mention`, `read_message(id)` for anyone's message, `reactors(message_id, emoji)` for who reacted | `send`, `get_message(id)` for one of the bot's own posts |
 
 - Every change takes `reason=`, which Discord's audit log shows. Without one, it says which action asked and for whom.
 - The bot cannot manage a role at or above its own highest role, a managed role, or a member who outranks it, and it cannot kick, ban or rename the server's owner.
+- `get_channel` and `get_text_channel` find threads too, so a reaction or message in a thread leads to its channel. A thread is `nsfw` when the channel it is in is.
+- `read_message(id)` returns any message in the channel as a `ReceivedMessage`, or None when it is gone. `reactors(message_id, emoji)` returns the IDs of the people who reacted with `emoji`, bots left out, oldest first: count from it, and a reaction given while teabot was down still counts. Both added in 1.7.
 
 ## Buttons and select menus
 
@@ -275,7 +277,7 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 
 | Decorator | The handler receives | When |
 |---|---|---|
-| `@plugin.on_message` | `ReceivedMessage`: `id`, `channel_id`, `author_id`, `content`, `jump_url` | A person posts in a server. |
+| `@plugin.on_message` | `ReceivedMessage`: `id`, `channel_id`, `author_id`, `content`, `attachments`, `created_at`, `jump_url` | A person posts in a server. |
 | `@plugin.on_reaction_add` | `Reaction`: `message_id`, `channel_id`, `user_id`, `emoji` | A person reacts to any message. |
 | `@plugin.on_reaction_remove` | `Reaction` | A person takes a reaction off. |
 | `@plugin.on_member_roles` | `RoleChange`: `member`, and the role IDs `added` and `removed` | A member's roles change. |
@@ -283,7 +285,8 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 | `@plugin.on_enable` | nothing but `ctx` | The server turns the plugin on, each time. Check what is already there first. |
 
 - Messages and reactions from bots, teabot's own among them, are not heard, so plugins cannot set each other off in a loop.
-- A message's `content` is empty unless the operator turns on the Message Content intent, with `TEABOT_MESSAGE_CONTENT=true` (see [Settings](../host/settings.md)). Messages that mention the bot carry their text anyway. Say in the plugin's README when it needs the intent.
+- A message's `content` and `attachments` are empty unless the operator turns on the Message Content intent, with `TEABOT_MESSAGE_CONTENT=true` (see [Settings](../host/settings.md)). Messages that mention the bot carry them anyway. Say in the plugin's README when it needs the intent.
+- Each `Attachment` has its `filename`, `url` and `content_type`, and `image` says whether an embed can show it. Added in 1.7, with `created_at`, when the message was posted.
 - Every message in a busy server queues one job for each listening plugin, so keep the handler quick, such as one statement.
 - A role change is heard for members teabot has seen since it started, such as by a command, a join or a lookup. Discord tells it of others only once they are seen.
 - `emoji` is the character, such as `"⭐"`, or a server emoji as `"<:raids:123>"`, as a `Button`'s `emoji` takes it.
@@ -452,7 +455,7 @@ async def digest(ctx: Ctx) -> None:
 | `harness.press(message.buttons[0])` | presses a button on a fake message, through the real call path, returning the reply the member sees; `as_member(m).press(...)` presses as someone else |
 | `harness.choose(message.select, values)` | chooses from a select menu: option values, or roles, channels or members |
 | `harness.join(member)`, `harness.leave(member)` | fire a member joining or leaving, and run the jobs they queue |
-| `harness.post(channel, member, text)` | post a message as `member`, fire it, and return it, to react to |
+| `harness.post(channel, member, text, files=)` | post a message as `member`, with any `File`s, fire it, and return it, to react to |
 | `harness.react(message, member, emoji)` | fire a reaction; `remove=True` takes it off |
 | `harness.change_roles(member, added=[...], removed=[...])` | change a member's roles and fire it |
 | `harness.voice(member, joined=channel, left=channel)` | fire a voice move |

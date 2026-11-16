@@ -292,6 +292,14 @@ class InteractionRouter:
                 "channel_id": int(found.get("channel_id", 0)),
                 "author_id": int(found.get("author", {}).get("id", 0)),
                 "content": str(found.get("content", "")),
+                "attachments": [
+                    {
+                        "filename": str(f.get("filename", "")),
+                        "url": str(f.get("url", "")),
+                        "content_type": str(f.get("content_type", "")),
+                    }
+                    for f in found.get("attachments", [])
+                ],
             }
         await self._run(interaction, spec.name, {spec.menu.field: value}, via="menu")
 

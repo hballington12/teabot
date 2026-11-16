@@ -17,7 +17,19 @@ import discord
 
 from teabot.sdk.actions import ActionError
 from teabot.sdk.components import BUTTONS_BESIDE_SELECT, BUTTONS_MAX, Button, Select
-from teabot.sdk.guild import Ban, Channel, ChannelKind, File, Guild, Member, Message, Role, TextChannel
+from teabot.sdk.guild import (
+    Attachment,
+    Ban,
+    Channel,
+    ChannelKind,
+    File,
+    Guild,
+    Member,
+    Message,
+    ReceivedMessage,
+    Role,
+    TextChannel,
+)
 from teabot.sdk.permissions import Permission
 
 FORBIDDEN = "I am not allowed to post in that channel."
@@ -403,6 +415,37 @@ class TextChannelView:
             return None
         return MessageView(found)
 
+    async def read_message(self, message_id: int, /) -> ReceivedMessage | None:
+        try:
+            found = await self.raw.fetch_message(message_id)
+        except (discord.NotFound, discord.Forbidden):
+            return None
+        return ReceivedMessage(
+            int(found.id),
+            self.id,
+            int(found.author.id),
+            str(found.content or ""),
+            tuple(Attachment(**a) for a in attachments(found)),
+        )
+
+    async def reactors(self, message_id: int, emoji: str, /) -> tuple[int, ...]:
+        try:
+            found = await self.raw.fetch_message(message_id)
+        except (discord.NotFound, discord.Forbidden):
+            return ()
+        reaction = next((r for r in found.reactions if str(r.emoji) == emoji), None)
+        if reaction is None:
+            return ()
+        return tuple([int(user.id) async for user in reaction.users() if not user.bot])
+
+
+def attachments(message: Any) -> list[dict[str, str]]:
+    """A message's files as `Attachment`'s fields, which an event's job payload carries as they are."""
+    return [
+        {"filename": str(a.filename), "url": str(a.url), "content_type": str(a.content_type or "")}
+        for a in message.attachments
+    ]
+
 
 def _kind(channel: Any) -> str:
     """The fakes name their kind; discord.py gives a `ChannelType`."""
@@ -439,6 +482,12 @@ class ChannelView:
     def parent_id(self) -> int | None:
         parent = getattr(self.raw, "parent_id", None) or getattr(self.raw, "category_id", None)
         return int(parent) if parent is not None else None
+
+    @property
+    def nsfw(self) -> bool:
+        # discord.py's channels and threads say through is_nsfw(), which for a thread asks its channel.
+        is_nsfw = getattr(self.raw, "is_nsfw", None)
+        return bool(is_nsfw()) if callable(is_nsfw) else False
 
 
 @dataclass(frozen=True)
@@ -479,12 +528,17 @@ class GuildView:
     def channels(self) -> Sequence[Channel]:
         return [ChannelView(c) for c in self.raw.channels]
 
+    def _find_channel(self, channel_id: int) -> Any:
+        """A channel or a thread: discord.py's `get_channel` leaves threads out."""
+        find = getattr(self.raw, "get_channel_or_thread", None) or self.raw.get_channel
+        return find(channel_id)
+
     def get_text_channel(self, channel_id: int, /) -> TextChannel | None:
-        channel = self.raw.get_channel(channel_id)
+        channel = self._find_channel(channel_id)
         return TextChannelView(channel, self.raw) if takes_messages(channel) else None
 
     def get_channel(self, channel_id: int, /) -> Channel | None:
-        channel = self.raw.get_channel(channel_id)
+        channel = self._find_channel(channel_id)
         return ChannelView(channel) if channel is not None else None
 
     def get_role(self, role_id: int, /) -> Role | None:

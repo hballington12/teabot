@@ -39,11 +39,24 @@ def ns(**values: Any) -> Any:
 
 async def test_a_persons_message_is_heard_and_a_bots_is_not(client: TeabotClient) -> None:
     guild, channel = ns(id=1), ns(id=2)
-    await client.on_message(ns(id=3, guild=guild, channel=channel, author=ns(id=4, bot=False), content="hi"))
-    await client.on_message(ns(id=5, guild=guild, channel=channel, author=ns(id=6, bot=True), content="beep"))
-    await client.on_message(ns(id=7, guild=None, channel=channel, author=ns(id=4, bot=False), content="dm"))
+    picture = ns(filename="boss.png", url="https://cdn.example/boss.png", content_type="image/png")
+    person = ns(id=4, bot=False)
+    await client.on_message(
+        ns(id=3, guild=guild, channel=channel, author=person, content="hi", attachments=[picture])
+    )
+    await client.on_message(
+        ns(id=5, guild=guild, channel=channel, author=ns(id=6, bot=True), content="beep", attachments=[])
+    )
+    await client.on_message(
+        ns(id=7, guild=None, channel=channel, author=person, content="dm", attachments=[])
+    )
+    attached = {"filename": "boss.png", "url": "https://cdn.example/boss.png", "content_type": "image/png"}
     assert fired(client) == [
-        (1, "message", {"message_id": 3, "channel_id": 2, "author_id": 4, "content": "hi"})
+        (
+            1,
+            "message",
+            {"message_id": 3, "channel_id": 2, "author_id": 4, "content": "hi", "attachments": [attached]},
+        )
     ]
 
 

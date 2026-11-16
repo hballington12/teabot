@@ -35,7 +35,8 @@ The server (D45):
   sent a direct message, as the bot. `File` attaches a file; `Ban` is one of the server's bans, and `User` someone
   who is no longer a member. `ChannelKind` is what sort of channel a `Channel` is.
 - The event handlers receive a `Member` on a join, a `User` on a leave, a `ReceivedMessage`, a `Reaction`, a
-  `RoleChange` or a `VoiceChange`.
+  `RoleChange` or a `VoiceChange`. A channel's `read_message` reads anyone's message as a `ReceivedMessage`, with
+  its `Attachment`s, and `reactors` says who reacted with an emoji.
 - `Button`: a button on a post, which runs an action as the member who presses it; `action.bind(...)` makes its
   `BoundAction`, and `ButtonStyle` is its colour. `Select` is a select menu, of `Option`s or of Discord's own
   role, channel or member pickers (its `SelectKind`), which fills a list input with what is chosen. A `Message`
@@ -75,6 +76,7 @@ from teabot.sdk.components import BoundAction, Button, ButtonStyle, Option, Sele
 from teabot.sdk.db import Bound, Db, Outbox, Post, Queries, Row, Scheduler, Tx
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
 from teabot.sdk.guild import (
+    Attachment,
     Ban,
     Channel,
     ChannelKind,
@@ -109,6 +111,7 @@ __all__ = [
     "ActionError",
     "ActionSpec",
     "Actor",
+    "Attachment",
     "Ban",
     "Bound",
     "BoundAction",

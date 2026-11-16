@@ -25,8 +25,9 @@ from teabot.db.naming import Naming
 from teabot.db.pool import Pools
 from teabot.db.types import Conn
 from teabot.lint import check_package
-from teabot.sdk import DESTRUCTIVE, Action, Actor, Choice, LoadablePlugin
+from teabot.sdk import DESTRUCTIVE, Action, Actor, Choice, File, LoadablePlugin
 from teabot.sdk._clock import CLOCK
+from teabot.sdk._views import attachments
 from teabot.sdk.actions import Via
 from teabot.sdk.components import parse_custom_id, parse_select_id
 from teabot.sdk.db import Bound
@@ -40,6 +41,7 @@ from teabot.testing.fakes import (
     FakeMessage,
     FakeRole,
     FakeSelect,
+    fake_attachments,
     next_id,
 )
 from teabot.testing.web import FakeWeb
@@ -223,16 +225,21 @@ class PluginHarness:
         await self.events.fire(self.guild.id, event, payload)
         await self.run_jobs()
 
-    async def post(self, channel: FakeChannel, author: FakeMember, content: str) -> FakeMessage:
-        """Post a message in a fake channel as `author`, fire it, as Discord would, and run the jobs it queues.
-        Returns the message, to react to."""
-        message = FakeMessage(next_id(), channel.id, content, None, author_id=author.id)
+    async def post(
+        self, channel: FakeChannel, author: FakeMember, content: str, *, files: Sequence[File] = ()
+    ) -> FakeMessage:
+        """Post a message in a fake channel as `author`, with any `files`, fire it, as Discord would, and run the
+        jobs it queues. Returns the message, to react to."""
+        message = FakeMessage(
+            next_id(), channel.id, content, None, attachments=fake_attachments(files), author_id=author.id
+        )
         channel.sent.append(message)
         payload = {
             "message_id": message.id,
             "channel_id": channel.id,
             "author_id": author.id,
             "content": content,
+            "attachments": attachments(message),
         }
         await self._fire("message", payload)
         return message
@@ -241,6 +248,7 @@ class PluginHarness:
         self, message: FakeMessage, member: FakeMember, emoji: str, *, remove: bool = False
     ) -> None:
         """Add `member`'s reaction to a fake message, or with `remove` take it off, fire it and run its jobs."""
+        message.react(member, emoji, remove=remove)
         payload = {
             "message_id": message.id,
             "channel_id": message.channel_id,

@@ -6,6 +6,7 @@ objects, so plugin code types the same against Discord and against `teabot.testi
 - `Channel`: any channel, of any kind, to read.
 - `Member`, `Role` and `Message`: what those lookups and sends return.
 - `User`, `ReceivedMessage`, `Reaction`, `RoleChange` and `VoiceChange`: what the event handlers receive.
+  `TextChannel.read_message` returns a `ReceivedMessage` too, with its `Attachment`s.
 
 Every operation acts with the bot's own power; the plugin decides who may use it. Before calling Discord, each one
 checks what Discord would refuse, such as a role above the bot's own, and raises `ActionError` with the reason in
@@ -14,13 +15,16 @@ plain words. Changes carry a reason for Discord's audit log, "via teabot: <actio
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal, Protocol
 
 import discord
 
 from teabot.sdk.components import Button, Select
 from teabot.sdk.permissions import Permission
+
+# Discord's IDs count milliseconds from the start of 2015 in their top bits.
+DISCORD_EPOCH_MS = 1_420_070_400_000
 
 type ChannelKind = Literal["text", "voice", "category", "forum", "stage", "thread", "announcement", "other"]
 
@@ -199,18 +203,43 @@ class User:
 
 
 @dataclass(frozen=True)
+class Attachment:
+    """A file on a message someone posted.
+
+    - `filename` is its name, and `url` where Discord serves it.
+    - `content_type` is its media type, such as `image/png`, or empty when Discord does not say.
+    """
+
+    filename: str
+    url: str
+    content_type: str = ""
+
+    @property
+    def image(self) -> bool:
+        """Whether it is a picture, which an embed can show."""
+        return self.content_type.startswith("image/")
+
+
+@dataclass(frozen=True)
 class ReceivedMessage:
-    """A message someone posted, as `@plugin.on_message` receives it.
+    """A message someone posted, as `@plugin.on_message` receives it and `TextChannel.read_message` reads it.
 
     - `id`, `channel_id` and `author_id` are its Discord IDs, its channel's and its author's.
-    - `content` is its text. Discord sends it only when the operator turns on the Message Content intent
-      (`TEABOT_MESSAGE_CONTENT=true`); otherwise it is empty, except in messages that mention the bot.
+    - `content` is its text, and `attachments` its files. Discord sends them only when the operator turns on the
+      Message Content intent (`TEABOT_MESSAGE_CONTENT=true`); otherwise they are empty, except in messages that
+      mention the bot.
     """
 
     id: int
     channel_id: int
     author_id: int
     content: str
+    attachments: tuple[Attachment, ...] = ()
+
+    @property
+    def created_at(self) -> datetime:
+        """When it was posted, which its ID records."""
+        return datetime.fromtimestamp(((self.id >> 22) + DISCORD_EPOCH_MS) / 1000, UTC)
 
     @property
     def jump_url(self) -> str:
@@ -337,6 +366,11 @@ class Channel(Protocol):
         """Its category, or for a thread the channel it is in; None when it has neither."""
         ...
 
+    @property
+    def nsfw(self) -> bool:
+        """Whether it is age-restricted. A thread is when the channel it is in is."""
+        ...
+
 
 class TextChannel(Protocol):
     """A channel that takes messages."""
@@ -374,6 +408,16 @@ class TextChannel(Protocol):
     async def get_message(self, message_id: int, /) -> Message | None:
         """One of the bot's own messages in this channel, to edit or delete, or None when it is gone or is not
         the bot's."""
+        ...
+
+    async def read_message(self, message_id: int, /) -> ReceivedMessage | None:
+        """Any message in this channel, anyone's, to read, or None when it is gone or the bot cannot see it. Its
+        text and files need the Message Content intent, as `on_message`'s do."""
+        ...
+
+    async def reactors(self, message_id: int, emoji: str, /) -> tuple[int, ...]:
+        """The IDs of the people who reacted to a message in this channel with `emoji`, bots left out, oldest
+        first: none when the message is gone or nobody has. `emoji` is written as `Reaction.emoji` is."""
         ...
 
 
