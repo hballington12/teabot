@@ -51,6 +51,12 @@ It installs Postgres, pgBackRest, Caddy, git and uv, clones your instance into `
 ssh -t root@host /opt/teabot/deploy/bare-metal/set-discord-token.sh
 ```
 
+For the [dashboard](production.md#the-dashboard), put the application's OAuth2 client secret in the same way, after adding `https://your.hostname/dashboard/callback` to its redirects:
+
+```bash
+ssh -t root@host /opt/teabot/deploy/bare-metal/set-client-secret.sh
+```
+
 It asks for the token, starts the bot, and prints the invite link. Open it and follow [Add teabot to your server](../use/index.md).
 
 ## 4. Turn on backups
