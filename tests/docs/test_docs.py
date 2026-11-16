@@ -6,7 +6,8 @@ from typing import Any
 
 import pytest
 
-from teabot.cli.new_plugin import write_package
+import teabot
+from teabot.cli.new_plugin import teabot_range, write_package
 from teabot.plugins import announcements
 from teabot.sdk import Plugin
 from teabot.settings import Settings
@@ -61,6 +62,12 @@ def test_the_first_plugin_page_shows_what_new_plugin_writes(tmp_path: Path) -> N
         p.relative_to(committed) for p in committed.rglob("*") if p.is_file() and "__pycache__" not in p.parts
     )
     assert rendered == on_disk
-    # Text, not bytes, so the line endings a platform writes make no difference.
-    differ = [p for p in rendered if (tmp_path / "polls" / p).read_text() != (committed / p).read_text()]
+    # Text, not bytes, so the line endings a platform writes make no difference. The page shows a development
+    # build's range, which a release narrows to itself, so the committed copy is read with this build's range.
+    here = f'"{teabot_range(teabot.__version__)}"'
+
+    def committed_text(p: Path) -> str:
+        return (committed / p).read_text().replace('"teabot>=1.0,<2"', here)
+
+    differ = [p for p in rendered if (tmp_path / "polls" / p).read_text() != committed_text(p)]
     assert differ == [], "re-render it: see tests/docs/README.md"

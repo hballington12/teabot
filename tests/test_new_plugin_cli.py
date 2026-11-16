@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner
 
+import teabot
 from teabot.cli import app
 from teabot.cli.new_plugin import teabot_range
 from teabot.testing import PluginHarness
@@ -52,7 +53,7 @@ def test_it_writes_the_package(tmp_path: Path) -> None:
     assert sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()) == FILES
     assert 'scaffolded = "teabot_scaffolded:plugin"' in (root / "pyproject.toml").read_text()
     assert "External connections: none" in (root / "README.md").read_text()
-    assert 'dependencies = ["teabot>=1.0,<2"]' in (root / "pyproject.toml").read_text()
+    assert f'dependencies = ["{teabot_range(teabot.__version__)}"]' in (root / "pyproject.toml").read_text()
     assert "/plugins enable plugin:scaffolded" in result.output
     assert f"uv run --package teabot-scaffolded pytest {root}" in result.output
 

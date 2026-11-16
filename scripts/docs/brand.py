@@ -34,7 +34,8 @@ ICONS = {
 
 def save(art: Image.Image, size: int, target: Path) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    art.resize((size, size), Image.Resampling.LANCZOS).save(target, optimize=True)
+    small: Image.Image = art.resize((size, size), Image.Resampling.LANCZOS)  # pyright: ignore[reportUnknownMemberType]
+    small.save(target, optimize=True)
     print(f"{target.relative_to(ROOT)}: {size} px, {target.stat().st_size // 1024} KB")
 
 
