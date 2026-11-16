@@ -2,7 +2,7 @@
 
 - Each parameter is an input field, except the ones teabot fills in, which are told apart by their annotation.
 - The docstring's `Args:` section describes every input, for Discord, MCP and the service API alike.
-- `TextChannel`, `Role` and `Member` parameters are stored as Discord IDs, and resolved on every call.
+- `TextChannel`, `VoiceChannel`, `Role` and `Member` parameters are stored as Discord IDs, and resolved on every call.
 - A `str` or a list of models as the return type is wrapped in a model, so every front door gets one.
 """
 
@@ -17,14 +17,20 @@ from pydantic import BaseModel, Field, create_model
 
 from teabot.sdk._render import fields_shown
 from teabot.sdk.actions import ActionError
-from teabot.sdk.fields import ChannelRef, MemberRef, RoleRef
-from teabot.sdk.guild import Guild, Member, Role, TextChannel
+from teabot.sdk.fields import ChannelRef, MemberRef, RoleRef, VoiceChannelRef
+from teabot.sdk.guild import Guild, Member, Role, TextChannel, VoiceChannel
 
 DESCRIPTION_MAX = 100
 ARG_LINE = re.compile(r"^\s+(\w+)\s*:\s*(.+)$")
-REFS: dict[Any, Any] = {TextChannel: ChannelRef, Role: RoleRef, Member: MemberRef}
+REFS: dict[Any, Any] = {
+    TextChannel: ChannelRef,
+    VoiceChannel: VoiceChannelRef,
+    Role: RoleRef,
+    Member: MemberRef,
+}
 NOT_FOUND = {
     TextChannel: "That channel is not a text channel in this server.",
+    VoiceChannel: "That channel is not a voice channel in this server.",
     Role: "That role is not in this server.",
     Member: "That member is not in this server.",
 }
@@ -180,6 +186,8 @@ async def _find(guild: Guild, kind: Any, value: int) -> Any:
     found: Any
     if kind is TextChannel:
         found = guild.get_text_channel(value)
+    elif kind is VoiceChannel:
+        found = guild.get_voice_channel(value)
     elif kind is Role:
         found = guild.get_role(value)
     else:

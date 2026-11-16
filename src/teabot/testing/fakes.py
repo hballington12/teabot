@@ -306,9 +306,32 @@ class FakeChannel(_GuildChannel):
 
 @dataclass
 class FakeVoiceChannel(_GuildChannel):
-    """A channel that takes no messages, such as a voice channel."""
+    """A voice channel. A member is in it when their `voice_channel` is it, and the bot once it has joined.
+    `refuse_connect` and `refuse_speak` stand for the bot lacking Connect or Speak there."""
 
     type: str = "voice"
+    refuse_connect: bool = False
+    refuse_speak: bool = False
+
+    @property
+    def members(self) -> list["FakeMember"]:
+        """Who is in the channel, as discord.py's `VoiceChannel.members` lists them."""
+        if self.guild is None:
+            return []
+        everyone = [*self.guild.members.values(), self.guild.me]
+        return [m for m in everyone if m.voice_channel is self]
+
+    @property
+    def listener_ids(self) -> frozenset[int]:
+        """The SDK's name, so a fake channel can stand where an action takes a `VoiceChannel`."""
+        return frozenset(m.id for m in self.members if not m.bot)
+
+    def permissions_for(self, member: "FakeMember", /) -> discord.Permissions:
+        return discord.Permissions(
+            view_channel=member.id not in self.hidden_from,
+            connect=not self.refuse_connect,
+            speak=not self.refuse_speak,
+        )
 
 
 @dataclass
@@ -352,6 +375,11 @@ class _FakeAsset:
     url: str
 
 
+@dataclass(frozen=True)
+class _FakeVoiceState:
+    channel: "FakeVoiceChannel"
+
+
 @dataclass
 class FakeMember:
     """A member. What the bot does to them is recorded: `roles` changes, `nick`, `timed_out_until`, `kicked`
@@ -370,6 +398,17 @@ class FakeMember:
     reasons: list[str | None] = field(default_factory=list[str | None])
     kicked: bool = False
     guild: "FakeGuild | None" = None
+    voice_channel: "FakeVoiceChannel | None" = None
+
+    @property
+    def voice(self) -> "_FakeVoiceState | None":
+        """Where the member is in voice, as discord.py's `Member.voice`; set `voice_channel` to move them."""
+        return _FakeVoiceState(self.voice_channel) if self.voice_channel is not None else None
+
+    @property
+    def voice_channel_id(self) -> int | None:
+        """The SDK's name, so a fake member can stand where a plugin takes a `Member`."""
+        return self.voice_channel.id if self.voice_channel is not None else None
 
     @property
     def display_name(self) -> str:

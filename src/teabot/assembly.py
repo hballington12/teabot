@@ -21,10 +21,11 @@ from teabot.core.events import Events
 from teabot.core.loader import LoadReport
 from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Plans
-from teabot.core.plugin_jobs import register_plugin_jobs
+from teabot.core.plugin_jobs import JobServices, register_plugin_jobs
 from teabot.core.queue import APPLY_HANDLER, JobContext, Queue
 from teabot.core.recurring import Recurring
 from teabot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
+from teabot.core.voice import DiscordConnector, VoiceService
 from teabot.db.pool import Pools
 from teabot.sdk.plans import Diff
 
@@ -46,12 +47,14 @@ class Core:
     events: Events
     outbox: Outbox
     recurring: Recurring
+    voice: VoiceService
 
 
 def assemble(
     report: LoadReport, pools: Pools, queue: Queue, client: Client, public_url: str | None = None
 ) -> Core:
-    """The core's parts, wired together. `public_url` is the instance's public address, if it has one."""
+    """The core's parts, wired together. `public_url` is the instance's public address, if it has one. Voice
+    connects through discord.py; a test swaps `core.voice.connector` for a fake (D53)."""
     statuses = report.labels()
     configs = {p: loaded.plugin.manifest.config for p, loaded in report.loaded.items()}
     admin = Admin(pools.core_db(), statuses=statuses, configs=configs)
@@ -66,7 +69,10 @@ def assemble(
     admin.on_change = sync.request
     audit = AuditLog(queue)
     plans = Plans(queue, audit)
+    listeners = {plugin_id: loaded.events for plugin_id, loaded in report.loaded.items() if loaded.events}
+    voice = VoiceService(pools.core_db(), queue, DiscordConnector(client), listeners)
     registry = Registry(sources, pools=pools, client=client, audit=audit, plans=plans)
+    registry.voice = voice
     token_commands.known = frozenset(registry.actions)
 
     async def apply(ctx: JobContext) -> None:
@@ -83,8 +89,7 @@ def assemble(
     outbox = Outbox(pools.core_db(), client)
     queue.register("core", POST_MESSAGE, outbox)
     recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})
-    register_plugin_jobs(queue, report.loaded, pools, client, recurring)
-    listeners = {plugin_id: loaded.events for plugin_id, loaded in report.loaded.items() if loaded.events}
+    register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice))
     events = Events(pools.core_db(), queue, listeners)
 
     async def enabled(guild_id: int, plugin_id: str, user_id: int) -> None:
@@ -92,4 +97,4 @@ def assemble(
         await events.enabled(guild_id, plugin_id, user_id)
 
     admin.on_enabled = enabled
-    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox, recurring)
+    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox, recurring, voice)

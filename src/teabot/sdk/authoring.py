@@ -68,6 +68,7 @@ from teabot.sdk.guild import (
     RoleChange,
     User,
     VoiceChange,
+    VoiceChannel,
 )
 from teabot.sdk.http import Http
 from teabot.sdk.permissions import Permission
@@ -75,6 +76,7 @@ from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
 from teabot.sdk.settings import InstanceSettings
 from teabot.sdk.store import Store
+from teabot.sdk.voice import Voice
 
 READ = Risk.READ
 WRITE = Risk.WRITE
@@ -118,6 +120,11 @@ class Context[C: BaseModel](Protocol):
         to change; empty elsewhere."""
         ...
 
+    @property
+    def voice(self) -> Voice:
+        """The server's voice connection, which the plugin joins, plays through and leaves (D53)."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far a long change has got, which `/admin job_status` shows."""
         ...
@@ -146,6 +153,7 @@ class _Context:
     config: Any
     open_db: Callable[[], Db]
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]]
+    open_voice: Callable[[], Voice]
     diff: Diff = field(default_factory=Diff)
     now: datetime = field(default_factory=clock.now)
     plugin_id: str = ""
@@ -158,6 +166,10 @@ class _Context:
     @property
     def http(self) -> Http:
         return Http(self.plugin_id, self.hosts)
+
+    @property
+    def voice(self) -> Voice:
+        return self.open_voice()
 
     def store[M: BaseModel](self, model: type[M], *, kind: str | None = None) -> Store[M]:
         return Store(self.db, self.guild.id, model, kind or model.__name__)
@@ -327,6 +339,7 @@ def _context_of(ctx: ActionContext, action: str, hosts: frozenset[str]) -> _Cont
         ctx.config,
         lambda: ctx.db,
         ctx.report,
+        lambda: ctx.voice,
         diff,
         plugin_id=action.split(".", maxsplit=1)[0],
         hosts=hosts,
@@ -378,6 +391,7 @@ class Job[C: BaseModel, **P]:
             job.config,
             lambda: job.db,
             job.report,
+            lambda: job.voice,
             plugin_id=self.plugin_id,
             hosts=self.hosts,
         )
@@ -639,6 +653,30 @@ class Plugin(Generic[Cfg]):
         each time the plugin is turned back on, so check what is already there first. It runs as a job."""
         return self._listen("enable", func)
 
+    def on_track_end(
+        self, func: Callable[[Context[Cfg], str, str | None], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], str, str | None], Awaitable[None]]:
+        """Run `func` when audio the plugin played with `ctx.voice.play` runs out or fails, with the `track` it was
+        given and the error, or None when it simply ended (D53). Audio the plugin stopped or replaced does not
+        count. It runs as a job in the process holding the connection, so it can play the next track."""
+        return self._listen("track_end", func)
+
+    def on_voice_resume(
+        self, func: Callable[[Context[Cfg], VoiceChannel | None], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], VoiceChannel | None], Awaitable[None]]:
+        """Run `func` after a restart in each server whose voice channel the plugin held, with that channel, or None
+        when it is gone (D53). The restart dropped the connection, so the plugin joins again to carry on, or
+        leaves to give the connection up."""
+        return self._listen("voice_resume", func)
+
+    def on_voice_alone(
+        self, func: Callable[[Context[Cfg], VoiceChannel | None], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], VoiceChannel | None], Awaitable[None]]:
+        """Run `func` when the last member other than bots leaves the voice channel the plugin holds, with the
+        channel (D53). It runs as a job; someone may have come back by then, so check `channel.listener_ids`
+        before leaving, or schedule a job of the plugin's own to check after a grace period."""
+        return self._listen("voice_alone", func)
+
     def _listen[F: Callable[..., Awaitable[None]]](self, event: EventName, func: F) -> F:
         if event in self.listeners:
             raise SignatureError(f"{where(func)}: {self.id} already handles {event}")
@@ -661,10 +699,18 @@ class Plugin(Generic[Cfg]):
                 job.config,
                 lambda: job.db,
                 job.report,
+                lambda: job.voice,
                 plugin_id=self.id,
             )
             if event == "enable":
                 await func(context)
+                return
+            if event == "track_end":
+                error = job.payload.get("error")
+                await func(context, str(job.payload["track"]), str(error) if error is not None else None)
+                return
+            if event in ("voice_resume", "voice_alone"):
+                await func(context, context.guild.get_voice_channel(int(job.payload["channel_id"])))
                 return
             received = await _received(event, context.guild, job.payload)
             if received is not None:

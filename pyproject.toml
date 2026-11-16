@@ -41,6 +41,12 @@ Changelog = "https://github.com/teabot-dev/teabot/blob/main/CHANGELOG.md"
 Issues = "https://github.com/teabot-dev/teabot/issues"
 
 [project.optional-dependencies]
+# Voice for plugins that play audio (D53). discord.py 2.7 never calls davey 0.2's transition methods, so with
+# davey 0.2 every listener hears silence (S8); the pin lifts once discord.py supports it.
+voice = [
+    "discord-py[voice]>=2.6",
+    "davey>=0.1,<0.2",
+]
 testing = [
     "psycopg[binary]>=3.3",
     "pytest>=9.2",
@@ -70,6 +76,7 @@ dev = [
     "ruff>=0.17",
     "teabot-devtools",
     "teabot-polls",
+    "teabot[voice]",
 ]
 docs = ["zensical==0.1.1"]
 duplicate-check = ["teabot-devtools-twin"]

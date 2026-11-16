@@ -194,3 +194,34 @@ Run on 2026-11-14 with pyright in strict mode on Python 3.12, before building th
 - `Plugin` is declared with `Generic` and a `typing_extensions.TypeVar` default while teabot supports 3.12.
 - Signatures are read with `get_type_hints(..., include_extras=True)`, tested with a limit on an `Annotated` parameter.
 - A context with the wrong config also fails at load with a plain message, since pyright's is hard to read.
+
+## S8 voice and music from PyPI packages
+
+Run on 2026-11-15 on Windows 11 with Python 3.13, before designing voice (D6, D53). The question was whether a music plugin can play YouTube, Spotify and SoundCloud links in a voice channel using only packages from PyPI, with no separate audio server such as Lavalink. A plain discord.py client stood in for teabot, with discord.py 2.7.1 and its `voice` extra (PyNaCl, davey), PyAV 19.0.2, whose wheels bundle FFmpeg and libopus, yt-dlp 2026.10.26 with yt-dlp-ejs 0.8.0, and Deno 2.9.8, also installed from PyPI, which yt-dlp needs to solve YouTube's JavaScript challenges. Each package came in through `uv run --with`, so teabot's lock file was untouched. The script is `tmp/spikes/s8/music_spike.py`.
+
+| Check | Result |
+|---|---|
+| Resolve 18 sources and read their first 5 s of audio: 11 YouTube links (one on music.youtube.com, one inside a playlist), 3 Spotify tracks, 1 SoundCloud track, 2 searches | 17 played. One YouTube link was refused with 403 on its first try only |
+| Read a YouTube stream URL as soon as yt-dlp returns it | 403 every time, until the format's `available_at`, 5 to 6 s later; then it reads directly, with no Range requests needed |
+| What YouTube serves | Opus at 48 kHz in 20 ms packets, which Discord takes as they are |
+| A Spotify track | its page's `og:title` and `og:description` give the title and artist, with no API key; a YouTube search on them found the official video for all 3 |
+| Join a voice channel | 0.5 to 0.9 s; DAVE protocol 1 negotiated |
+| Play with davey 0.2.0, nobody listening, then with a member in the channel | plays without error, but with a member present the session never becomes ready: `can_encrypt` stayed false for 60 s, discord.py sent the audio unencrypted, and the member heard nothing while the bot showed as speaking |
+| The same with davey 0.1.7 | ready within 5 s, `can_encrypt` true at every check for 3 minutes; the member heard it clearly |
+| Time from request to first audio | YouTube 7.5 to 9 s, nearly all of it the `available_at` wait; SoundCloud 2.3 s |
+| Cost of one stream, 16-core machine | YouTube copied without re-encoding: 0.4 to 1% of one core. Re-encoded by PyAV's libopus (SoundCloud's AAC, or YouTube forced): about 2%. Memory 107 MB for the whole process, 15 MB above idle |
+| Kill the process mid-track without disconnecting, then start again | Discord still showed the bot in the channel; the new process joined in 0.5 s and played |
+| A whole track | 198 s played to the end, encrypted throughout, and the bot left |
+
+- **discord.py 2.7.1 and davey 0.2 do not work together.** davey 0.2 needs `prepare_transition` and `execute_transition` after a commit or welcome before it uses the new keys. discord.py 2.7.1 never calls them, since it was written against davey 0.1, and it requires only `davey>=0.1.0`. Any bot installing `discord.py[voice]` today gets silence for every listener. Nothing fails, so a test without a listener does not catch it.
+- **The YouTube wait is per track.** Joining while resolving hides the join, but not the wait. Resolving the next track while the current one plays hides it for every track after the first.
+- **PyAV covers decoding and encoding.** Its wheels carry FFmpeg and libopus, so neither an FFmpeg binary nor a system Opus library is needed, on Windows or, by its wheels, on Linux. Re-encoding needs each decoded frame's `pts` cleared before the resampler, which refuses the gaps Opus pre-skip leaves.
+- **Playback runs off the event loop.** discord.py's player reads each packet on its own thread, and yt-dlp blocks for a few seconds, so neither touches the loop (D33) as long as resolving runs in a thread.
+- **Not checked:** Linux, ARM wheels for PyAV and davey, several servers playing at once, seeking to resume mid-track, and how long a resolved stream URL stays valid.
+
+### Design changes from S8
+
+- Voice needs no separate audio server. D53 builds it on discord.py's voice client, with PyPI packages only.
+- teabot's `voice` extra pins `davey<0.2` until discord.py supports davey 0.2.
+- Sources are the music plugin's dependencies, not the core's: the core plays Opus packets, and the plugin finds them.
+- A music plugin resolves the next track while one plays, and keeps resolving off the event loop.

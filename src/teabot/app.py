@@ -31,6 +31,7 @@ from teabot.core.maintenance import Maintenance
 from teabot.core.processes import LockConnection, open_lock_connection
 from teabot.core.queue import NOTIFY_CHANNEL, Queue, ShardFilter
 from teabot.core.registry import Registry
+from teabot.core.voice import VoiceService
 from teabot.core.worker import Workers
 from teabot.dashboard.app import Dashboard
 from teabot.dashboard.oauth import DiscordOAuth
@@ -48,7 +49,8 @@ from teabot.web import build_app
 
 log = logging.getLogger(__name__)
 
-# teabot has no voice features, so discord.py's warnings about voice libraries are noise.
+# Voice is an extra (D53), and teabot says itself what is missing when a plugin joins a channel, so discord.py's
+# warnings about voice libraries are noise.
 discord.VoiceClient.warn_nacl = False
 discord.VoiceClient.warn_dave = False
 
@@ -96,6 +98,7 @@ class TeabotClient(discord.AutoShardedClient):
         self.router: InteractionRouter | None = None
         self.lifecycle: Guilds | None = None
         self.events: Events | None = None
+        self.voice: VoiceService | None = None
         self._shards: asyncio.Future[int] = asyncio.get_running_loop().create_future()
 
     async def setup_hook(self) -> None:
@@ -181,11 +184,23 @@ class TeabotClient(discord.AutoShardedClient):
     async def on_voice_state_update(
         self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
     ) -> None:
-        left = before.channel.id if before.channel is not None else None
-        joined = after.channel.id if after.channel is not None else None
-        if left == joined or member.bot:
+        """Members moving, for plugins that listen and for the plugin holding a channel the bot is left alone in,
+        and the bot's own moves, so a voice session follows it and ends when someone else disconnects it (D53)."""
+        if before.channel == after.channel:
             return
-        await self._fire(member.guild.id, "voice", {"user_id": member.id, "left": left, "joined": joined})
+        if self.user is not None and member.id == self.user.id:
+            if self.voice is not None:
+                await self.voice.bot_moved(member.guild.id, after.channel.id if after.channel else None)
+            return
+        if not member.bot:
+            await self._member_moved(member, before.channel, after.channel)
+
+    async def _member_moved(self, member: discord.Member, left: Any, joined: Any) -> None:
+        payload = {"user_id": member.id, "left": _channel_id(left), "joined": _channel_id(joined)}
+        await self._fire(member.guild.id, "voice", payload)
+        # discord.py updates the channel's members before dispatching, so the leaver is already gone from them.
+        if self.voice is not None and left is not None and not any(not m.bot for m in left.members):
+            await self.voice.alone(member.guild.id, left.id)
 
     async def on_guild_join(self, guild: discord.Guild) -> None:
         if self.lifecycle is not None:
@@ -204,6 +219,15 @@ class TeabotClient(discord.AutoShardedClient):
         shards = ShardFilter(self.shard_count, tuple(self.shard_ids or range(self.shard_count)))
         joined, left = await self.lifecycle.reconcile([g.id for g in self.guilds], shards)
         log.info("servers reconciled", extra={"joined": joined, "left": left})
+        if self.voice is not None:
+            resumed = await self.voice.resume_sessions(shards)
+            log.info("voice sessions resumed", extra={"count": resumed})
+
+    async def close(self) -> None:
+        """Leave voice channels first, keeping their sessions, so the next process resumes them (D53)."""
+        if self.voice is not None:
+            await self.voice.close()
+        await super().close()
 
     async def wait_for_shards(self) -> int:
         return await asyncio.shield(self._shards)
@@ -272,6 +296,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     core = assemble(report, pools, queue, client, settings.public_url)
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     client.events = core.events
+    client.voice = core.voice
     queue.register("core", PURGE_GUILD, client.lifecycle.purge)
     log.info("command syncs queued", extra={"count": await core.sync.startup()})
     log.info("recurring jobs queued", extra={"servers": await core.recurring.startup()})
@@ -348,3 +373,7 @@ async def main(settings: Settings) -> int:
 def run(settings: Settings) -> int:
     """asyncio's debug mode in dev mode reports callbacks slower than 100 ms (D33)."""
     return asyncio.run(main(settings), debug=settings.dev_mode)
+
+
+def _channel_id(channel: Any) -> int | None:
+    return None if channel is None else int(channel.id)

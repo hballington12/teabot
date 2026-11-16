@@ -415,7 +415,8 @@ Each item is an addition to the design, with what triggers it.
 | A per-member store (D8) | several plugins writing the same small per-member tables | a Red-style scoped store with Pydantic models per scope |
 | OAuth 2.1 (D16) | staff need claude.ai or the desktop app, whose custom connectors use OAuth, and before the hosted service opens | a second issuer of `core.tokens` rows, with Discord login and a consent screen that picks one server and a maximum risk |
 | Egress in the manifest, with consent and enforcement (D12) | the hosted service | an `egress` manifest field, RuneLite-style consent at enable time, and an HTTP client that refuses undeclared hosts |
-| Context-menu commands, voice hooks, MCP resources, HTTP routes (D6) | a plugin that needs one | new `Registrar` methods in a minor SDK release |
+| Voice (D53) | a music plugin, after S8 | `ctx.voice` with `join`, `play`, `stop`, `leave` and `state`; `core.voice_sessions`; `on_track_end` and `on_voice_resume` jobs; a fake connection in `teabot.testing`; and a `voice` extra pinning `davey<0.2`, in a minor SDK release |
+| Context-menu commands, MCP resources, HTTP routes (D6) | a plugin that needs one | new `Registrar` methods in a minor SDK release |
 
 Notes for the OAuth work, checked against `mcp` 2.3.0 (pin `mcp>=2.3,<3`):
 

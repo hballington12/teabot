@@ -29,6 +29,7 @@ from teabot.sdk.guild import (
     ReceivedMessage,
     Role,
     TextChannel,
+    VoiceChannel,
 )
 from teabot.sdk.permissions import Permission
 
@@ -236,6 +237,11 @@ class MemberView:
     @property
     def timed_out_until(self) -> datetime | None:
         return self.raw.timed_out_until
+
+    @property
+    def voice_channel_id(self) -> int | None:
+        channel = getattr(getattr(self.raw, "voice", None), "channel", None)
+        return int(channel.id) if channel is not None else None
 
     def _role_to_change(self, role: Role) -> Any:
         found = self.guild.get_role(role.id)
@@ -490,6 +496,32 @@ class ChannelView:
         return bool(is_nsfw()) if callable(is_nsfw) else False
 
 
+def is_voice(channel: Any) -> bool:
+    """A voice channel, which the bot can join to play audio. Not a stage, where it would join as audience."""
+    return channel is not None and _kind(channel) == "voice"
+
+
+@dataclass(frozen=True)
+class VoiceChannelView:
+    raw: Any
+
+    @property
+    def id(self) -> int:
+        return int(self.raw.id)
+
+    @property
+    def name(self) -> str:
+        return str(self.raw.name)
+
+    @property
+    def mention(self) -> str:
+        return f"<#{self.id}>"
+
+    @property
+    def listener_ids(self) -> frozenset[int]:
+        return frozenset(int(m.id) for m in self.raw.members if not m.bot)
+
+
 @dataclass(frozen=True)
 class GuildView:
     raw: Any
@@ -540,6 +572,10 @@ class GuildView:
     def get_channel(self, channel_id: int, /) -> Channel | None:
         channel = self._find_channel(channel_id)
         return ChannelView(channel) if channel is not None else None
+
+    def get_voice_channel(self, channel_id: int, /) -> VoiceChannel | None:
+        channel = self.raw.get_channel(channel_id)
+        return VoiceChannelView(channel) if is_voice(channel) else None
 
     def get_role(self, role_id: int, /) -> Role | None:
         role = self.raw.get_role(role_id)

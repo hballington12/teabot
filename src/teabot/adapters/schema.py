@@ -22,7 +22,17 @@ USER = 2
 MESSAGE = 3
 MENUS_MAX = 5
 SUB_COMMAND = 1
-OPTION_TYPES = {"string": 3, "integer": 4, "boolean": 5, "member": 6, "channel": 7, "role": 8}
+OPTION_TYPES = {
+    "string": 3,
+    "integer": 4,
+    "boolean": 5,
+    "member": 6,
+    "channel": 7,
+    "voice_channel": 7,
+    "role": 8,
+}
+# Discord's picker for a voice channel option lists only voice channels, type 2.
+VOICE_CHANNEL_TYPES = [2]
 
 
 @dataclass(frozen=True)
@@ -74,6 +84,8 @@ def _option(field: InputField, name: str, required: bool, suggested: bool = Fals
     }
     if suggested:
         option["autocomplete"] = True
+    if field.kind == "voice_channel":
+        option["channel_types"] = VOICE_CHANNEL_TYPES
     if field.choices is not None:
         option["choices"] = [{"name": str(value), "value": value} for value in field.choices]
     if field.max_length is not None:

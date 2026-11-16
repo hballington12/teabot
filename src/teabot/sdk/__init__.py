@@ -43,8 +43,13 @@ The server (D45):
   the bot sent can be edited or deleted.
 - `Choice`: one suggestion an action's `@action.autocomplete("option")` function gives as the member types.
 
+Voice (D53):
+- `Voice`: the server's one voice connection, as `ctx.voice`: join a `VoiceChannel`, play `Packets` of Opus
+  audio, pause, stop and leave. `VoiceState` is where the bot is and what it plays. `@plugin.on_track_end` and
+  `@plugin.on_voice_resume` run when audio ends and after a restart.
+
 Field types (D23, D29):
-- `ChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
+- `ChannelRef`, `VoiceChannelRef`, `RoleRef`, `MemberRef`: Discord IDs, which are strings in JSON.
 - `LongText`: multi-line text, which Discord collects in a modal.
 - `UntrustedText`: member-written text in an output, which MCP marks as untrusted.
 
@@ -74,7 +79,7 @@ from teabot.sdk.actions import (
 from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Plugin
 from teabot.sdk.components import BoundAction, Button, ButtonStyle, Option, Select, SelectKind
 from teabot.sdk.db import Bound, Db, Outbox, Post, Queries, Row, Scheduler, Tx
-from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText
+from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText, VoiceChannelRef
 from teabot.sdk.guild import (
     Attachment,
     Ban,
@@ -91,6 +96,7 @@ from teabot.sdk.guild import (
     TextChannel,
     User,
     VoiceChange,
+    VoiceChannel,
 )
 from teabot.sdk.http import HostNotDeclared, Http, Response
 from teabot.sdk.ids import InvalidPluginId
@@ -100,6 +106,7 @@ from teabot.sdk.plans import Diff, DiffEntry
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
 from teabot.sdk.settings import InstanceSettings
 from teabot.sdk.store import Store
+from teabot.sdk.voice import Packets, Voice, VoiceState
 
 __all__ = [
     "DESTRUCTIVE",
@@ -145,6 +152,7 @@ __all__ = [
     "Message",
     "Option",
     "Outbox",
+    "Packets",
     "Permission",
     "Plugin",
     "Post",
@@ -168,5 +176,9 @@ __all__ = [
     "UntrustedText",
     "User",
     "Via",
+    "Voice",
     "VoiceChange",
+    "VoiceChannel",
+    "VoiceChannelRef",
+    "VoiceState",
 ]

@@ -19,6 +19,7 @@ from pydantic import BaseModel, ValidationError
 
 from teabot.core.config import ConfigError, ConfigStore
 from teabot.core.loader import Loaded
+from teabot.core.voice import VoiceService
 from teabot.db.pool import GuildPluginDatabase, Pools
 from teabot.sdk import ActionError, ActionSpec, Actor, Choice, Risk, Surface
 from teabot.sdk.plans import Diff
@@ -167,6 +168,7 @@ class PluginActionContext:
     open_db: Callable[[], GuildPluginDatabase] | None
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None
     diff: Diff | None = None
+    open_voice: Callable[[], Any] | None = None
 
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """A destructive action's progress, written to its apply job; elsewhere nothing (D21)."""
@@ -182,6 +184,12 @@ class PluginActionContext:
     @property
     def queue(self) -> GuildPluginDatabase:
         return self.db
+
+    @property
+    def voice(self) -> Any:
+        if self.open_voice is None:
+            raise RuntimeError("built-in actions have no voice connection")
+        return self.open_voice()
 
 
 @dataclass(frozen=True)
@@ -236,6 +244,8 @@ class Registry:
         plans: PlanBook | None = None,
     ) -> None:
         self.sources = sources
+        # The voice service gives plugin calls `ctx.voice` (D53); `assemble` sets it.
+        self.voice: VoiceService | None = None
         self.pools = pools
         self.config = ConfigStore(pools.core_db())
         self.client = client
@@ -324,7 +334,12 @@ class Registry:
             if source.builtin
             else partial(self.pools.guild_plugin_db, plugin_id, call.guild_id, call.actor.user_id)
         )
-        return PluginActionContext(guild, call.actor, config, open_db), data
+        open_voice = (
+            None
+            if source.builtin or self.voice is None
+            else partial(self.voice.bound, plugin_id, call.guild_id)
+        )
+        return PluginActionContext(guild, call.actor, config, open_db, open_voice=open_voice), data
 
     async def suggest(
         self, action: str, guild_id: int, user_id: int, option: str, typed: str

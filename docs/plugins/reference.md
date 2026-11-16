@@ -82,7 +82,8 @@ Every parameter after the context is an input. Each may be optional (`X | None =
 | `Literal["a", "b"]`, or a `Literal` of ints | a choice |
 | `LongText` | multi-line text, typed in a modal |
 | `TextChannel`, `Role`, `Member` | a picker; the function receives the channel, role or member itself |
-| `ChannelRef`, `RoleRef`, `MemberRef` | a picker; the function receives the Discord ID |
+| `VoiceChannel` | a picker of voice channels only; the function receives the channel (1.4) |
+| `ChannelRef`, `VoiceChannelRef`, `RoleRef`, `MemberRef` | a picker; the function receives the Discord ID |
 | `list[X]` of any of these but `LongText`, with `Field(max_length=...)` up to 10 | numbered options, such as `roles_1` to `roles_5`; MCP clients send an array |
 
 - Limits go in `Annotated[int, Field(ge=1, le=20)]` or `Annotated[str, Field(max_length=100)]`. Discord enforces them before the member sends.
@@ -141,6 +142,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - `ctx.now`: the time. Read the clock only through it, since tests move it.
 - `ctx.diff`: in a destructive action's apply, the confirmed plan, and an empty `Diff` everywhere else.
 - `await ctx.report(progress)`: progress for `/admin job_status`.
+- `ctx.voice`: the server's voice connection, which the plugin joins, plays through and leaves. [Voice](#voice) says how.
 
 To post, send to a `TextChannel`:
 
@@ -290,6 +292,57 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 - Every message in a busy server queues one job for each listening plugin, so keep the handler quick, such as one statement.
 - A role change is heard for members teabot has seen since it started, such as by a command, a join or a lookup. Discord tells it of others only once they are seen.
 - `emoji` is the character, such as `"⭐"`, or a server emoji as `"<:raids:123>"`, as a `Button`'s `emoji` takes it.
+
+## Voice
+
+Added in 1.8. A plugin plays audio in a voice channel through `ctx.voice`. It needs teabot's voice extra: depend
+on `teabot[voice]`.
+
+```python
+@plugin.action()
+async def play(ctx: Ctx, channel: VoiceChannel) -> str:
+    """Play the anthem.
+
+    Args:
+        channel: Where to play it.
+    """
+    await ctx.voice.join(channel)
+    await ctx.voice.play(anthem_packets(), track="anthem")
+    return "Playing."
+
+
+@plugin.on_track_end
+async def ended(ctx: Ctx, track: str, error: str | None) -> None:
+    await ctx.voice.leave()
+
+
+@plugin.on_voice_resume
+async def resumed(ctx: Ctx, channel: VoiceChannel | None) -> None:
+    await ctx.voice.leave()
+```
+
+- A bot has one voice connection per server. The plugin that joins holds it until it leaves, and another
+  plugin's `join` is refused while it does. `ctx.voice.state` says where the bot is, which plugin holds the
+  connection and what plays, or is `None`.
+- `join(channel)` joins a voice channel, or moves there. It refuses, with a reason the member sees, a channel the
+  bot may not connect or speak in. Stages are not voice channels: on one, the bot would join as audience.
+- `play(packets, track=...)` plays an iterable of Opus packets, each 20 ms of 48 kHz stereo, as Discord sends
+  them. It stops what was playing first. The core reads the packets on a thread of its own, so the iterable may
+  block, as one reading a stream does; decoding is the plugin's own, such as with PyAV. `track` names the audio.
+- `pause()`, `resume()`, `stop()` and `leave()` do what they say. Audio the plugin stops or replaces, and audio
+  cut off by leaving, does not end as an event.
+- `@plugin.on_track_end` runs when audio runs out, or fails with the error's text, as a job in the process holding
+  the connection, so it can play the next track. A failure is retried, up to three attempts.
+- `@plugin.on_voice_resume` runs after a restart in each server whose connection the plugin held, with the
+  channel, or `None` when it is gone. The restart dropped the connection: join again to carry on, or leave to
+  give it up. A plugin without the handler loses its connection at a restart.
+- `@plugin.on_voice_alone` runs when the last member other than bots leaves the bot's channel, with the channel.
+  Someone may be back by the time it runs, so check `channel.listener_ids`, or schedule a job of the plugin's own
+  to check after a grace period, before leaving.
+- A moderator disconnecting the bot ends the session, without an event.
+- A slash command can default to the member's own channel, from `member.voice_channel_id` and
+  `ctx.guild.get_voice_channel(...)`. An MCP or service call should name the channel, since a token's member is
+  rarely in one.
 
 ## The database
 
@@ -458,8 +511,11 @@ async def digest(ctx: Ctx) -> None:
 | `harness.post(channel, member, text, files=)` | post a message as `member`, with any `File`s, fire it, and return it, to react to |
 | `harness.react(message, member, emoji)` | fire a reaction; `remove=True` takes it off |
 | `harness.change_roles(member, added=[...], removed=[...])` | change a member's roles and fire it |
-| `harness.voice(member, joined=channel, left=channel)` | fire a voice move |
+| `harness.voice(member, joined=channel, left=channel)` | fire a voice move; with a `FakeVoiceChannel`, the member is in it from then on, and when only bots are left with the bot in `left`, the plugin holding it hears `on_voice_alone` |
 | `harness.enable()` | turn the plugin on as `/plugins enable` would, running `on_enable`; the harness starts with it on without running it |
+| `harness.voice_connection` | the bot's `FakeVoiceConnection` once the plugin has joined: its `channel`, `paused`, and `tracks`; `take(n)` reads packets of the audio playing as the player would |
+| `harness.end_track(error=None)` | ends the audio playing as running out, or failing, would, and runs `on_track_end` |
+| `harness.restart_voice()` | drops the voice connection as a restart would, and runs `on_voice_resume` |
 | `harness.autocomplete(action, "option", typed)` | the suggestions a member sees after typing `typed`; `as_member(m).autocomplete(...)` as someone else, who sees none if they may not run the action |
 | `harness.run_job(job.bind(...))` | runs the job now, as if scheduled again; use it after the job's first run, then check that nothing changed again |
 | `harness.advance(minutes=...)` | moves the clock for `ctx.now`, `now()` in the plugin's SQL, and when jobs fall due; the jobs then due run at the next `run_jobs` |
@@ -467,7 +523,7 @@ async def digest(ctx: Ctx) -> None:
 | `harness.invoke(name, raw)` | calls by name with raw input, as a front door would; for testing refusals of bad input |
 | `harness.admin` | a connection that can read every table, for checking what a test wrote |
 
-- `harness.guild.add_channel(FakeChannel())` adds a channel, whose `sent` lists what was posted. `FakeChannel(forbidden=True)` refuses to send, and `FakeVoiceChannel` takes no messages.
+- `harness.guild.add_channel(FakeChannel())` adds a channel, whose `sent` lists what was posted. `FakeChannel(forbidden=True)` refuses to send, and `FakeVoiceChannel` takes no messages. A member is in a voice channel when its `voice_channel` is set; `FakeVoiceChannel(refuse_connect=True)` or `refuse_speak=True` stands for the bot lacking the permission.
 - `harness.guild.add_member(permissions, roles=[...], cached=False)` adds a member, found only over REST when `cached=False`. The fake member records what the bot did to it: its `roles`, `nick`, `timed_out_until`, `kicked`, the `dms` it was sent, and every `reasons` given.
 - `harness.guild.add_role(name, position=, permissions=, managed=)` adds a role, above the test's other roles and below the bot's, at position 100, unless `position` says otherwise.
 - A fake message keeps its `buttons`, `select`, `attachments`, how many `edits` it had, and whether it was `deleted`. `harness.guild.banned` holds the bans.

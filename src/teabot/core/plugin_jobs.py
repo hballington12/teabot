@@ -12,6 +12,7 @@ from teabot.core.loader import Loaded
 from teabot.core.queue import JobContext as CoreJobContext
 from teabot.core.queue import Queue
 from teabot.core.recurring import Recurring
+from teabot.core.voice import GuildVoice, VoiceService
 from teabot.db.pool import GuildPluginDatabase, Pools
 from teabot.sdk import JobHandler
 from teabot.sdk.actions import JOB_TIMEOUT
@@ -30,6 +31,13 @@ class PluginJobContext:
     core: CoreJobContext
     started_by: int | None = None
     config: Any = None
+    open_voice: GuildVoice | None = None
+
+    @property
+    def voice(self) -> GuildVoice:
+        if self.open_voice is None:
+            raise RuntimeError("this job has no voice connection")
+        return self.open_voice
 
     async def report(self, progress: Mapping[str, Any]) -> None:
         await self.core.report(dict(progress))
@@ -37,17 +45,27 @@ class PluginJobContext:
 
 @dataclass(frozen=True)
 class _Runtime:
-    """What every plugin job runs with: the pools, the Discord client, and the recurring jobs."""
+    """What every plugin job runs with: the pools, the Discord client, the recurring jobs and voice."""
 
     pools: Pools
     client: Any
     recurring: Recurring | None = None
+    voice: VoiceService | None = None
+
+
+@dataclass(frozen=True)
+class JobServices:
+    """The core's services that plugin jobs use, besides the pools and the client."""
+
+    recurring: Recurring | None = None
+    voice: VoiceService | None = None
 
 
 def _adapt(
     plugin_id: str, handler: JobHandler, runtime: _Runtime, config: type[BaseModel], recurs: bool
 ) -> Any:
     pools, client, recurring = runtime.pools, runtime.client, runtime.recurring if recurs else None
+    voice = runtime.voice
     store = ConfigStore(pools.core_db())
 
     async def run(core: CoreJobContext) -> None:
@@ -66,18 +84,22 @@ def _adapt(
         started_by = core.job.started_by
         db = pools.guild_plugin_db(plugin_id, guild_id, started_by)
         settings = await store.load(guild_id, plugin_id, config)
-        await handler(PluginJobContext(guild_id, core.job.payload, db, client, core, started_by, settings))
+        bound = voice.bound(plugin_id, guild_id) if voice is not None else None
+        await handler(
+            PluginJobContext(guild_id, core.job.payload, db, client, core, started_by, settings, bound)
+        )
 
     return run
 
 
 def register_plugin_jobs(
-    queue: Queue, loaded: Mapping[str, Loaded], pools: Pools, client: Any, recurring: Recurring | None = None
+    queue: Queue, loaded: Mapping[str, Loaded], pools: Pools, client: Any, services: JobServices | None = None
 ) -> None:
     """Register every loaded plugin's jobs. A recurring one queues its next run as it starts."""
+    services = services or JobServices()
     for plugin_id, plugin in loaded.items():
         config = plugin.plugin.manifest.config
-        runtime = _Runtime(pools, client, recurring)
+        runtime = _Runtime(pools, client, services.recurring, services.voice)
         for name, handler in plugin.jobs.items():
             adapted = _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
             queue.register(plugin_id, name, adapted, plugin.timeouts.get(name, JOB_TIMEOUT))

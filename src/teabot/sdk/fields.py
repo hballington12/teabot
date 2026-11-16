@@ -1,8 +1,8 @@
 """Field types for action inputs and outputs (D23, D29).
 
-- `ChannelRef`, `RoleRef` and `MemberRef` hold a Discord ID. They accept a positive integer, a string of digits,
-  or a mention as Discord writes it (`<#123>`, `<@&123>`, `<@123>`), so an admin can paste either, and are strings
-  in JSON and its schema, because snowflakes exceed JavaScript's safe integers.
+- `ChannelRef`, `VoiceChannelRef`, `RoleRef` and `MemberRef` hold a Discord ID. They accept a positive integer, a
+  string of digits, or a mention as Discord writes it (`<#123>`, `<@&123>`, `<@123>`), so an admin can paste
+  either, and are strings in JSON and its schema, because snowflakes exceed JavaScript's safe integers.
 - `LongText` is multi-line text up to Discord's modal limit, which slash options cannot hold.
 - `UntrustedText` marks member-written text in outputs, which MCP wraps in an untrusted marker.
 """
@@ -41,7 +41,7 @@ def parse_snowflake(value: object) -> int:
 class Ref:
     """A Discord ID of one kind: parsed once where it enters, a string in JSON (D29)."""
 
-    kind: Literal["channel", "role", "member"]
+    kind: Literal["channel", "voice_channel", "role", "member"]
 
     def __get_pydantic_core_schema__(
         self, _source: Any, _handler: GetCoreSchemaHandler
@@ -68,6 +68,7 @@ class Untrusted:
 
 
 ChannelRef = Annotated[int, Ref("channel")]
+VoiceChannelRef = Annotated[int, Ref("voice_channel")]
 RoleRef = Annotated[int, Ref("role")]
 MemberRef = Annotated[int, Ref("member")]
 LongText = Annotated[str, Long(), StringConstraints(max_length=LONG_TEXT_MAX)]

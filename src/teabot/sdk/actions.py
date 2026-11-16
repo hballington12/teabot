@@ -14,6 +14,7 @@ from teabot.sdk.db import Db, Scheduler
 from teabot.sdk.ids import PLUGIN_ID_RE
 from teabot.sdk.inputs import input_fields
 from teabot.sdk.plans import Diff
+from teabot.sdk.voice import Voice
 
 ACTION_NAME_RE = re.compile(rf"({PLUGIN_ID_RE.pattern})\.([a-z][a-z0-9_]{{0,31}})")
 
@@ -103,6 +104,11 @@ class ActionContext(Protocol):
     @property
     def diff(self) -> "Diff | None":
         """In a destructive action's apply, the diff of the plan the member confirmed; None elsewhere."""
+        ...
+
+    @property
+    def voice(self) -> Voice:
+        """The server's voice connection, as this plugin sees it (D53)."""
         ...
 
     async def report(self, progress: Mapping[str, Any], /) -> None:

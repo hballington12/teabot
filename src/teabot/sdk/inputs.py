@@ -16,7 +16,9 @@ from pydantic.fields import FieldInfo
 from teabot.sdk.fields import Long, Ref
 from teabot.sdk.guild import ReceivedMessage
 
-type InputKind = Literal["string", "long", "integer", "boolean", "channel", "role", "member", "message"]
+type InputKind = Literal[
+    "string", "long", "integer", "boolean", "channel", "voice_channel", "role", "member", "message"
+]
 DESCRIPTION_MAX = 100
 LIST_MAX = 10
 
