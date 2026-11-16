@@ -60,3 +60,15 @@ def test_a_listing_with_a_bad_id_or_source_gets_no_page(tmp_path: Path) -> None:
 def test_without_the_catalogue_the_section_says_so(tmp_path: Path) -> None:
     assert hub.write(None, tmp_path) == []
     assert "could not be read" in (tmp_path / "index.md").read_text()
+
+
+def test_a_card_shows_title_version_description_and_author(tmp_path: Path) -> None:
+    hub.write(catalogue(author="Sam", description="word " * 80), tmp_path)
+    index = (tmp_path / "index.md").read_text()
+    assert '<span class="teabot-hub-version">1.0.0</span>' in index and "by Sam" in index
+    assert "…" in index and ("word " * 40) not in index
+
+
+def test_without_an_author_the_repository_owner_stands_in(tmp_path: Path) -> None:
+    hub.write(catalogue(), tmp_path)
+    assert "by someone" in (tmp_path / "index.md").read_text()

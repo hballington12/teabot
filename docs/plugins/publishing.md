@@ -10,6 +10,13 @@ Copy `plugins/<id>/` into a repository of its own. It is already a complete pack
 
 Add a `LICENSE` file, such as the MIT licence, which says others may use it. The plugin hub lists open-source plugins only.
 
+Name yourself as its author in `pyproject.toml`. The plugin hub shows it on the plugin's card, and refuses a listing without one:
+
+```toml title="pyproject.toml"
+[project]
+authors = [{ name = "Your name" }]
+```
+
 ## 2. Depend on a range of teabot
 
 In `pyproject.toml`, depend on the teabot versions your plugin works with. The scaffold writes the range of the teabot it was made with:

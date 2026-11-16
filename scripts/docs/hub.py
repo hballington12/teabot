@@ -69,15 +69,8 @@ hide:
 
 # Plugin hub
 
-Plugins that add to what Teabot does, each reviewed by Teabot's maintainers at the exact version listed. The plugins
-that come with Teabot, [announcements](../use/plugins/announcements.md) and [roles](../use/plugins/roles.md), are not
-listed here: every Teabot has them.
-
-- **Guild admins:** on the public Teabot, every plugin here is ready. Turn one on in the
-  [dashboard]({dashboard}), or with [`/plugins enable`](../use/plugins.md).
-- **Self-hosters:** install one with `uv run teabot hub add <id>`, or all of them with `uv run teabot hub sync`. See
-  [Adding plugins](../host/adding-plugins.md).
-- **Plugin developers:** to list yours, see [Publishing a plugin](../plugins/publishing.md).
+Here you can browse plugins for Teabot. To contribute to the plugin hub, see
+[Publishing a plugin](../plugins/publishing.md).
 """
 
 
@@ -85,14 +78,32 @@ listed here: every Teabot has them.
 GENERATED = '<span class="teabot-generated" hidden></span>'
 
 
+def author(plugin: dict[str, Any]) -> str:
+    """Who made the plugin: the author its package names, or, for a listing from before the hub asked, the owner
+    of its repository."""
+    named = str(plugin.get("author") or "").strip()
+    return named or str(plugin["repository"]).split("/")[3]
+
+
+def short(words: str, limit: int = 160) -> str:
+    """At most `limit` characters, cut at a word with an ellipsis; the card also clamps it to three lines."""
+    if len(words) <= limit:
+        return words
+    return words[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
+
+
 def card(plugin: dict[str, Any]) -> str:
+    """A plugin's card: its icon, title and version on one row, its description, then who made it."""
     newest = plugin["versions"][0]
+    description = text(short(" ".join(str(plugin.get("description") or "").split()))) or "No description."
     return (
-        "-   :lucide-puzzle:{ .teabot-badge }\n\n"
-        f"    [{text(plugin['id'])}]({plugin['id']}.md)\n\n"
-        f"    {text(plugin.get('description')) or 'No description.'}\n\n"
-        f"    <small>{text(newest.get('version'))} · "
-        f"contacts: {text(newest.get('external_connections')) or 'none given'}</small>\n"
+        f"-   :lucide-puzzle:{{ .teabot-badge }} [{text(plugin['id'])}]({plugin['id']}.md) "
+        f'<span class="teabot-hub-version">{text(newest.get("version"))}</span>\n'
+        "    { .teabot-hub-head }\n\n"
+        f"    {description}\n"
+        "    { .teabot-hub-description }\n\n"
+        f"    by {text(author(plugin))}\n"
+        "    { .teabot-hub-author }\n"
     )
 
 
@@ -130,6 +141,7 @@ def page(plugin: dict[str, Any]) -> str:
 [Source]({repo}){{ .md-button }}
 
 - **Version:** {text(newest.get("version"))}
+- **Author:** {text(author(plugin))}
 - **Contacts:** {text(newest.get("external_connections")) or "none given"}
 - **Installs:** {others}
 - **Licence:** {text(plugin.get("licence")) or "not given"}

@@ -209,7 +209,8 @@
   .md-typeset .grid.cards.teabot-paths > ul > li { aspect-ratio: auto; padding: 1.4rem 1.2rem; }
 }
 
-/* The plugin hub's cards (scripts/docs/hub.py): the feature cards' look, each wholly clickable through its title. */
+/* The plugin hub's cards (scripts/docs/hub.py): icon, title and version on one row, then the description cut to
+   three lines, then the author at the foot. Each card is wholly clickable through its title. */
 .md-typeset .grid.cards.teabot-hub { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media screen and (max-width: 76.1875em) {
   .md-typeset .grid.cards.teabot-hub { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -217,21 +218,54 @@
 @media screen and (max-width: 44.9375em) {
   .md-typeset .grid.cards.teabot-hub { grid-template-columns: 1fr; }
 }
-.md-typeset .grid.cards.teabot-hub > ul > li { position: relative; }
-.md-typeset .grid.cards.teabot-hub > ul > li a {
-  font-size: 0.85rem;
+.md-typeset .grid.cards.teabot-hub > ul > li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.md-typeset .grid.cards.teabot-hub .teabot-hub-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+}
+.md-typeset .grid.cards.teabot-hub .teabot-hub-head a {
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--md-default-fg-color);
   text-decoration: none;
 }
-.md-typeset .grid.cards.teabot-hub > ul > li a::after {
+.md-typeset .grid.cards.teabot-hub .teabot-hub-head a::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
 }
+.md-typeset .grid.cards.teabot-hub .teabot-hub-version {
+  margin-left: auto;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--md-primary-fg-color);
+  background: color-mix(in srgb, var(--md-primary-fg-color) 14%, transparent);
+}
+.md-typeset .grid.cards.teabot-hub .teabot-hub-description {
+  margin: 0 0 0.8rem;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  color: var(--md-default-fg-color);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.md-typeset .grid.cards.teabot-hub .teabot-hub-author {
+  margin: auto 0 0;
+  font-size: 0.66rem;
+  color: var(--md-default-fg-color--light);
+}
 .md-typeset .grid.cards.teabot-hub > ul > li:focus-within {
   outline: 2px solid var(--md-primary-fg-color);
   outline-offset: 2px;
 }
-.md-typeset .grid.cards.teabot-hub small { color: var(--md-default-fg-color--light); }
