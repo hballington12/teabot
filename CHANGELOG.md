@@ -13,6 +13,8 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Writing plugins
 
+- `ctx.http` works in event handlers, such as `on_message`, which reached no host before.
+- A plugin that streams media, such as music, may reach its media hosts through its media library, such as yt-dlp, when its README lists them. See [Reaching the web](https://teabot-dev.github.io/teabot/plugins/reference/#reaching-the-web).
 - Voice: `ctx.voice` joins a voice channel, plays Opus packets the plugin supplies, pauses, stops and leaves. The plugin that joins holds the server's one connection. `@plugin.on_track_end` runs when audio runs out or fails, `@plugin.on_voice_resume` after a restart, so a plugin carries on where it was, and `@plugin.on_voice_alone` when everyone else has left the bot's channel. A `VoiceChannel` input is a picker of voice channels. The harness plays through a fake connection, with `harness.voice_connection`, `harness.end_track()`, `harness.restart_voice()`, and `harness.voice(member, left=channel)` runs `on_voice_alone`.
 
 ## 1.8.0 - 2026-11-16
