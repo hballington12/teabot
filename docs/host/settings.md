@@ -14,6 +14,7 @@ On a [bare-metal host](bare-metal.md), the file is `/etc/teabot/teabot.env`, and
 |---|---|
 | `TEABOT_DISCORD_TOKEN` | The bot's token. `setup.sh` writes it. |
 | `TEABOT_PUBLIC_URL` | Your bot's public HTTPS address, so AI assistants on other machines can connect. See [HTTPS](production.md#https). |
+| `TEABOT_DISCORD_CLIENT_SECRET` | The application's OAuth2 client secret, which turns on the dashboard. See [The dashboard](production.md#the-dashboard). |
 | `TEABOT_DISABLED_PLUGINS` | Plugins turned off in every server. See [Adding plugins](adding-plugins.md#turn-a-plugin-off-everywhere). |
 | `TEABOT_GUILD_RETENTION_DAYS` | How long a server's data is kept after the bot leaves it. |
 | `TEABOT_MESSAGE_CONTENT` | `true` lets plugins read what members write. Turn on **Message Content Intent** under **Bot** in the Discord developer portal first. A bot in more than 100 servers needs Discord's approval for it. |

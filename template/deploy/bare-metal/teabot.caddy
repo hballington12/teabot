@@ -1,12 +1,15 @@
 # teabot's Caddy site block. setup-host.sh installs it as /etc/caddy/teabot.caddy with the real
 # hostname in place of teabot.example.org, and imports it from the main Caddyfile.
-# Only /mcp and /api reach teabot. /healthz and everything else stay on localhost. Caddy passes the
+# Only /mcp, /api and the dashboard reach teabot. /healthz and everything else stay on localhost. Caddy passes the
 # original Host header through, which the MCP server checks.
 teabot.example.org {
 	handle /mcp {
 		reverse_proxy 127.0.0.1:8780
 	}
 	handle /api/* {
+		reverse_proxy 127.0.0.1:8780
+	}
+	handle /dashboard* {
 		reverse_proxy 127.0.0.1:8780
 	}
 	handle {

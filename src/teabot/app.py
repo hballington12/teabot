@@ -22,6 +22,7 @@ import teabot
 from teabot.adapters.interactions import InteractionRouter, prune_drafts
 from teabot.adapters.mcp import McpAdapter
 from teabot.assembly import assemble
+from teabot.cli.init import application_id
 from teabot.core.audit import AuditMaintenance, ensure_read_partitions
 from teabot.core.events import Events
 from teabot.core.lifecycle import PURGE_GUILD, Guilds
@@ -29,7 +30,11 @@ from teabot.core.loader import LoadReport, discover, load
 from teabot.core.maintenance import Maintenance
 from teabot.core.processes import LockConnection, open_lock_connection
 from teabot.core.queue import NOTIFY_CHANNEL, Queue, ShardFilter
+from teabot.core.registry import Registry
 from teabot.core.worker import Workers
+from teabot.dashboard.app import Dashboard
+from teabot.dashboard.oauth import DiscordOAuth
+from teabot.dashboard.sessions import Sessions
 from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, connect, create_pools
@@ -253,6 +258,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
 
     async def prune(_today: date) -> None:
         await prune_drafts(pools.core_db())
+        await Sessions(pools.core_db()).prune()
 
     daily = [AuditMaintenance(pools.core_db()).run, prune]
     queue.register("core", "maintenance", Maintenance(queue, daily=daily))
@@ -280,6 +286,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
             tokens=core.tokens,
             mcp=McpAdapter(core.registry, pools.core_db(), hosts=public_hosts(settings)),
             service=core.registry,
+            dashboard=dashboard_for(settings, core.registry, pools, client),
         ),
         host=settings.http_host,
         port=settings.http_port,
@@ -290,6 +297,18 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     return Runtime(
         token, teabot.__version__, pools, lock, workers, client, server, statuses, stop=stop, failed=failed
     )
+
+
+def dashboard_for(settings: Settings, registry: Registry, pools: Pools, client: Any) -> Dashboard | None:
+    """The dashboard, when the instance has a public address for Discord to send members back to, and the OAuth2
+    client secret of its application; else none."""
+    secret = settings.discord_client_secret.get_secret_value()
+    client_id = application_id(settings.discord_token.get_secret_value())
+    if not secret or not settings.public_url or client_id is None:
+        return None
+    base = settings.public_url.rstrip("/")
+    oauth = DiscordOAuth(client_id, secret, f"{base}/dashboard/callback")
+    return Dashboard(registry, Sessions(pools.core_db()), oauth, client, secure=base.startswith("https://"))
 
 
 def stop_on_signals(loop: asyncio.AbstractEventLoop, stop: asyncio.Event) -> None:

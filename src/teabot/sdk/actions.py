@@ -34,7 +34,8 @@ class Risk(IntEnum):
 
 class Surface(Flag):
     """The front doors an action appears on (D1): a slash command, an MCP tool, the service API, a button or
-    select menu on a post, and a right-click menu on a member or a message, for an action given `menu=`.
+    select menu on a post, a right-click menu on a member or a message, for an action given `menu=`, and the
+    dashboard, where admins manage plugins in a browser.
     `Surface.COMPONENT` alone makes an action that only its buttons and menus reach."""
 
     SLASH = auto()
@@ -42,10 +43,11 @@ class Surface(Flag):
     SERVICE = auto()
     COMPONENT = auto()
     MENU = auto()
-    ALL = SLASH | MCP | SERVICE | COMPONENT | MENU
+    WEB = auto()
+    ALL = SLASH | MCP | SERVICE | COMPONENT | MENU | WEB
 
 
-type Via = Literal["slash", "component", "menu", "mcp", "service", "job", "event"]
+type Via = Literal["slash", "component", "menu", "web", "mcp", "service", "job", "event"]
 """How a call came in (D1): a slash command, a button, an MCP tool or the service API; or, with no member
 behind it, a job or a Discord event."""
 

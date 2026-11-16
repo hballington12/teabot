@@ -29,7 +29,7 @@ AI assistants and your own services reach teabot over HTTP, on `127.0.0.1:8780`.
     sudo systemctl reload caddy
     ```
 
-    The site file forwards only `/mcp` and `/api`, keeps the `Host` header that teabot checks, and answers everything else with 404:
+    The site file forwards only `/mcp`, `/api` and the dashboard, keeps the `Host` header that teabot checks, and answers everything else with 404:
 
     ```text title="deploy/bare-metal/teabot.caddy"
     --8<-- "template/deploy/bare-metal/teabot.caddy"
@@ -46,6 +46,26 @@ AI assistants and your own services reach teabot over HTTP, on `127.0.0.1:8780`.
     ```
 
 `/tokens create` then gives AI assistants this address.
+
+## The dashboard
+
+With a public address, your servers' admins can manage teabot's plugins in a browser, at `https://your.hostname/dashboard`, after signing in with Discord. They see the servers they manage that teabot is in, and turn plugins on and off and change their settings there, with the same permission checks as `/plugins`. To turn it on:
+
+1. In the [Discord developer portal](https://discord.com/developers/applications), open your application, then **OAuth2**.
+2. Under **Redirects**, add `https://your.hostname/dashboard/callback`, and save.
+3. Copy the **Client Secret**, resetting it if it shows none, and put it in `teabot.env`:
+
+    ```ini title="teabot.env"
+    TEABOT_DISCORD_CLIENT_SECRET=the-client-secret
+    ```
+
+4. Recreate the bot:
+
+    ```bash
+    docker compose up -d --force-recreate bot
+    ```
+
+Without a public address or the secret, there is no dashboard, and `/dashboard` answers 404.
 
 ## Watch the health check
 

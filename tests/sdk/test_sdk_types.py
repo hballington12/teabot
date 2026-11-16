@@ -88,7 +88,7 @@ def test_risks_are_ordered() -> None:
 
 
 def test_actions_default_to_every_surface() -> None:
-    every = Surface.SLASH | Surface.MCP | Surface.SERVICE | Surface.COMPONENT | Surface.MENU
+    every = Surface.SLASH | Surface.MCP | Surface.SERVICE | Surface.COMPONENT | Surface.MENU | Surface.WEB
     assert spec().surfaces == Surface.ALL == every
 
 

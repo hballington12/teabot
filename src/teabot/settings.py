@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TEABOT_", extra="ignore", frozen=True)
 
     discord_token: SecretStr = SecretStr("")
+    discord_client_secret: SecretStr = SecretStr("")
     dev_mode: bool = False
 
     db_host: str = "127.0.0.1"

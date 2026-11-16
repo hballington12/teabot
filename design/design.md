@@ -241,3 +241,9 @@ The design targets a framework that many people run and that grows to many serve
     - Each night, the newest teabot and every listed plugin are locked together. A clash opens an issue, rather than failing the pull request of an author who caused none of it.
     - The plugins inside teabot are not listed, and their ids are refused, as are the reserved ones (D46).
     - The maintainers delist a plugin that proves harmful, breaks and stays broken, or whose author asks. An instance keeps what it installed, and `teabot hub outdated` says the plugin is no longer listed.
+52. **Each service serves a dashboard, where a server's admins manage its plugins after signing in with Discord.**
+    - It is on when the instance has a public address and its application's OAuth2 client secret, at `/dashboard`. Signing in asks Discord for `identify` and `guilds`, reads the member and the servers they manage once, and keeps no Discord token.
+    - A sign-in is a row in `core.web_sessions`, holding only the hash of the cookie's random token, as tokens do (D16), and lasting a week. Each form carries the session's own token, so another site cannot submit one in the member's name.
+    - Every change goes through the registry as the member, through the `web` door, so it checks their live Discord permissions and the audit log records it, as `/plugins` does. The dashboard adds no rule of its own about who may do what.
+    - Pages are HTML with no scripts. What a plugin is and what it contacts come from the hub's catalogue (D51), read at most hourly.
+    - Installing code stays with the operator, through `teabot hub sync` (D51). A plugin's lifecycle as a server sees it is turning it on, changing its settings and turning it off.

@@ -6,12 +6,17 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- The dashboard: admins sign in with Discord at `/dashboard`, pick a server they manage, and turn its plugins on and off and change their settings, with the same permission checks and audit log as `/plugins`.
+
 ### For operators
 
 - The template's `compose.yaml` and `teabot.service` gain a memory limit, and `teabot.env.example` the watchdog's settings. Take them from the template to have them, as in [Upgrade](production.md#upgrade).
 
 ### Self-hosting
 
+- `TEABOT_DISCORD_CLIENT_SECRET`, with `TEABOT_PUBLIC_URL`, turns on the dashboard. The bare-metal Caddy file forwards `/dashboard`. See [The dashboard](production.md#the-dashboard).
 - `teabot hub sync` installs every plugin the hub lists, each at the newest reviewed version this teabot runs, for an instance that offers the whole hub to its servers. `--check` says what would change. `teabot hub add`, `show` and `outdated` also pick the newest reviewed version this teabot runs, since the hub's catalogue now lists every reviewed version with the teabot range it needs.
 - A watchdog logs a plugin that holds the event loop for a second, as `event loop blocked` with the plugin, file and line, and stops the process after thirty seconds held, for Compose or systemd to restart it. `TEABOT_LOOP_WARN_SECONDS`, `TEABOT_LOOP_LIMIT_SECONDS` and `TEABOT_STARTUP_LIMIT_SECONDS` set the limits.
 - A job that stops the process on every attempt is failed, with "the process stopped while running it", where it used to run again after every restart.

@@ -63,4 +63,6 @@ Change one. The `plugin` and `setting` options suggest names as you type:
 
 Each plugin lists its settings: [Announcements](plugins/announcements.md) and [Roles](plugins/roles.md) here, and a plugin from the hub in the README its hub listing links to.
 
-**Next:** [Who can use what](permissions.md).
+Admins can do the same in a browser, if your teabot has the [dashboard](dashboard.md).
+
+**Next:** [The dashboard](dashboard.md).

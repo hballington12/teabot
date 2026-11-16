@@ -16,6 +16,7 @@ nav = [
   { "Using teabot" = [
     { "Add teabot to your server" = "use/index.md" },
     { "Turn on plugins" = "use/plugins.md" },
+    { "The dashboard" = "use/dashboard.md" },
     { "Who can use what" = "use/permissions.md" },
     { "Confirming changes" = "use/confirming.md" },
     { "The audit log" = "use/audit.md" },

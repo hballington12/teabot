@@ -50,6 +50,7 @@ SURFACE_OF = {
     "mcp": Surface.MCP,
     "service": Surface.SERVICE,
     "menu": Surface.MENU,
+    "web": Surface.WEB,
 }
 
 

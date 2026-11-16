@@ -285,7 +285,7 @@ class Admin:
                 risk,
                 run,
                 default_permissions=MANAGE_SERVER,
-                surfaces=Surface.SLASH,
+                surfaces=Surface.SLASH | Surface.WEB,
                 render=render,
                 suggest=suggest.get(name, {}),
             )

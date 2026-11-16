@@ -97,6 +97,16 @@ def fetch(url: str = DEFAULT_HUB, transport: httpx.BaseTransport | None = None) 
         return parse(reply.json())
 
 
+async def fetch_async(
+    url: str = DEFAULT_HUB, transport: httpx.AsyncBaseTransport | None = None
+) -> dict[str, Listed]:
+    """`fetch` for the running bot, which must not block its event loop."""
+    async with httpx.AsyncClient(transport=transport, timeout=15, follow_redirects=True) as client:
+        reply = await client.get(url)
+        reply.raise_for_status()
+        return parse(reply.json())
+
+
 def installed(pyproject: Path) -> dict[str, str]:
     """The plugins an instance installed from git at a commit, as the hub installs them: each one's commit, by
     package."""
