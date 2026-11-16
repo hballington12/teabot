@@ -6,6 +6,25 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- A teabot with a public address has its own site there. Its home page shows the bot and an **Add to your server** button. Its plugin browser, at `/plugins`, shows each plugin, and once you sign in with Discord and choose a server, you turn plugins on and off and change their settings in place. It replaces the dashboard, and `/dashboard` leads there. See [Your teabot's site](https://teabot-dev.github.io/teabot/use/site/).
+
+### For operators
+
+- Signing in now returns to `https://your.hostname/auth/callback`. Before upgrading, add it under **OAuth2**, **Redirects** in the Discord developer portal. Admins cannot sign in until it is there.
+- Caddy must forward the whole site. Replace `/etc/caddy/teabot.caddy` with the template's `deploy/bare-metal/teabot.caddy`, with your hostname in it, and reload Caddy.
+- Put your privacy policy and terms in `pages/privacy.md` and `pages/terms.md`, and the site shows them at `/privacy` and `/terms`. A Docker instance needs a `pages/` folder, even an empty one, since its image copies it.
+
+### Self-hosting
+
+- `TEABOT_SITE_PAGES` names the folder with `privacy.md` and `terms.md`, `pages` if left out.
+- `/plugins.json` lists the plugins your teabot runs, which the plugin hub reads.
+
+### Writing plugins
+
+- `Plugin(..., description="...")` says in a sentence what a plugin does, for a teabot's plugin browser.
+
 ## 1.7.0 - 2026-11-16
 
 ### Writing plugins

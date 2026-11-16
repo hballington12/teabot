@@ -9,6 +9,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 # Every package in plugins/ is one of the instance's plugins, so the sync installs them all.
 COPY plugins ./plugins
+# The site's privacy policy and terms, when the operator writes them.
+COPY pages ./pages
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --all-packages
 

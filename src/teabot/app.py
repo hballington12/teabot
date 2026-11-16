@@ -32,9 +32,6 @@ from teabot.core.processes import LockConnection, open_lock_connection
 from teabot.core.queue import NOTIFY_CHANNEL, Queue, ShardFilter
 from teabot.core.registry import Registry
 from teabot.core.worker import Workers
-from teabot.dashboard.app import Dashboard
-from teabot.dashboard.oauth import DiscordOAuth
-from teabot.dashboard.sessions import Sessions
 from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
 from teabot.db.naming import Naming
 from teabot.db.pool import ConnectionInfo, Credentials, Login, Pools, Timing, connect, create_pools
@@ -43,6 +40,9 @@ from teabot.runtime import Runtime, serve_until_stopped
 from teabot.sdk._views import attachments
 from teabot.sdk.plugin import EventName
 from teabot.settings import Settings
+from teabot.site.app import Site
+from teabot.site.oauth import DiscordOAuth
+from teabot.site.sessions import Sessions
 from teabot.watchdog import watching
 from teabot.web import build_app
 
@@ -288,7 +288,7 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
             tokens=core.tokens,
             mcp=McpAdapter(core.registry, pools.core_db(), hosts=public_hosts(settings)),
             service=core.registry,
-            dashboard=dashboard_for(settings, core.registry, pools, client),
+            site=site_for(settings, core.registry, pools, client, report),
         ),
         host=settings.http_host,
         port=settings.http_port,
@@ -301,16 +301,30 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
     )
 
 
-def dashboard_for(settings: Settings, registry: Registry, pools: Pools, client: Any) -> Dashboard | None:
-    """The dashboard, when the instance has a public address for Discord to send members back to, and the OAuth2
-    client secret of its application; else none."""
-    secret = settings.discord_client_secret.get_secret_value()
-    client_id = application_id(settings.discord_token.get_secret_value())
-    if not secret or not settings.public_url or client_id is None:
+def site_for(
+    settings: Settings, registry: Registry, pools: Pools, client: Any, report: LoadReport
+) -> Site | None:
+    """The instance's site (D53), when it has a public address. Members can sign in when the operator also gives
+    the OAuth2 client secret of its application, for Discord to send them back to `/auth/callback`."""
+    if not settings.public_url:
         return None
     base = settings.public_url.rstrip("/")
-    oauth = DiscordOAuth(client_id, secret, f"{base}/dashboard/callback")
-    return Dashboard(registry, Sessions(pools.core_db()), oauth, client, secure=base.startswith("https://"))
+    secret = settings.discord_client_secret.get_secret_value()
+    client_id = application_id(settings.discord_token.get_secret_value())
+    oauth = (
+        DiscordOAuth(client_id, secret, f"{base}/auth/callback") if secret and client_id is not None else None
+    )
+    manifests = {plugin_id: loaded.plugin.manifest for plugin_id, loaded in report.loaded.items()}
+    return Site(
+        registry,
+        Sessions(pools.core_db()),
+        oauth,
+        client,
+        manifests,
+        client_id,
+        secure=base.startswith("https://"),
+        pages_dir=settings.site_pages,
+    )
 
 
 def stop_on_signals(loop: asyncio.AbstractEventLoop, stop: asyncio.Event) -> None:

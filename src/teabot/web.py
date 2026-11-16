@@ -1,5 +1,5 @@
 """The HTTP app (D28, D36): `/healthz` for anyone; `/mcp` and `/api` behind the bearer-token check; and the
-dashboard, behind Discord sign-in, when the instance has a public address and an OAuth2 client secret.
+instance's site (D53), when it has a public address, with sign-in when it also has an OAuth2 client secret.
 
 The MCP session manager lives for the app's lifespan, so uvicorn runs with its lifespan on: startup and
 shutdown happen in one task, which the SDK's task group needs.
@@ -19,8 +19,8 @@ from teabot.adapters.service_api import ServiceApi
 from teabot.auth.middleware import BearerTokens
 from teabot.auth.tokens import Tokens
 from teabot.core.registry import Registry
-from teabot.dashboard.app import Dashboard
 from teabot.health import Health
+from teabot.site.app import Site
 
 GUARDED = ("/mcp", "/api")
 
@@ -31,7 +31,7 @@ def build_app(
     tokens: Tokens | None = None,
     mcp: McpAdapter | None = None,
     service: Registry | None = None,
-    dashboard: Dashboard | None = None,
+    site: Site | None = None,
 ) -> Starlette:
     async def healthz(_request: Request) -> JSONResponse:
         report = await health.check()
@@ -42,8 +42,8 @@ def build_app(
         routes.append(Route("/mcp", endpoint=mcp.asgi()))
     if service is not None:
         routes.extend(ServiceApi(service).routes())
-    if dashboard is not None:
-        routes.extend(dashboard.routes())
+    if site is not None:
+        routes.extend(site.routes())
 
     @contextlib.asynccontextmanager
     async def lifespan(_app: Starlette) -> AsyncGenerator[None]:

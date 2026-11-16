@@ -31,6 +31,7 @@ dependencies = [
     "watchfiles>=1.0",
     "httpx>=0.28",
     "packaging>=24",
+    "markdown-it-py>=3",
 ]
 
 
@@ -166,7 +167,7 @@ forbidden_modules = [
     "teabot.builtin",
     "teabot.catalogue",
     "teabot.cli",
-    "teabot.dashboard",
+    "teabot.site",
     "teabot.core",
     "teabot.db",
     "teabot.envfile",
@@ -193,7 +194,7 @@ forbidden_modules = [
     "teabot.builtin",
     "teabot.catalogue",
     "teabot.cli",
-    "teabot.dashboard",
+    "teabot.site",
     "teabot.core",
     "teabot.db",
     "teabot.envfile",
@@ -218,7 +219,7 @@ source_modules = [
     "teabot.builtin",
     "teabot.catalogue",
     "teabot.cli",
-    "teabot.dashboard",
+    "teabot.site",
     "teabot.core",
     "teabot.db",
     "teabot.runtime",

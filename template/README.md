@@ -10,6 +10,7 @@ This folder is your own teabot: which plugins it runs, your own plugins, and how
 - `pyproject.toml`: the plugins this instance runs. `uv.lock`, which `setup.sh` makes, pins their exact versions; commit it.
 - `teabot.env.example`: every setting, explained. `setup.sh` copies it to `teabot.env`, which never goes into git.
 - `.env`: the database password and your user and group ids, for Compose. Written by `setup.sh`; never goes into git.
+- `pages/`: your site's privacy policy and terms, as `privacy.md` and `terms.md`.
 - `plugins/`: plugins you write for this instance, made with `uv run teabot new-plugin <id>`.
 - `deploy/bare-metal/`: the careful setup on a dedicated Ubuntu server, with HTTPS and continuous backups. See https://teabot-dev.github.io/teabot/host/bare-metal/
 

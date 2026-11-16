@@ -1,4 +1,4 @@
-"""Dashboard sign-ins, kept in `core.web_sessions`. The browser holds a random token; the table holds its hash."""
+"""Site sign-ins, kept in `core.web_sessions`. The browser holds a random token; the table holds its hash."""
 
 import hashlib
 import secrets
@@ -26,7 +26,7 @@ def _hash(token: str) -> bytes:
 @dataclass(frozen=True)
 class Session:
     """A signed-in member: their Discord ID and name, the servers they manage, and the token every form sends
-    back to prove it came from the dashboard."""
+    back to prove it came from the site."""
 
     user_id: int
     name: str

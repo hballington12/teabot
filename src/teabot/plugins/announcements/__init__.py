@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from teabot.sdk import ActionError, Context, EmptyConfig, LongText, Plugin, TextChannel
 
-plugin = Plugin("announcements")
+plugin = Plugin("announcements", description="Post announcements to a channel, now or at a time you choose.")
 type Ctx = Context[EmptyConfig]
 
 type Colour = Literal["blurple", "green", "red", "gold"]

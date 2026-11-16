@@ -2,7 +2,7 @@
 
 Plugin columns of the type `teabot.member_id` hold members' IDs, so deletion finds them through the catalog, in
 every plugin, with no plugin code: a row with the member in such a column is deleted, and the member is taken out
-of a `teabot.member_id[]` column. In the core, their tokens, dashboard sign-ins and unsent drafts are deleted, and
+of a `teabot.member_id[]` column. In the core, their tokens, site sign-ins and unsent drafts are deleted, and
 their ID is taken out of the audit log and the job and settings records, which keep what was done but no longer by whom.
 """
 
@@ -23,7 +23,7 @@ ANONYMOUS = 0
 CORE_STEPS = (
     ("tokens", "DELETE FROM core.tokens WHERE user_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)"),
     # A sign-in spans servers, so only deleting everywhere ends it.
-    ("dashboard sign-ins", "DELETE FROM core.web_sessions WHERE user_id = $1 AND $2::bigint IS NULL"),
+    ("site sign-ins", "DELETE FROM core.web_sessions WHERE user_id = $1 AND $2::bigint IS NULL"),
     (
         "drafts",
         "DELETE FROM core.interaction_drafts WHERE user_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",

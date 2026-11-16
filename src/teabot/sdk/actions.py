@@ -35,7 +35,7 @@ class Risk(IntEnum):
 class Surface(Flag):
     """The front doors an action appears on (D1): a slash command, an MCP tool, the service API, a button or
     select menu on a post, a right-click menu on a member or a message, for an action given `menu=`, and the
-    dashboard, where admins manage plugins in a browser.
+    instance's site, where admins manage plugins in a browser.
     `Surface.COMPONENT` alone makes an action that only its buttons and menus reach."""
 
     SLASH = auto()

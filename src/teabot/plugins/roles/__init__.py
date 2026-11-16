@@ -35,7 +35,9 @@ from teabot.sdk import (
     UntrustedText,
 )
 
-plugin = Plugin("roles")
+plugin = Plugin(
+    "roles", description="Posts with a button for each role, which members press to take it or give it back."
+)
 type Ctx = Context[EmptyConfig]
 
 BUTTONS_MAX = 25

@@ -30,12 +30,14 @@ class Manifest:
     - `version` is the plugin's own version, shown by `teabot plugins list`.
     - `config` is the pydantic model of its per-server config (D10); `EmptyConfig` when it has none.
     - `migrations` is the directory of its numbered SQL migrations (D9), or None when it has no tables.
+    - `description` says in a sentence what it does, for the instance's plugin browser.
     """
 
     id: str
     version: str
     config: type[BaseModel] = EmptyConfig
     migrations: Path | None = None
+    description: str = ""
 
     def __post_init__(self) -> None:
         check_plugin_id_free(self.id)

@@ -390,6 +390,7 @@ class Plugin(Generic[Cfg]):
     """A plugin: its id, its per-server config, and the actions and jobs decorated with it.
 
     The version comes from the plugin's package, and migrations from a `migrations/` directory beside it.
+    `description`, a sentence on what it does, shows in the instance's plugin browser.
     """
 
     # Python 3.12 has no syntax for a type parameter's default, so this uses Generic and typing_extensions.
@@ -400,8 +401,10 @@ class Plugin(Generic[Cfg]):
         config: type[Cfg] = EmptyConfig,
         migrations: Path | None = None,
         hosts: Iterable[str] = (),
+        description: str = "",
     ) -> None:
         self.id = id
+        self.description = description
         self.hosts = frozenset(hosts)
         self.config = config
         self._migrations = migrations
@@ -545,7 +548,11 @@ class Plugin(Generic[Cfg]):
     def manifest(self) -> Manifest:
         """What the core needs before loading the plugin, worked out from its package."""
         return Manifest(
-            self.id, self._version or _version_of(self._module), self.config, self._migrations_dir()
+            self.id,
+            self._version or _version_of(self._module),
+            self.config,
+            self._migrations_dir(),
+            self.description,
         )
 
     def _migrations_dir(self) -> Path | None:

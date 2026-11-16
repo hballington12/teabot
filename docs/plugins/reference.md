@@ -40,11 +40,12 @@ Worked examples, which import only `teabot.sdk` like yours: [giveaways](https://
 ```python
 from teabot.sdk import Context, Plugin
 
-plugin = Plugin("raffles", config=RafflesConfig)
+plugin = Plugin("raffles", config=RafflesConfig, description="Raffles that members enter with a button.")
 type Ctx = Context[RafflesConfig]
 ```
 
-- `Plugin(id, *, config=EmptyConfig, migrations=None)`. The version comes from the installed package, and migrations from `migrations/` beside the module that made the plugin, unless `migrations` names another directory.
+- `Plugin(id, *, config=EmptyConfig, migrations=None, hosts=(), description="")`. The version comes from the installed package, and migrations from `migrations/` beside the module that made the plugin, unless `migrations` names another directory.
+- `description` is one sentence on what the plugin does. A teabot's site shows it in its plugin browser. Added in 1.8.
 - The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teabot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load.
 - When the plugin loads, teabot imports every module of its package, so decorated functions in any module register themselves. It skips `tests`, modules whose names start with `_`, and `__main__`.
 - Anything that fails while the plugin loads fails that plugin alone, which keeps none of its registrations. Everything else still loads.

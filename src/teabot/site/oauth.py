@@ -31,7 +31,7 @@ class Member:
 
 @dataclass(frozen=True)
 class DiscordOAuth:
-    """`client_id` is the bot's application ID; `secret` its OAuth2 client secret; `redirect_uri` the dashboard's
+    """`client_id` is the bot's application ID; `secret` its OAuth2 client secret; `redirect_uri` the site's
     callback, which the developer portal must list under OAuth2, Redirects."""
 
     client_id: int

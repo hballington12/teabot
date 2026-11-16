@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     http_host: str = "127.0.0.1"
     http_port: int = 8780
     public_url: str | None = None
+    site_pages: Path = Path("pages")
 
     disabled_plugins: Annotated[tuple[str, ...], NoDecode] = ()
     guild_retention_days: int = Field(default=30, ge=0)

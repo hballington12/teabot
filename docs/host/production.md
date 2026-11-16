@@ -29,7 +29,7 @@ AI assistants and your own services reach teabot over HTTP, on `127.0.0.1:8780`.
     sudo systemctl reload caddy
     ```
 
-    The site file forwards only `/mcp`, `/api` and the dashboard, keeps the `Host` header that teabot checks, and answers everything else with 404:
+    The site file forwards everything to teabot, its site, `/mcp` and `/api`, except the health check, which stays on the machine. It keeps the `Host` header that teabot checks:
 
     ```text title="deploy/bare-metal/teabot.caddy"
     --8<-- "template/deploy/bare-metal/teabot.caddy"
@@ -47,12 +47,19 @@ AI assistants and your own services reach teabot over HTTP, on `127.0.0.1:8780`.
 
 `/tokens create` then gives AI assistants this address.
 
-## The dashboard
+## Your teabot's site
 
-With a public address, your servers' admins can manage teabot's plugins in a browser, at `https://your.hostname/dashboard`, after signing in with Discord. They see the servers they manage that teabot is in, and turn plugins on and off and change their settings there, with the same permission checks as `/plugins`. To turn it on:
+With a public address, your teabot serves its own site there, at `https://your.hostname/`:
+
+- **The home page**, with your bot's name and avatar, an **Add to your server** button, and its plugins.
+- **The plugin browser**, at `/plugins`, with a page for each plugin. Your servers' admins sign in with Discord, choose a server, and turn plugins on and off or change their settings in place, with the same permission checks as `/plugins` and the same [audit log](../use/audit.md).
+- **Your privacy policy and terms**, at `/privacy` and `/terms`, from `pages/privacy.md` and `pages/terms.md` in your instance's folder. Each shows, and is linked from every page's footer, once its file exists. Write them in Markdown.
+- **`/plugins.json`**, the plugins your teabot runs, which the plugin hub reads to say which plugins a teabot offers.
+
+The site shows without sign-in. To let admins sign in:
 
 1. In the [Discord developer portal](https://discord.com/developers/applications), open your application, then **OAuth2**.
-2. Under **Redirects**, add `https://your.hostname/dashboard/callback`, and save.
+2. Under **Redirects**, add `https://your.hostname/auth/callback`, and save.
 3. Copy the **Client Secret**, resetting it if it shows none, and put it in `teabot.env`:
 
     ```ini title="teabot.env"
@@ -65,7 +72,7 @@ With a public address, your servers' admins can manage teabot's plugins in a bro
     docker compose up -d --force-recreate bot
     ```
 
-Without a public address or the secret, there is no dashboard, and `/dashboard` answers 404.
+Without the secret, the site shows, and its pages say to use `/plugins` in Discord. Without a public address, there is no site.
 
 ## Watch the health check
 
