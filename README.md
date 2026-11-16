@@ -27,7 +27,7 @@
 
 ## Quick start
 
-1. **Add our bot.** [Connect](https://discord.com/oauth2/authorize?client_id=1570928156100264097&scope=bot+applications.commands&permissions=8) to our public Teabot service.
+1. **Use the official Teabot.** Add it to your server from [its site](https://teabot.tea-osrs.com/), and turn its plugins on there.
 2. **Host it yourself.** Follow the [quick start](https://teabot-dev.github.io/teabot/host/): with Docker, you have your own Teabot running in about 15 minutes.
 
 ## Plugins
@@ -44,7 +44,7 @@ More, such as giveaways, are on the [plugin hub](https://teabot-dev.github.io/te
 ## Documentation
 
 Everything is on the [documentation site](https://teabot-dev.github.io/teabot/):
-- [Using Teabot](https://teabot-dev.github.io/teabot/use/plugins/): plugins, permissions, the dashboard and AI assistants. To add it, [connect](https://discord.com/oauth2/authorize?client_id=1570928156100264097&scope=bot+applications.commands&permissions=8) to our public service.
+- [Using Teabot](https://teabot-dev.github.io/teabot/use/plugins/): plugins, permissions, your teabot's site and AI assistants.
 - [Self-hosting](https://teabot-dev.github.io/teabot/host/): running your own, from nothing to a live bot.
 - [Writing plugins](https://teabot-dev.github.io/teabot/plugins/): your first plugin, a tutorial, and the reference.
 - [Release notes](https://teabot-dev.github.io/teabot/host/changelog/).

@@ -3,7 +3,8 @@
 It writes `docs/hub/index.md`, a card for each listed plugin, and `docs/hub/<id>.md`, a page for each. Every page is
 built from the catalogue's fields alone, and every value an author wrote is escaped, so nothing from a plugin's
 README or description can add HTML or links to the site. When the catalogue cannot be read, the section says so and
-the build still passes. Run it before building the docs; the files it writes are not committed.
+the build still passes. A plugin's page offers it on the official Teabot only when that instance's `/plugins.json`
+lists it (D53). Run it before building the docs; the files it writes are not committed.
 """
 
 import html
@@ -12,12 +13,12 @@ import re
 import sys
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 CATALOGUE = "https://teabot-dev.github.io/plugin-hub/catalogue.json"
 OUT = Path("docs/hub")
-# The public teabot's dashboard, where a guild admin turns a listed plugin on.
-DASHBOARD = "https://teabot.tea-osrs.com/dashboard"
+# The official Teabot, one instance among any: its site, and the plugins it offers, which its /plugins.json lists.
+OFFICIAL = "https://teabot.tea-osrs.com"
 HUB_REPO = "https://github.com/teabot-dev/plugin-hub"
 PLUGIN_ID = re.compile(r"[a-z][a-z0-9_]{1,31}")
 COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -36,6 +37,15 @@ def teabot_range(version: dict[str, Any]) -> str:
     """The teabot versions a plugin version runs on, as written when it is a version range, else unknown."""
     found = str(version.get("teabot", ""))
     return f"`teabot{found}`" if RANGE.fullmatch(found) else "unknown"
+
+
+def offered(site: str = OFFICIAL) -> set[str] | None:
+    """The plugins the official Teabot offers, or None when its list cannot be read, so the pages claim nothing."""
+    found = read(f"{site}/plugins.json")
+    if found is None:
+        return None
+    listed: list[Any] = list(found.get("plugins", []))
+    return {str(cast(dict[str, Any], p).get("id")) for p in listed if isinstance(p, dict)}
 
 
 def read(source: str) -> dict[str, Any] | None:
@@ -108,7 +118,7 @@ def card(plugin: dict[str, Any]) -> str:
 
 
 def index(plugins: list[dict[str, Any]], reachable: bool) -> str:
-    out = INTRO.format(dashboard=DASHBOARD) + f"\n{GENERATED}\n"
+    out = INTRO + f"\n{GENERATED}\n"
     if not reachable:
         return (
             out
@@ -120,7 +130,24 @@ def index(plugins: list[dict[str, Any]], reachable: bool) -> str:
     return out + f'\n<div class="grid cards teabot-features teabot-hub" markdown>\n\n{cards}\n</div>\n'
 
 
-def page(plugin: dict[str, Any]) -> str:
+def official(pid: str, offers: set[str] | None) -> tuple[str, str]:
+    """The button and the section for using a plugin on the official Teabot, by what its list says."""
+    if offers is None:
+        return "", (
+            f"See whether the official Teabot offers it among [its plugins]({OFFICIAL}/plugins). If it does, open "
+            "its page there, sign in with Discord, choose your server and switch it on."
+        )
+    if pid not in offers:
+        return "", "The official Teabot does not offer it yet. Its operator chooses which plugins it runs."
+    link = f"{OFFICIAL}/plugins/{pid}"
+    button = f"[Use it on the official Teabot]({link}){{ .md-button .md-button--primary }}\n"
+    return button, (
+        f"Open [its page on the official Teabot]({link}), sign in with Discord, choose your server and switch it "
+        f"on. Or run this in your server:\n\n```text\n/plugins enable plugin:{pid}\n```"
+    )
+
+
+def page(plugin: dict[str, Any], offers: set[str] | None = None) -> str:
     pid = plugin["id"]
     newest = plugin["versions"][0]
     repo = plugin["repository"]
@@ -132,13 +159,13 @@ def page(plugin: dict[str, Any]) -> str:
         for v in plugin["versions"]
     )
     requirement = f"teabot-{pid} @ git+{repo}.git@{newest['commit']}"
+    button, on_official = official(pid, offers)
     return f"""{GENERATED}
 # {text(pid)}
 
 {text(plugin.get("description")) or "No description."}
 
-[Enable in your server]({DASHBOARD}){{ .md-button .md-button--primary }}
-[Source]({repo}){{ .md-button }}
+{button}[Source]({repo}){{ .md-button }}
 
 - **Version:** {text(newest.get("version"))}
 - **Author:** {text(author(plugin))}
@@ -152,16 +179,13 @@ Every version was reviewed at the commit shown. Teabot installs the newest one i
 |---|---|---|
 {rows}
 
-## Turn it on
+## Use it
 
-On the public Teabot it is installed already. In the [dashboard]({DASHBOARD}), choose your server and turn
-**{text(pid)}** on, or run this in your server:
+### On the official Teabot
 
-```text
-/plugins enable plugin:{pid}
-```
+{on_official}
 
-## Install it on your own Teabot
+### On your own teabot
 
 In your instance's folder:
 
@@ -175,13 +199,14 @@ Without uv on the machine:
 docker compose run --rm uv add "{requirement}"
 ```
 
-Then rebuild with `docker compose up -d --build`. See [Adding plugins](../host/adding-plugins.md).
+Then rebuild with `docker compose up -d --build`, and switch it on in your teabot's site or with
+`/plugins enable`. See [Adding plugins](../host/adding-plugins.md).
 
 **Back to:** [the plugin hub](index.md)
 """
 
 
-def write(catalogue: dict[str, Any] | None, out: Path) -> list[str]:
+def write(catalogue: dict[str, Any] | None, out: Path, offers: set[str] | None = None) -> list[str]:
     """Write the section into `out`, replacing what was there. Returns the plugin ids given pages."""
     out.mkdir(parents=True, exist_ok=True)
     for old in out.glob("*.md"):
@@ -189,12 +214,12 @@ def write(catalogue: dict[str, Any] | None, out: Path) -> list[str]:
     plugins = listed(catalogue) if catalogue is not None else []
     (out / "index.md").write_text(index(plugins, catalogue is not None))
     for plugin in plugins:
-        (out / f"{plugin['id']}.md").write_text(page(plugin))
+        (out / f"{plugin['id']}.md").write_text(page(plugin, offers))
     return [p["id"] for p in plugins]
 
 
 if __name__ == "__main__":
     source = sys.argv[1] if len(sys.argv) > 1 else CATALOGUE
     target = Path(sys.argv[2]) if len(sys.argv) > 2 else OUT
-    ids = write(read(source), target)
+    ids = write(read(source), target, offered())
     print(f"plugin hub: {len(ids)} plugins{': ' + ', '.join(ids) if ids else ''}")

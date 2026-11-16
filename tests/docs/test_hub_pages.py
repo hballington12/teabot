@@ -72,3 +72,19 @@ def test_a_card_shows_title_version_description_and_author(tmp_path: Path) -> No
 def test_without_an_author_the_repository_owner_stands_in(tmp_path: Path) -> None:
     hub.write(catalogue(), tmp_path)
     assert "by someone" in (tmp_path / "index.md").read_text()
+
+
+def test_a_plugin_the_official_teabot_offers_links_to_its_page_there(tmp_path: Path) -> None:
+    hub.write(catalogue(), tmp_path, {"wom"})
+    shown = (tmp_path / "wom.md").read_text()
+    assert "[Use it on the official Teabot](https://teabot.tea-osrs.com/plugins/wom)" in shown
+    assert "uv run teabot hub add wom" in shown
+
+
+def test_a_plugin_it_does_not_offer_says_so_and_an_unread_list_claims_nothing(tmp_path: Path) -> None:
+    hub.write(catalogue(), tmp_path, set())
+    assert "does not offer it yet" in (tmp_path / "wom.md").read_text()
+    hub.write(catalogue(), tmp_path, None)
+    shown = (tmp_path / "wom.md").read_text()
+    assert "Use it on the official Teabot" not in shown and "does not offer" not in shown
+    assert "See whether the official Teabot offers it" in shown

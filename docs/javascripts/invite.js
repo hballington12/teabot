@@ -1,8 +1,8 @@
-// Two buttons in the header, on every page: one that adds the public teabot to a server, and one that opens the
-// plugin hub. Added with a script rather than by replacing the theme's header template, so the theme updates
+// Two buttons in the header, on every page: one that opens the plugin hub, and one that leads to the official
+// Teabot's site, where it is added to a server. Added with a script rather than by replacing the theme's header template, so the theme updates
 // without our copy falling behind.
 (() => {
-  const INVITE = "https://discord.com/oauth2/authorize?client_id=1570928156100264097&scope=bot+applications.commands&permissions=8";
+  const OFFICIAL = "https://teabot.tea-osrs.com/";
 
   // The hub's address, made absolute: each page names the site's root relative to itself, and the header outlives
   // page changes, so a relative link would go wrong after the first.
@@ -27,7 +27,7 @@
     const search = header.querySelector(".md-search") || header.querySelector("[for=__search]");
     const before = search ? search : null;
     header.insertBefore(button("teabot-header-hub", hubAddress(), "Plugin hub", "Browse Teabot's plugins"), before);
-    header.insertBefore(button("teabot-header-invite", INVITE, "Add Teabot", "Add Teabot to your Discord guild"), before);
+    header.insertBefore(button("teabot-header-invite", OFFICIAL, "Official Teabot", "The official Teabot, to add to your guild"), before);
   }
 
   if (window.document$) window.document$.subscribe(add);
