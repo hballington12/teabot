@@ -49,7 +49,7 @@ nav = [
 ]
 
 [project.theme]
-logo = "assets/teabot.png"
+logo = "assets/logo-small.png"
 favicon = "assets/favicon.png"
 language = "en"
 features = [
