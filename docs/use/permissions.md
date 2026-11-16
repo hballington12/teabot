@@ -12,6 +12,15 @@ A member who runs an action they lack the permission for gets a private reply sa
 
 [Built-in commands](commands.md) and each plugin's page list the permission every action needs.
 
+## Place teabot's role
+
+teabot asks for **Administrator** when it joins, so its plugins can do their work without asking for more later. Its role is what limits it: a bot can never change a member or a role whose role is above its own.
+
+1. Open **Server Settings**, then **Roles**.
+2. Drag teabot's role below your own role and your senior staff's roles, and save.
+
+Add only one teabot to a server. With two, every command shows twice, once for each bot.
+
 ## Let a role use a command
 
 Give the role the permission the action needs.

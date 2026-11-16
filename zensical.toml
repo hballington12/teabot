@@ -13,7 +13,7 @@ copyright = 'MIT licensed. <a href="https://github.com/teabot-dev/teabot/blob/ma
 
 nav = [
   { "Home" = "index.md" },
-  { "Using teabot" = [
+  { "Guild admins" = [
     { "Add teabot to your server" = "use/index.md" },
     { "Turn on plugins" = "use/plugins.md" },
     { "The dashboard" = "use/dashboard.md" },
@@ -28,7 +28,7 @@ nav = [
     ] },
     { "Troubleshooting" = "use/troubleshooting.md" },
   ] },
-  { "Self-hosting" = [
+  { "Self-hosters" = [
     { "Quick start" = "host/index.md" },
     { "Settings" = "host/settings.md" },
     { "Adding plugins" = "host/adding-plugins.md" },
@@ -37,7 +37,7 @@ nav = [
     { "Release notes" = "host/changelog.md" },
     { "Troubleshooting" = "host/troubleshooting.md" },
   ] },
-  { "Writing plugins" = [
+  { "Plugin developers" = [
     { "Your first plugin" = "plugins/index.md" },
     { "Tutorial: a polls plugin" = "plugins/tutorial.md" },
     { "Reference" = "plugins/reference.md" },

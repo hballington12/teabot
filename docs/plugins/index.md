@@ -1,6 +1,6 @@
 # Your first plugin
 
-A **plugin** adds commands to teabot. It is a small Python package: functions that become slash commands and AI assistant tools, a database table or two of its own, and tests. At the end of this page, you have made one, tested it, and run it in Discord. It takes about ten minutes.
+A teabot plugin is a small Python package: functions that become slash commands and AI assistant tools, a database table or two of its own, and tests. At the end of this page, you have made one, tested it, and run it in Discord. It takes about ten minutes.
 
 !!! note "Before you start"
 

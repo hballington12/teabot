@@ -38,6 +38,12 @@ teabot shows the last ten entries in your server, including plans nobody confirm
 
 ## How long it is kept
 
-teabot keeps changes for a year, and look-ups for 30 days. [Removing teabot](index.md#removing-teabot) says what happens to your server's data when the bot leaves.
+teabot keeps changes for a year, and look-ups for 30 days. [Removing teabot](#removing-teabot) says what happens to your server's data when the bot leaves.
+
+## Removing teabot
+
+teabot keeps a few things about your server: which plugins are on and their settings, what each plugin stores, the AI assistant tokens your members made, and this audit log.
+
+If you remove teabot from your server, all of it is deleted 30 days later. That is the default, and the operator can change it. If you add teabot back before then, everything is as it was.
 
 **Next:** [Connect an AI assistant](ai.md).

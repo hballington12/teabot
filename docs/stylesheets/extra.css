@@ -19,3 +19,26 @@
 [data-md-color-scheme="default"] {
   --md-typeset-a-color: #8a6a12;
 }
+
+/* The home page's three paths: an accent edge, the icon in the accent colour, and a lift on hover. */
+.md-typeset .grid.cards.teabot-paths > ul > li {
+  border-top: 3px solid var(--md-primary-fg-color);
+  border-radius: 0.6rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.md-typeset .grid.cards.teabot-paths > ul > li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.4rem 1.2rem #0000001f;
+}
+.md-typeset .grid.cards.teabot-paths .lg {
+  color: var(--md-primary-fg-color);
+  vertical-align: -0.35em;
+  margin-right: 0.3em;
+}
+.md-typeset .grid.cards.teabot-paths a {
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .md-typeset .grid.cards.teabot-paths > ul > li { transition: none; }
+  .md-typeset .grid.cards.teabot-paths > ul > li:hover { transform: none; }
+}

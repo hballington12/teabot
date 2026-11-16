@@ -27,7 +27,7 @@
 
 ## Quick start
 
-1. **Add our bot.** A hosted Teabot is on its way, free for early adopters. Watch this repository to hear when it opens.
+1. **Add our bot.** [Connect](https://discord.com/oauth2/authorize?client_id=1570928156100264097&scope=bot+applications.commands&permissions=8) to our public Teabot service.
 2. **Host it yourself.** Follow the [quick start](https://teabot-dev.github.io/teabot/host/): with Docker, you have your own Teabot running in about 15 minutes.
 
 ## Plugins

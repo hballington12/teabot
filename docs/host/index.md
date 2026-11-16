@@ -1,5 +1,7 @@
 # Quick start
 
+This page is for hosting your own teabot. You own it, and you can customise it how you want and share it with whoever you want.
+
 At the end of this page, your own teabot is running and you have the link that invites it to your server. It takes about 15 minutes.
 
 !!! note "Before you start"
