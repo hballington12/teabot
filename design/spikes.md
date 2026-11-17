@@ -244,3 +244,20 @@ Run on 2026-11-16 on Linux with Python 3.13, before designing the member directo
 - Paging, probed on 2026-11-17: newest join first is `"sort": 1`, and the next page is `"after": {"guild_joined_at": <ms>, "user_id": "<id>"}`, the last member's. `before` goes back toward newer joins.
 - Its rate limit is 10 requests per 10 seconds per server, the same as the documented member list's.
 - Still unmeasured: how long a join takes to appear in it, and whether Manage Server, rather than Administrator, is enough.
+
+## S10 Discord's rate limit on role changes
+
+Run on 2026-11-18 on Linux with Python 3.13, before building role changes. The question was how fast a bot may give and take roles, which Discord does not document, so that a change to thousands of members can be paced and its plan can say how long it takes.
+
+| Check | Result |
+|---|---|
+| 40 alternating `PUT` and `DELETE /guilds/{id}/members/{user}/roles/{role}` on one member, as the dev bot | 40 answers of 204, none of 429, in 41.1 s: 0.97 a second |
+| Rate-limit headers | `limit=10`, a window of 10 s, one bucket for giving and taking, the bucket's `remaining` reaching 0 every tenth change |
+| A user ID that is no Discord user | 404, code 10013, unknown user |
+| A role ID that is not in the server | 404, code 10011, unknown role |
+
+### Conclusions
+
+- A server's role changes run at 10 per 10 seconds, so a change to 10,000 members takes close to three hours. Pacing at eight per 10 seconds leaves two for picker presses in the same window.
+- `MemberGone` is Discord's 10007, unknown member, and 10013, unknown user. 10011, an unknown role, stops a change.
+- Still unmeasured: whether a member still in membership screening can be given a role; the test server has none.
