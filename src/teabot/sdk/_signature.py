@@ -103,6 +103,9 @@ class Inputs:
     model: type[BaseModel]
     injected: dict[str, Any]
     resolved: tuple[Resolved, ...]
+    # Parameters typed as a model, such as `filter: MemberFilter`, whose fields are inputs of their own: each
+    # parameter's name, its model, and its fields.
+    flattened: tuple[tuple[str, type[BaseModel], tuple[str, ...]], ...] = ()
 
 
 def _field_type(name: str, annotation: Any, resolved: list[Resolved]) -> Any:
@@ -135,11 +138,16 @@ def read_inputs(
     fields: dict[str, Any] = {}
     filled: dict[str, Any] = {}
     resolved: list[Resolved] = []
-    for param in inspect.signature(func).parameters.values():
+    flattened: list[tuple[str, type[BaseModel], tuple[str, ...]]] = []
+    params = list(inspect.signature(func).parameters.values())
+    for param in params:
         annotation = hints.get(param.name, Any)
         what = injected.get(origin_of(annotation))
         if what is not None:
             filled[param.name] = what
+            continue
+        if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+            flattened.append(_flatten(func, name, param.name, annotation, (fields, {p.name for p in params})))
             continue
         description = described.get(param.name)
         if needs_docs and description is None:
@@ -161,7 +169,26 @@ def read_inputs(
             f"{where(func)}: the Args: of {name} names {', '.join(unknown)}, which it does not take"
         )
     model = create_model(_model_name(name), **fields)
-    return Inputs(summary, model, filled, tuple(resolved))
+    return Inputs(summary, model, filled, tuple(resolved), tuple(flattened))
+
+
+def _flatten(
+    func: Callable[..., Any],
+    name: str,
+    param: str,
+    model: type[BaseModel],
+    taken: tuple[dict[str, Any], set[str]],
+) -> tuple[str, type[BaseModel], tuple[str, ...]]:
+    """Add a model parameter's fields to `fields`, each an input of its own, described by the model."""
+    fields, params = taken
+    for field_name, info in model.model_fields.items():
+        if field_name in fields or field_name in params or field_name == "confirm":
+            raise SignatureError(
+                f"{where(func)}: {name}'s {param} has a field {field_name}, which another input or `confirm` "
+                "already uses. Rename one."
+            )
+        fields[field_name] = (info.annotation, info)
+    return param, model, tuple(model.model_fields)
 
 
 def _model_name(name: str) -> str:
@@ -171,6 +198,8 @@ def _model_name(name: str) -> str:
 async def resolve(guild: Guild, inputs: Inputs, data: BaseModel) -> dict[str, Any]:
     """The function's input arguments, with Discord IDs turned back into the objects they name."""
     values = {name: getattr(data, name) for name in type(data).model_fields}
+    for param, model, names in inputs.flattened:
+        values[param] = model.model_validate({n: values.pop(n) for n in names})
     for r in inputs.resolved:
         value = values[r.name]
         if value is None:

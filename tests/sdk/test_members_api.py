@@ -24,6 +24,12 @@ async def count_role(ctx: Context[EmptyConfig], role: int) -> str:
     return f"{total} {[m.name for m in found]}"
 
 
+@reader.action(risk=READ)
+async def count_matching(ctx: Context[EmptyConfig], filter: PeopleFilter) -> str:
+    """Count the people a filter matches."""
+    return str(await ctx.members.count(filter))
+
+
 @blind.action(risk=READ)
 async def peek(ctx: Context[EmptyConfig]) -> str:
     """Try the directory."""
@@ -79,3 +85,28 @@ async def test_a_plugin_that_did_not_declare_it_cannot_read_it(teabot_harness: H
 def test_reads_names_only_what_exists() -> None:
     with pytest.raises(Exception, match="reads"):
         Plugin("odd", reads=["messages"])
+
+
+async def test_a_model_parameter_takes_its_fields_as_inputs(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(reader)
+    await directory(harness)
+    fields = harness.registry.actions["reader.count_matching"].input.model_fields
+    assert {"roles_any", "joined_after", "bots"} <= set(fields) and "filter" not in fields
+    reply = await harness.invoke("reader.count_matching", {"roles_any": ["7"]})
+    assert reply.model_dump() == {"text": "2"}
+    reply = await harness.invoke("reader.count_matching", {"roles_any": ["7"], "bots": None})
+    assert reply.model_dump() == {"text": "3"}
+
+
+def test_a_model_field_may_not_clash_with_another_input() -> None:
+    clash = Plugin("clash", reads=["members"])
+    with pytest.raises(Exception, match="already uses"):
+
+        @clash.action(risk=READ)
+        async def both(ctx: Context[EmptyConfig], bots: bool, filter: MemberFilter) -> str:
+            """Clash.
+
+            Args:
+                bots: Whether bots.
+            """
+            return ""
