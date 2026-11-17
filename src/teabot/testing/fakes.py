@@ -438,10 +438,10 @@ class FakeMember:
 
     # The SDK's names, so a test can hand a fake member wherever plugin code takes a `Member`. They act at once,
     # without the checks the views make.
-    async def add_role(self, role: Any, /, *, reason: str | None = None) -> None:
+    async def add_role(self, role: Any, /, *, reason: str | None = None, by: Any = None) -> None:
         await self.add_roles(role, reason=reason)
 
-    async def remove_role(self, role: Any, /, *, reason: str | None = None) -> None:
+    async def remove_role(self, role: Any, /, *, reason: str | None = None, by: Any = None) -> None:
         await self.remove_roles(role, reason=reason)
 
     async def set_nickname(self, nickname: str | None, /, *, reason: str | None = None) -> None:

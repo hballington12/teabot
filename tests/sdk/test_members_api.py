@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from teabot.sdk import Context, EmptyConfig, MemberFilter, PeopleFilter, Plugin, READ
+from teabot.sdk import READ, Context, EmptyConfig, MemberFilter, PeopleFilter, Plugin
 from teabot.testing import HarnessFactory, PluginHarness
 
 reader = Plugin("reader", reads=["members"])
