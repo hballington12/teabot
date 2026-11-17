@@ -225,3 +225,20 @@ Run on 2026-11-15 on Windows 11 with Python 3.13, before designing voice (D6, D5
 - teabot's `voice` extra pins `davey<0.2` until discord.py supports davey 0.2.
 - Sources are the music plugin's dependencies, not the core's: the core plays Opus packets, and the plugin finds them.
 - A music plugin resolves the next track while one plays, and keeps resolving off the event loop.
+
+## S9 Discord's member search, for join method
+
+Run on 2026-11-16 on Linux with Python 3.13, before designing the member directory. The question was whether a bot can learn how each member joined a server, as Discord's own member settings show, since the member join event does not say.
+
+| Check | Result |
+|---|---|
+| `POST /guilds/{id}/members-search` with `{"limit": 3}`, as the dev bot, which has Administrator in the test server | 200, with `guild_id`, `members`, `page_result_count` and `total_result_count` (9) |
+| Each entry in `members` | `member`, the guild member object, beside `join_source_type`, `source_invite_code`, `inviter_id`, `join_source_channel_id` and `join_source_application_id` |
+| The server owner's entry | `join_source_type` 0, unknown, with no invite or inviter: a join from before Discord recorded the source |
+| Discord's published API docs | do not list the endpoint; its filters, such as by join source, appear only in libraries such as Discord.Net |
+
+### Conclusions
+
+- A bot can read each member's join method. The member directory uses the search for that alone, since the endpoint is not in Discord's published docs and may change.
+- Join method is `unknown` for old joins, and whenever the search fails.
+- Still unmeasured: the endpoint's rate limits, how long a join takes to appear in it, and whether Manage Server, rather than Administrator, is enough.
