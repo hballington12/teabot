@@ -97,6 +97,10 @@ class AuditLog:
             await self._queue_post(tx, guild_id, audit_id)
         return audit_id
 
+    async def post(self, tx: Any, guild_id: int, audit_id: int) -> None:
+        """Queue a row's post to the server's log channel, inside `tx`."""
+        await self._queue_post(tx, guild_id, audit_id)
+
     async def _queue_post(self, tx: Any, guild_id: int, audit_id: int) -> None:
         job = NewJob(
             "core",

@@ -131,6 +131,22 @@ class Context[C: BaseModel](Protocol):
         """The server's member directory (D55), for a plugin that declares `Plugin(..., reads=["members"])`."""
         ...
 
+    @property
+    def audit_id(self) -> int | None:
+        """In a destructive action's apply, its row in the audit log, which work it hands off to a job keeps as the
+        job's grant; None elsewhere."""
+        ...
+
+    async def authorized(self, audit_id: int, /) -> Actor:
+        """In a job, whether the work a member confirmed may still go on: the member, the door and the token the
+        grant `audit_id` names, checked as a call is. Raises `NotAuthorized` with the reason when it may not."""
+        ...
+
+    async def record_outcome(self, audit_id: int, text: str, /, *, failed: bool = False) -> None:
+        """In a job, close the handed-off apply `audit_id` with its outcome, once, in the audit log, which posts it
+        to the server's log channel (D24)."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far a long change has got, which `/admin job_status` shows."""
         ...
@@ -166,10 +182,23 @@ class _Context:
     hosts: frozenset[str] = frozenset()
     reads: frozenset[str] = frozenset()
     open_members: Callable[[], Members] | None = None
+    audit_id: int | None = None
+    grants: Any = None
 
     @property
     def db(self) -> Db:
         return self.open_db()
+
+    async def authorized(self, audit_id: int, /) -> Actor:
+        if self.grants is None:
+            raise RuntimeError("grants are checked in jobs")
+        actor: Actor = await self.grants.authorized(audit_id)
+        return actor
+
+    async def record_outcome(self, audit_id: int, text: str, /, *, failed: bool = False) -> None:
+        if self.grants is None:
+            raise RuntimeError("outcomes are recorded in jobs")
+        await self.grants.record_outcome(audit_id, text, failed=failed)
 
     @property
     def members(self) -> Members:
@@ -373,6 +402,7 @@ def _context_of(
         hosts=hosts,
         reads=reads,
         open_members=_members_of(ctx),
+        audit_id=getattr(ctx, "audit_id", None),
     )
 
 
@@ -428,6 +458,7 @@ class Job[C: BaseModel, **P]:
             hosts=self.hosts,
             reads=self.reads,
             open_members=_members_of(job),
+            grants=getattr(job, "grants", None),
         )
         data = self.inputs.model.model_validate(dict(job.payload))
         func: Callable[..., Awaitable[None]] = self.func
@@ -790,6 +821,7 @@ class Plugin(Generic[Cfg]):
                 hosts=self.hosts,
                 reads=self.reads,
                 open_members=_members_of(job),
+                grants=getattr(job, "grants", None),
             )
             if event == "enable":
                 await func(context)

@@ -22,9 +22,11 @@ class DiffEntry(BaseModel):
 
 
 class Diff(BaseModel):
-    """Every change the action would make, as `entries`."""
+    """Every change the action would make, as `entries`. `notes` are lines shown above them, such as counts or an
+    estimate, which are never hashed, so only the entries decide whether a plan is stale."""
 
     entries: list[DiffEntry] = Field(default_factory=list[DiffEntry])
+    notes: list[UntrustedText] = Field(default_factory=list[UntrustedText])
 
     @property
     def counts(self) -> dict[str, int]:
@@ -33,3 +35,12 @@ class Diff(BaseModel):
         for entry in self.entries:
             found[entry.change] = found.get(entry.change, 0) + 1
         return dict(sorted(found.items()))
+
+
+class HandedOff(BaseModel):
+    """What a destructive action's apply returns when it hands its work to a job of the plugin's, such as a change
+    to thousands of members: what follows it, by `id`, and a line for the member. The apply's audit row then ends
+    "handed off", and the job records the outcome with `ctx.record_outcome`."""
+
+    id: str
+    text: str

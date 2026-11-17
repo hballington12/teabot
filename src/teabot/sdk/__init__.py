@@ -63,7 +63,9 @@ The member directory (D55):
   plugin did not declare it. `JoinMethod` names how a member joined.
 
 Plans (D21):
-- `Diff` and `DiffEntry`: what a destructive action's `plan` returns.
+- `Diff` and `DiffEntry`: what a destructive action's `plan` returns, with `notes` shown above its entries.
+- `HandedOff`: what an apply returns when a job of the plugin's carries the work on. The job checks it may go on
+  with `ctx.authorized(ctx.audit_id)`, raising `NotAuthorized`, and closes it with `ctx.record_outcome`.
 
 The database (D9, D30):
 - `Db`: the plugin's own tables. `Queries` runs SQL and returns `Row`s; `Tx` is a transaction.
@@ -117,11 +119,12 @@ from teabot.sdk.members import (
     JoinMethod,
     MemberFilter,
     Members,
+    NotAuthorized,
     NotDeclared,
     PeopleFilter,
 )
 from teabot.sdk.permissions import DANGEROUS, Permission
-from teabot.sdk.plans import Diff, DiffEntry
+from teabot.sdk.plans import Diff, DiffEntry, HandedOff
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
 from teabot.sdk.settings import InstanceSettings
 from teabot.sdk.store import Store
@@ -157,6 +160,7 @@ __all__ = [
     "EmptyConfig",
     "File",
     "Guild",
+    "HandedOff",
     "HostNotDeclared",
     "Http",
     "InputError",
@@ -176,6 +180,7 @@ __all__ = [
     "Members",
     "Menu",
     "Message",
+    "NotAuthorized",
     "NotDeclared",
     "Option",
     "Outbox",

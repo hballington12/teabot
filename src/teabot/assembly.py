@@ -20,6 +20,7 @@ from teabot.builtin.tokens import TokenCommands
 from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
 from teabot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
 from teabot.core.events import Events
+from teabot.core.grants import Grants
 from teabot.core.loader import LoadReport
 from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Plans
@@ -94,7 +95,8 @@ def assemble(
     outbox = Outbox(pools.core_db(), client)
     queue.register("core", POST_MESSAGE, outbox)
     recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})
-    register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice))
+    grants = Grants(registry, tokens, audit)
+    register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice, grants))
     late = {plugin_id: loaded.late for plugin_id, loaded in report.loaded.items() if loaded.late}
     events = Events(pools.core_db(), queue, listeners, late)
 

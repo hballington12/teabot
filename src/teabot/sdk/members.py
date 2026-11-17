@@ -84,6 +84,11 @@ class DirectoryUnavailable(ActionError):
     member limit. The message says which."""
 
 
+class NotAuthorized(ActionError):
+    """A job's grant no longer holds: the member who confirmed the work, or their token, may no longer do it. The
+    message says why."""
+
+
 class NotDeclared(RuntimeError):
     """The plugin reads what it did not declare in `Plugin(..., reads=[...])`."""
 

@@ -9,13 +9,14 @@ from pydantic import BaseModel
 
 from teabot.core.config import ConfigStore
 from teabot.core.directory.plugin_api import GuildMembers
+from teabot.core.grants import Grants
 from teabot.core.loader import Loaded
 from teabot.core.queue import JobContext as CoreJobContext
 from teabot.core.queue import Queue
 from teabot.core.recurring import Recurring
 from teabot.core.voice import GuildVoice, VoiceService
 from teabot.db.pool import GuildPluginDatabase, Pools
-from teabot.sdk import JobHandler
+from teabot.sdk import Actor, JobHandler
 from teabot.sdk.actions import JOB_TIMEOUT
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ class PluginJobContext:
     config: Any = None
     open_voice: GuildVoice | None = None
     members: GuildMembers | None = None
+    grants: "BoundGrants | None" = None
 
     def open_members(self) -> GuildMembers:
         """The server's member directory, as `ctx.members` (D55); the SDK checks the plugin declared it."""
@@ -52,6 +54,21 @@ class PluginJobContext:
 
 
 @dataclass(frozen=True)
+class BoundGrants:
+    """The core's grants, for one plugin's job in one server."""
+
+    grants: Grants
+    guild_id: int
+    plugin_id: str
+
+    async def authorized(self, audit_id: int) -> Actor:
+        return await self.grants.authorized(self.guild_id, self.plugin_id, audit_id)
+
+    async def record_outcome(self, audit_id: int, text: str, *, failed: bool = False) -> None:
+        await self.grants.record_outcome(self.guild_id, audit_id, text, failed=failed)
+
+
+@dataclass(frozen=True)
 class _Runtime:
     """What every plugin job runs with: the pools, the Discord client, the recurring jobs and voice."""
 
@@ -59,6 +76,7 @@ class _Runtime:
     client: Any
     recurring: Recurring | None = None
     voice: VoiceService | None = None
+    grants: Grants | None = None
 
 
 @dataclass(frozen=True)
@@ -67,13 +85,14 @@ class JobServices:
 
     recurring: Recurring | None = None
     voice: VoiceService | None = None
+    grants: Grants | None = None
 
 
 def _adapt(
     plugin_id: str, handler: JobHandler, runtime: _Runtime, config: type[BaseModel], recurs: bool
 ) -> Any:
     pools, client, recurring = runtime.pools, runtime.client, runtime.recurring if recurs else None
-    voice = runtime.voice
+    voice, grants = runtime.voice, runtime.grants
     store = ConfigStore(pools.core_db())
 
     async def run(core: CoreJobContext) -> None:
@@ -104,6 +123,7 @@ def _adapt(
                 settings,
                 bound,
                 GuildMembers(pools.core_db(), guild_id),
+                BoundGrants(grants, guild_id, plugin_id) if grants is not None else None,
             )
         )
 
@@ -117,7 +137,7 @@ def register_plugin_jobs(
     services = services or JobServices()
     for plugin_id, plugin in loaded.items():
         config = plugin.plugin.manifest.config
-        runtime = _Runtime(pools, client, services.recurring, services.voice)
+        runtime = _Runtime(pools, client, services.recurring, services.voice, services.grants)
         for name, handler in plugin.jobs.items():
             adapted = _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
             queue.register(plugin_id, name, adapted, plugin.timeouts.get(name, JOB_TIMEOUT))

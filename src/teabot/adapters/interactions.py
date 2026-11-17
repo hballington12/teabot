@@ -138,6 +138,8 @@ def plan_embed(plan: Planned) -> discord.Embed:
         note = "The target has changed since your last plan, so nothing was applied. This is the fresh plan."
     else:
         note = "Nothing has changed yet. Confirm within 15 minutes to apply it."
+    if plan.notes:
+        note = "\n".join(discord.utils.escape_markdown(n) for n in plan.notes) + "\n\n" + note
     embed = discord.Embed(title=f"Plan: {plan.action}", description=note, colour=discord.Colour.orange())
     embed.add_field(name="Changes", value=", ".join(f"{k}: {v}" for k, v in plan.counts.items()) or "none")
     lines = [

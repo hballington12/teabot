@@ -61,6 +61,7 @@ class Planned(BaseModel):
     confirm: str
     expires_at: datetime
     stale: bool = False
+    notes: list[UntrustedText] = []
 
 
 class Queued(BaseModel):
@@ -159,6 +160,7 @@ class Plans:
             total=len(diff.entries),
             confirm=confirm,
             expires_at=expires_at,
+            notes=diff.notes,
         )
 
     async def check(self, record: CallRecord, confirm: str) -> tuple[int, str]:

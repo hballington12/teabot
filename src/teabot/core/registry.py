@@ -23,7 +23,7 @@ from teabot.core.loader import Loaded
 from teabot.core.voice import VoiceService
 from teabot.db.pool import GuildPluginDatabase, Pools
 from teabot.sdk import ActionError, ActionSpec, Actor, Choice, Risk, Surface
-from teabot.sdk.plans import Diff
+from teabot.sdk.plans import Diff, HandedOff
 
 log = logging.getLogger(__name__)
 # Discord waits three seconds for suggestions, and the reply itself takes some of them.
@@ -172,6 +172,8 @@ class PluginActionContext:
     open_voice: Callable[[], Any] | None = None
     # The server's member directory, as `ctx.members` (D55); the SDK checks the plugin declared it.
     open_members: Callable[[], Any] | None = None
+    # In an apply, its audit row, which work it hands off keeps as its grant.
+    audit_id: int | None = None
 
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """A destructive action's progress, written to its apply job; elsewhere nothing (D21)."""
@@ -224,6 +226,11 @@ async def member_permissions(guild: Guild, user_id: int) -> discord.Permissions:
     return (await find_member(guild, user_id)).guild_permissions
 
 
+def _handed_off(result: Any) -> bool:
+    """Whether an apply handed its work off, returning `HandedOff`, whatever its output model wraps it in."""
+    return isinstance(result, HandedOff) or isinstance(getattr(result, "value", None), HandedOff)
+
+
 def split_confirm(spec: ActionSpec[Any, Any], call: Call) -> tuple[str | None, Call]:
     """A destructive call's `confirm` value, which the core adds to its input (D21), and the call without it."""
     if spec.risk is not Risk.DESTRUCTIVE or "confirm" not in call.raw_input:
@@ -268,7 +275,7 @@ class Registry:
         confirm, call = split_confirm(spec, call)
         record = CallRecord(call.action, call.guild_id, call.actor, call.raw_input, spec.risk)
         try:
-            ctx, data = await self._prepare(spec, call, guild)
+            ctx, data = await self.prepare(spec, call, guild)
             if spec.risk is Risk.DESTRUCTIVE:
                 return await self._destructive(spec, ctx, data, record, confirm)
         except Refused as refusal:
@@ -302,18 +309,18 @@ class Registry:
         try:
             if guild is None:
                 raise Refused("not_in_guild", "the bot is not in that server")
-            ctx, data = await self._prepare(spec, call, guild)
+            ctx, data = await self.prepare(spec, call, guild)
         except Refused as refusal:
             await self.audit.finished(audit_id, "refused", refusal.code)
             return
         try:
-            await spec.run(replace(ctx, reporter=report, diff=diff), data)
+            result = await spec.run(replace(ctx, reporter=report, diff=diff, audit_id=audit_id), data)
         except Exception as exc:
             await self.audit.finished(audit_id, "error", repr(exc))
             raise
-        await self.audit.finished(audit_id, "ok", None)
+        await self.audit.finished(audit_id, "handed_off" if _handed_off(result) else "ok", None)
 
-    async def _prepare(
+    async def prepare(
         self, spec: ActionSpec[Any, Any], call: Call, guild: Guild, *, check_input: bool = True
     ) -> tuple[PluginActionContext, BaseModel]:
         refusal = door_refusal(spec, call.actor.via, call.token)
@@ -359,7 +366,7 @@ class Registry:
         if spec is None or suggester is None or guild is None:
             return []
         try:
-            ctx, _ = await self._prepare(
+            ctx, _ = await self.prepare(
                 spec, Call(action, guild_id, Actor(user_id, "slash"), {}), guild, check_input=False
             )
             return await asyncio.wait_for(suggester(ctx, typed), SUGGEST_SECONDS)
