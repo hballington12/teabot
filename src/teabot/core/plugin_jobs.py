@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from teabot.core.config import ConfigStore
+from teabot.core.directory.plugin_api import GuildMembers
 from teabot.core.loader import Loaded
 from teabot.core.queue import JobContext as CoreJobContext
 from teabot.core.queue import Queue
@@ -32,6 +33,13 @@ class PluginJobContext:
     started_by: int | None = None
     config: Any = None
     open_voice: GuildVoice | None = None
+    members: GuildMembers | None = None
+
+    def open_members(self) -> GuildMembers:
+        """The server's member directory, as `ctx.members` (D55); the SDK checks the plugin declared it."""
+        if self.members is None:
+            raise RuntimeError("this job has no member directory")
+        return self.members
 
     @property
     def voice(self) -> GuildVoice:
@@ -86,7 +94,17 @@ def _adapt(
         settings = await store.load(guild_id, plugin_id, config)
         bound = voice.bound(plugin_id, guild_id) if voice is not None else None
         await handler(
-            PluginJobContext(guild_id, core.job.payload, db, client, core, started_by, settings, bound)
+            PluginJobContext(
+                guild_id,
+                core.job.payload,
+                db,
+                client,
+                core,
+                started_by,
+                settings,
+                bound,
+                GuildMembers(pools.core_db(), guild_id),
+            )
         )
 
     return run

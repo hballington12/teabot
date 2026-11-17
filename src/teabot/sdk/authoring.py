@@ -71,6 +71,7 @@ from teabot.sdk.guild import (
     VoiceChannel,
 )
 from teabot.sdk.http import Http
+from teabot.sdk.members import READS, Members, NotDeclared
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
 from teabot.sdk.plugin import EmptyConfig, EventName, JobContext, JobHandler, Manifest, Registrar
@@ -125,6 +126,11 @@ class Context[C: BaseModel](Protocol):
         """The server's voice connection, which the plugin joins, plays through and leaves (D54)."""
         ...
 
+    @property
+    def members(self) -> Members:
+        """The server's member directory (D55), for a plugin that declares `Plugin(..., reads=["members"])`."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far a long change has got, which `/admin job_status` shows."""
         ...
@@ -158,10 +164,22 @@ class _Context:
     now: datetime = field(default_factory=clock.now)
     plugin_id: str = ""
     hosts: frozenset[str] = frozenset()
+    reads: frozenset[str] = frozenset()
+    open_members: Callable[[], Members] | None = None
 
     @property
     def db(self) -> Db:
         return self.open_db()
+
+    @property
+    def members(self) -> Members:
+        if "members" not in self.reads:
+            raise NotDeclared(
+                f'{self.plugin_id} reads the member directory: declare Plugin(..., reads=["members"])'
+            )
+        if self.open_members is None:
+            raise RuntimeError("this context has no member directory")
+        return self.open_members()
 
     @property
     def http(self) -> Http:
@@ -193,7 +211,8 @@ class Action[C: BaseModel, **P, R]:
     - `planner` is the plan `.plan` attached, if any.
     - `surfaces` are the front doors it is offered through.
     - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
-    - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches.
+    - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches, and `reads` what else it reads, such as
+      `members`, which opens `ctx.members`.
     - `menu` is its right-click command, if `menu=` made one.
     - `timeout` is how long a call may take before it is stopped.
     """
@@ -213,6 +232,7 @@ class Action[C: BaseModel, **P, R]:
     hosts: frozenset[str] = frozenset()
     menu: Menu | None = None
     timeout: timedelta = ACTION_TIMEOUT
+    reads: frozenset[str] = frozenset()
 
     def autocomplete[T: (str, int)](
         self, option: str
@@ -272,7 +292,7 @@ class Action[C: BaseModel, **P, R]:
         func = self.suggesters[option]
 
         async def suggest(ctx: ActionContext, typed: str) -> list[Choice[Any]]:
-            return list(await func(_context_of(ctx, self.name, self.hosts), typed))[:25]
+            return list(await func(_context_of(ctx, self.name, self.hosts, self.reads), typed))[:25]
 
         return suggest
 
@@ -287,7 +307,7 @@ class Action[C: BaseModel, **P, R]:
         return BoundAction(self.name, payload)
 
     async def _run(self, ctx: ActionContext, data: BaseModel) -> BaseModel:
-        context = _context_of(ctx, self.name, self.hosts)
+        context = _context_of(ctx, self.name, self.hosts, self.reads)
         arguments = await _arguments(self.inputs, context, data)
         func: Callable[..., Awaitable[Any]] = self.func
         return self.output.wrap(await func(**arguments))
@@ -295,7 +315,7 @@ class Action[C: BaseModel, **P, R]:
     async def _plan(self, ctx: ActionContext, data: BaseModel) -> Diff:
         assert self.planner is not None
         return await self.planner(
-            **await _arguments(self.inputs, _context_of(ctx, self.name, self.hosts), data)
+            **await _arguments(self.inputs, _context_of(ctx, self.name, self.hosts, self.reads), data)
         )
 
 
@@ -330,7 +350,15 @@ def _menu_of(func: Callable[..., Any], name: str, menu: str, inputs: Inputs) -> 
     raise SignatureError(f"{where(func)}: {name} has a menu, so its input is a Member or a ReceivedMessage")
 
 
-def _context_of(ctx: ActionContext, action: str, hosts: frozenset[str]) -> _Context:
+def _members_of(ctx: Any) -> Callable[[], Members] | None:
+    """The core's `ctx.members` for a context, when it has one."""
+    opener = getattr(ctx, "open_members", None)
+    return cast(Callable[[], Members], opener) if callable(opener) else None
+
+
+def _context_of(
+    ctx: ActionContext, action: str, hosts: frozenset[str], reads: frozenset[str] = frozenset()
+) -> _Context:
     diff = getattr(ctx, "diff", None) or Diff()
     guild = guild_view(ctx.guild, _reason(action, ctx.actor))
     return _Context(
@@ -343,6 +371,8 @@ def _context_of(ctx: ActionContext, action: str, hosts: frozenset[str]) -> _Cont
         diff,
         plugin_id=action.split(".", maxsplit=1)[0],
         hosts=hosts,
+        reads=reads,
+        open_members=_members_of(ctx),
     )
 
 
@@ -360,7 +390,8 @@ class Job[C: BaseModel, **P]:
     - `func` is the decorated function, and `name` the job's name within the plugin.
     - `inputs` is the payload's model, read from the function's signature.
     - `every` is how often it runs on its own, or None for a job that runs when scheduled.
-    - `plugin_id` is its plugin's id, and `hosts` the hosts its plugin declared, which its `ctx.http` reaches.
+    - `plugin_id` is its plugin's id, `hosts` the hosts its plugin declared, which its `ctx.http` reaches, and
+      `reads` what else it reads, such as `members`.
     - `timeout` is how long a run may take before it is stopped, or None for teabot's fifteen minutes.
     """
 
@@ -371,6 +402,7 @@ class Job[C: BaseModel, **P]:
     plugin_id: str = ""
     hosts: frozenset[str] = frozenset()
     timeout: timedelta | None = None
+    reads: frozenset[str] = frozenset()
 
     def bind(self, *args: P.args, **kwargs: P.kwargs) -> Bound:
         """The job with its arguments fixed, for `tx.schedule` and `tx.unschedule`. Its key is the job's name and
@@ -394,6 +426,8 @@ class Job[C: BaseModel, **P]:
             lambda: job.voice,
             plugin_id=self.plugin_id,
             hosts=self.hosts,
+            reads=self.reads,
+            open_members=_members_of(job),
         )
         data = self.inputs.model.model_validate(dict(job.payload))
         func: Callable[..., Awaitable[None]] = self.func
@@ -416,10 +450,14 @@ class Plugin(Generic[Cfg]):
         migrations: Path | None = None,
         hosts: Iterable[str] = (),
         description: str = "",
+        reads: Iterable[str] = (),
     ) -> None:
         self.id = id
         self.description = description
         self.hosts = frozenset(hosts)
+        self.reads = frozenset(reads)
+        if unknown := self.reads - READS:
+            raise SignatureError(f"{id}: Plugin(reads=...) takes {sorted(READS)}, not {sorted(unknown)}")
         self.config = config
         self._migrations = migrations
         self._module: str | None = None
@@ -479,6 +517,7 @@ class Plugin(Generic[Cfg]):
                 hosts=self.hosts,
                 menu=found_menu,
                 timeout=timeout,
+                reads=self.reads,
             )
             self.actions[action_name] = built
             self._module = self._module or func.__module__
@@ -539,7 +578,7 @@ class Plugin(Generic[Cfg]):
                 raise SignatureError(
                     f"{where(func)}: {self.id}.{job_name} runs on its own, so it takes no parameters after ctx"
                 )
-        built = Job(func, job_name, inputs, every, self.id, self.hosts, timeout)
+        built = Job(func, job_name, inputs, every, self.id, self.hosts, timeout, self.reads)
         self.jobs[job_name] = built
         self._module = self._module or func.__module__
         return built
@@ -749,6 +788,8 @@ class Plugin(Generic[Cfg]):
                 lambda: job.voice,
                 plugin_id=self.id,
                 hosts=self.hosts,
+                reads=self.reads,
+                open_members=_members_of(job),
             )
             if event == "enable":
                 await func(context)

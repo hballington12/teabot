@@ -18,6 +18,7 @@ import discord
 from pydantic import BaseModel, ValidationError
 
 from teabot.core.config import ConfigError, ConfigStore
+from teabot.core.directory.plugin_api import GuildMembers
 from teabot.core.loader import Loaded
 from teabot.core.voice import VoiceService
 from teabot.db.pool import GuildPluginDatabase, Pools
@@ -169,6 +170,8 @@ class PluginActionContext:
     reporter: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None
     diff: Diff | None = None
     open_voice: Callable[[], Any] | None = None
+    # The server's member directory, as `ctx.members` (D55); the SDK checks the plugin declared it.
+    open_members: Callable[[], Any] | None = None
 
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """A destructive action's progress, written to its apply job; elsewhere nothing (D21)."""
@@ -339,7 +342,11 @@ class Registry:
             if source.builtin or self.voice is None
             else partial(self.voice.bound, plugin_id, call.guild_id)
         )
-        return PluginActionContext(guild, call.actor, config, open_db, open_voice=open_voice), data
+        open_members = None if source.builtin else partial(GuildMembers, self.pools.core_db(), call.guild_id)
+        context = PluginActionContext(
+            guild, call.actor, config, open_db, open_voice=open_voice, open_members=open_members
+        )
+        return context, data
 
     async def suggest(
         self, action: str, guild_id: int, user_id: int, option: str, typed: str

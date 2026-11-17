@@ -17,12 +17,13 @@ from pydantic import BaseModel, Field
 
 from teabot.core.directory import state as states
 from teabot.core.directory.query import (
+    Criteria,
     GroupBy,
     HistoryFilter,
-    MemberFilter,
     Sort,
     Status,
     count_sql,
+    criteria,
     group_sql,
     history_count_sql,
     history_sql,
@@ -42,43 +43,28 @@ from teabot.sdk import (
     Surface,
     UntrustedText,
 )
+from teabot.sdk.members import MemberFilter
 
 MANAGE_SERVER = discord.Permissions(manage_guild=True)
 PAGE = 100
 DAY = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="A day, as YYYY-MM-DD, in UTC")
 COUNTED = "SELECT count(*) FROM core.members WHERE guild_id = $1 AND left_at IS NULL"
 
-type JoinMethod = Literal[
-    "unknown", "bot", "integration", "discovery", "hub", "invite", "vanity_url", "manual_verification"
-]
 type Kind = Literal[
     "joined", "left", "kicked", "banned", "unbanned", "timeout", "roles", "nickname", "role_deleted"
 ]
 type LookupJoins = Callable[[int], Awaitable[None]]
 
 
-class MembersQuery(BaseModel):
+class MembersQuery(MemberFilter):
+    """`MemberFilter`'s fields, which plugins' `ctx.members` takes too, and the admin tool's own."""
+
     status: Status = Field(default="present", description="Members here now, those who left, or everyone")
-    roles_any: list[RoleRef] = Field(default=[], max_length=10, description="Has at least one of these roles")
-    roles_all: list[RoleRef] = Field(default=[], max_length=10, description="Has every one of these roles")
-    roles_none: list[RoleRef] = Field(default=[], max_length=10, description="Has none of these roles")
-    no_roles: bool = Field(default=False, description="Has no roles at all")
-    joined_after: str | None = DAY
-    joined_before: str | None = DAY
-    created_after: str | None = DAY
-    created_before: str | None = DAY
     left_after: str | None = DAY
     left_before: str | None = DAY
-    join_method: list[JoinMethod] = Field(default=[], max_length=8, description="Joined by any of these ways")
-    invite_code: str | None = Field(default=None, max_length=32, description="Joined with this invite")
-    inviter: MemberRef | None = Field(default=None, description="Joined with an invite this member made")
     name: str | None = Field(
         default=None, max_length=32, description="Username, display name or nickname contains this"
     )
-    boosting: bool | None = Field(default=None, description="Boosts the server, or does not")
-    timed_out: bool | None = Field(default=None, description="Is timed out now, or is not")
-    pending: bool | None = Field(default=None, description="Has not yet passed membership screening, or has")
-    bots: bool | None = Field(default=None, description="Only bots, or only people; both when left out")
     sort: Sort = "joined_newest"
     group_by: GroupBy | None = Field(
         default=None,
@@ -167,27 +153,13 @@ def _day(value: str | None) -> date | None:
     return None if value is None else date.fromisoformat(value)
 
 
-def member_filter(data: MembersQuery) -> MemberFilter:
-    return MemberFilter(
+def member_filter(data: MembersQuery) -> Criteria:
+    return criteria(
+        data,
         status=data.status,
-        roles_any=data.roles_any,
-        roles_all=data.roles_all,
-        roles_none=data.roles_none,
-        no_roles=data.no_roles,
-        joined_after=_day(data.joined_after),
-        joined_before=_day(data.joined_before),
-        created_after=_day(data.created_after),
-        created_before=_day(data.created_before),
         left_after=_day(data.left_after),
         left_before=_day(data.left_before),
-        join_methods=data.join_method,
-        invite_code=data.invite_code,
-        inviter_id=data.inviter,
         name=data.name,
-        boosting=data.boosting,
-        timed_out=data.timed_out,
-        pending=data.pending,
-        bots=data.bots,
     )
 
 

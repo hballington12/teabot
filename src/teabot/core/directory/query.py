@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 
 from teabot.core.directory.rows import JOIN_SOURCE_NUMBERS, first_id_at
+from teabot.sdk.members import MemberFilter
 
 type Status = Literal["present", "left", "everyone"]
 type Sort = Literal["joined_newest", "joined_oldest", "name", "left_newest", "created_oldest"]
@@ -66,8 +67,9 @@ def starts_like(text: str) -> str:
 
 
 @dataclass(frozen=True)
-class MemberFilter:
-    """What `admin.members` and `ctx.members.find` filter by. Dates are UTC days, inclusive."""
+class Criteria:
+    """What the query builder filters by: an SDK `MemberFilter`'s fields, through `criteria`, and `admin.members`'
+    own `status`, left days and `name`. Dates are UTC days, inclusive."""
 
     status: Status = "present"
     roles_any: Sequence[int] = ()
@@ -95,13 +97,39 @@ class MemberFilter:
         return bool(self.join_methods) or self.invite_code is not None or self.inviter_id is not None
 
 
+def _day(value: str | None) -> date | None:
+    return None if value is None else date.fromisoformat(value)
+
+
+def criteria(model: MemberFilter, **extra: Any) -> Criteria:
+    """The query builder's criteria from an SDK `MemberFilter`, with `admin.members`' own fields as `extra`."""
+    return Criteria(
+        roles_any=model.roles_any,
+        roles_all=model.roles_all,
+        roles_none=model.roles_none,
+        no_roles=model.no_roles,
+        joined_after=_day(model.joined_after),
+        joined_before=_day(model.joined_before),
+        created_after=_day(model.created_after),
+        created_before=_day(model.created_before),
+        join_methods=model.join_method,
+        invite_code=model.invite_code,
+        inviter_id=model.inviter,
+        boosting=model.boosting,
+        timed_out=model.timed_out,
+        pending=model.pending,
+        bots=model.bots,
+        **extra,
+    )
+
+
 def _utc(day: date, *, end: bool = False) -> datetime:
     """The start of a UTC day, or with `end` the start of the next."""
     start = datetime.combine(day, time.min, UTC)
     return start + timedelta(days=1) if end else start
 
 
-def where(guild_id: int, f: MemberFilter, now: datetime) -> Where:
+def where(guild_id: int, f: Criteria, now: datetime) -> Where:
     """The WHERE clause for a filter in one server."""
     w = Where()
     w.add("guild_id = {}", guild_id)
@@ -119,7 +147,7 @@ def where(guild_id: int, f: MemberFilter, now: datetime) -> Where:
     return w
 
 
-def _roles(w: Where, f: MemberFilter) -> None:
+def _roles(w: Where, f: Criteria) -> None:
     if f.roles_any:
         w.add("role_ids && {}::bigint[]", list(f.roles_any))
     if f.roles_all:
@@ -130,7 +158,7 @@ def _roles(w: Where, f: MemberFilter) -> None:
         w.add("role_ids = '{{}}'")
 
 
-def _joins(w: Where, f: MemberFilter) -> None:
+def _joins(w: Where, f: Criteria) -> None:
     if f.join_methods:
         numbers = [JOIN_SOURCE_NUMBERS[m] for m in f.join_methods if m in JOIN_SOURCE_NUMBERS]
         w.add("coalesce(join_source, 0) = ANY({}::integer[])", numbers)
@@ -140,7 +168,7 @@ def _joins(w: Where, f: MemberFilter) -> None:
         w.add("inviter_id = {}", f.inviter_id)
 
 
-def _ranges(w: Where, f: MemberFilter) -> None:
+def _ranges(w: Where, f: Criteria) -> None:
     if f.joined_after:
         w.add("joined_at >= {}", _utc(f.joined_after))
     if f.joined_before:
@@ -156,7 +184,7 @@ def _ranges(w: Where, f: MemberFilter) -> None:
         w.add("user_id < {}", first_id_at(_utc(f.created_before, end=True)))
 
 
-def _flags(w: Where, f: MemberFilter, now: datetime) -> None:
+def _flags(w: Where, f: Criteria, now: datetime) -> None:
     for wanted, clause in (
         (f.boosting, "premium_since IS NOT NULL"),
         (f.pending, "pending"),

@@ -53,6 +53,12 @@ Field types (D23, D29):
 - `LongText`: multi-line text, which Discord collects in a modal.
 - `UntrustedText`: member-written text in an output, which MCP marks as untrusted.
 
+The member directory (D55):
+- `Members`: `ctx.members`, for a plugin that declares `Plugin(..., reads=["members"])`: `count` and `find` present
+  members by a `MemberFilter`, which `admin.members` takes too, as `DirectoryMember`s. `PeopleFilter` matches people
+  only unless told otherwise. `DirectoryUnavailable` says the server's directory is not ready; `NotDeclared` that the
+  plugin did not declare it. `JoinMethod` names how a member joined.
+
 Plans (D21):
 - `Diff` and `DiffEntry`: what a destructive action's `plan` returns.
 
@@ -101,6 +107,15 @@ from teabot.sdk.guild import (
 from teabot.sdk.http import HostNotDeclared, Http, Response
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
+from teabot.sdk.members import (
+    DirectoryMember,
+    DirectoryUnavailable,
+    JoinMethod,
+    MemberFilter,
+    Members,
+    NotDeclared,
+    PeopleFilter,
+)
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff, DiffEntry
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
@@ -132,6 +147,8 @@ __all__ = [
     "Db",
     "Diff",
     "DiffEntry",
+    "DirectoryMember",
+    "DirectoryUnavailable",
     "EmptyConfig",
     "File",
     "Guild",
@@ -143,16 +160,21 @@ __all__ = [
     "Job",
     "JobContext",
     "JobHandler",
+    "JoinMethod",
     "LoadablePlugin",
     "LongText",
     "Manifest",
     "Member",
+    "MemberFilter",
     "MemberRef",
+    "Members",
     "Menu",
     "Message",
+    "NotDeclared",
     "Option",
     "Outbox",
     "Packets",
+    "PeopleFilter",
     "Permission",
     "Plugin",
     "Post",
