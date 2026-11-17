@@ -1,6 +1,6 @@
 # Channels and permissions
 
-A proposed design: admins and AI assistants see every channel's permissions, and the server as any set of roles sees it, as Discord's "View server as role" shows.
+Admins and AI assistants see every channel's permissions, and the server as any set of roles sees it, as Discord's "View server as role" shows. It is built in `src/teabot/builtin/permissions.py`.
 
 ## Why
 
@@ -13,7 +13,7 @@ Everything is computed live from the gateway's cache, which teabot already holds
 
 ## Actions
 
-Both need Manage Server, are read-only, and are recorded among the audit log's look-ups (D24).
+Both need Manage Server, are read-only, are offered to AI assistants and the service API, and are recorded among the audit log's look-ups (D24). Permissions are named as discord.py names them, once each, with View Channel as `view_channel`.
 
 - **`admin.channels`:** every category and channel in Discord's order, each with its type, its category, whether it is synced with its category, and its permission overwrites: for each role or member, the permissions allowed and denied, by name.
 - **`admin.view_as`:** for one or more roles, as Discord's view-as-role combines them, every channel visible or hidden, and for a visible one the permissions those roles have there.

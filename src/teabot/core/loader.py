@@ -59,6 +59,8 @@ class Loaded:
     events: frozenset[EventName] = frozenset()
     recurring: dict[str, timedelta] = field(default_factory=dict[str, timedelta])
     timeouts: dict[str, timedelta] = field(default_factory=dict[str, timedelta])
+    # The member events it also hears when the member directory found them late (D55).
+    late: frozenset[EventName] = frozenset()
 
 
 @dataclass
@@ -172,6 +174,7 @@ class _Registrar:
         self.actions: dict[str, ActionSpec[Any, Any]] = {}
         self.jobs: dict[str, JobHandler] = {}
         self.events: set[EventName] = set()
+        self.late: set[EventName] = set()
         self.every: dict[str, timedelta] = {}
         self.timeouts: dict[str, timedelta] = {}
 
@@ -194,10 +197,12 @@ class _Registrar:
         if timeout is not None:
             self.timeouts[name] = timeout
 
-    def event(self, name: EventName, handler: JobHandler) -> None:
+    def event(self, name: EventName, handler: JobHandler, *, late: bool = False) -> None:
         if name in self.events:
             raise ValueError(f"event {name} registered twice")
         self.events.add(name)
+        if late:
+            self.late.add(name)
         self.job(f"on_{name}", handler)
 
 
@@ -250,6 +255,7 @@ def _setup(plugin_id: str, plugin: LoadablePlugin, report: LoadReport) -> bool:
         frozenset(registrar.events),
         registrar.every,
         registrar.timeouts,
+        frozenset(registrar.late),
     )
     report.statuses[plugin_id] = LOADED
     return True

@@ -428,6 +428,8 @@ class Plugin(Generic[Cfg]):
         self.actions: dict[str, Action[Cfg, ..., Any]] = {}
         self.jobs: dict[str, Job[Cfg, ...]] = {}
         self.listeners: dict[EventName, Callable[..., Awaitable[None]]] = {}
+        # The events whose handler also hears changes the member directory found late (D55).
+        self.late: set[EventName] = set()
         self.settings: list[InstanceSettings[Any]] = []
 
     def action[**P, R](
@@ -602,21 +604,38 @@ class Plugin(Generic[Cfg]):
             if job.every is not None:
                 registrar.recurring(job.name, job.every)
         for event, func in self.listeners.items():
-            registrar.event(event, self._listener(event, func))
+            registrar.event(event, self._listener(event, func), late=event in self.late)
 
+    @overload
     def on_member_join(
-        self, func: Callable[[Context[Cfg], Member], Awaitable[None]]
-    ) -> Callable[[Context[Cfg], Member], Awaitable[None]]:
+        self, func: Callable[[Context[Cfg], Member], Awaitable[None]], /
+    ) -> Callable[[Context[Cfg], Member], Awaitable[None]]: ...
+    @overload
+    def on_member_join(
+        self, func: None = None, /, *, late: Literal[True]
+    ) -> "LateDecorator[Context[Cfg], Member]": ...
+    def on_member_join(self, func: Any = None, /, *, late: bool = False) -> Any:
         """Run `func` when a member joins a server where the plugin is enabled, with the member. It runs as a job,
-        so a failure is retried, and a member who has left again by then is skipped."""
-        return self._listen("member_join", func)
+        so a failure is retried, and a member who has left again by then is skipped.
 
+        With `late=True`, `func` also hears joins teabot found later, such as while it restarted, and takes a third
+        argument: when the gap began, or None for a join heard as it happened (D55)."""
+        return self._listen_maybe_late("member_join", func, late)
+
+    @overload
     def on_member_leave(
-        self, func: Callable[[Context[Cfg], User], Awaitable[None]]
-    ) -> Callable[[Context[Cfg], User], Awaitable[None]]:
+        self, func: Callable[[Context[Cfg], User], Awaitable[None]], /
+    ) -> Callable[[Context[Cfg], User], Awaitable[None]]: ...
+    @overload
+    def on_member_leave(
+        self, func: None = None, /, *, late: Literal[True]
+    ) -> "LateDecorator[Context[Cfg], User]": ...
+    def on_member_leave(self, func: Any = None, /, *, late: bool = False) -> Any:
         """Run `func` when a member leaves, or is kicked or banned from, a server where the plugin is enabled, with
-        the `User` they were: their ID and username, since they are no longer a member. It runs as a job."""
-        return self._listen("member_leave", func)
+        the `User` they were: their ID and username, since they are no longer a member. It runs as a job.
+
+        With `late=True`, `func` also hears leaves teabot found later, and takes when the gap began, or None."""
+        return self._listen_maybe_late("member_leave", func, late)
 
     def on_message(
         self, func: Callable[[Context[Cfg], ReceivedMessage], Awaitable[None]]
@@ -639,12 +658,21 @@ class Plugin(Generic[Cfg]):
         """Run `func` when someone takes a reaction off a message. It runs as a job."""
         return self._listen("reaction_remove", func)
 
+    @overload
     def on_member_roles(
-        self, func: Callable[[Context[Cfg], RoleChange], Awaitable[None]]
-    ) -> Callable[[Context[Cfg], RoleChange], Awaitable[None]]:
-        """Run `func` when a member's roles change, with the roles added and removed. Discord reports a change
-        only for members teabot has seen since it started, such as by a command or a join. It runs as a job."""
-        return self._listen("member_roles", func)
+        self, func: Callable[[Context[Cfg], RoleChange], Awaitable[None]], /
+    ) -> Callable[[Context[Cfg], RoleChange], Awaitable[None]]: ...
+    @overload
+    def on_member_roles(
+        self, func: None = None, /, *, late: Literal[True]
+    ) -> "LateDecorator[Context[Cfg], RoleChange]": ...
+    def on_member_roles(self, func: Any = None, /, *, late: bool = False) -> Any:
+        """Run `func` when a member's roles change, with the roles added and removed. It runs as a job. Where the
+        member directory runs, every member's changes are heard; while a server's directory is still filling, or
+        is off, only those of members teabot has seen since it started (D55).
+
+        With `late=True`, `func` also hears changes teabot found later, and takes when the gap began, or None."""
+        return self._listen_maybe_late("member_roles", func, late)
 
     def on_voice(
         self, func: Callable[[Context[Cfg], VoiceChange], Awaitable[None]]
@@ -684,6 +712,18 @@ class Plugin(Generic[Cfg]):
         before leaving, or schedule a job of the plugin's own to check after a grace period."""
         return self._listen("voice_alone", func)
 
+    def _listen_maybe_late(self, event: EventName, func: Any, late: bool) -> Any:
+        if func is not None:
+            return self._listen(event, func)
+
+        def register(handler: Any) -> Any:
+            self._listen(event, handler)
+            if late:
+                self.late.add(event)
+            return handler
+
+        return register
+
     def _listen[F: Callable[..., Awaitable[None]]](self, event: EventName, func: F) -> F:
         if event in self.listeners:
             raise SignatureError(f"{where(func)}: {self.id} already handles {event}")
@@ -721,7 +761,12 @@ class Plugin(Generic[Cfg]):
                 await func(context, context.guild.get_voice_channel(int(job.payload["channel_id"])))
                 return
             received = await _received(event, context.guild, job.payload)
-            if received is not None:
+            if received is None:
+                return
+            if event in self.late:
+                since = job.payload.get("since")
+                await func(context, received, datetime.fromisoformat(since) if since else None)
+            else:
                 await func(context, received)
 
         return handle
@@ -767,6 +812,12 @@ def _about_member(event: EventName, member: Member, payload: Mapping[str, Any]) 
     if event == "voice":
         return VoiceChange(member, _id(payload.get("left")), _id(payload.get("joined")))
     return member
+
+
+type LateDecorator[C, T] = Callable[
+    [Callable[[C, T, datetime | None], Awaitable[None]]], Callable[[C, T, datetime | None], Awaitable[None]]
+]
+"""`@plugin.on_member_join(late=True)` and its kin: a decorator for a handler that also takes when a gap began."""
 
 
 @dataclass(frozen=True)

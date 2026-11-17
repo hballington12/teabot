@@ -6,6 +6,27 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- teabot keeps a directory of each server's members, who has left, how each joined, and their history: joins, leaves, kicks, bans, timeouts, role and nickname changes, with who made them. AI assistants and the service API read it with `admin_members`, which filters and counts members like a table, and `admin_member_history`. Both need Manage Server. See [Members and permissions](https://teabot-dev.github.io/teabot/use/members/).
+- `admin_channels` lists every channel's permission overwrites, and `admin_view_as` shows the server as a set of roles sees it, as Discord's **View server as role** does. Both need Manage Server.
+- `/admin find_members` finds members by username and display name as well as nickname, once the directory has its first copy of the server.
+
+### For operators
+
+- On its first start, teabot copies every server's member list once, a thousand members a request, which takes a few seconds per thousand members.
+- Your privacy policy should say what the member directory keeps and for how long. See [Your teabot's site](https://teabot-dev.github.io/teabot/host/production/#your-teabots-site).
+
+### Self-hosting
+
+- `TEABOT_DIRECTORY_RETENTION_DAYS` is how long the directory keeps its history and members who have left, a year if left out. `TEABOT_DIRECTORY_MEMBER_LIMIT` turns it off in servers with more members. `TEABOT_DIRECTORY_JOIN_LOOKUP=false` leaves join method unknown, rather than read it from Discord's member search, which Discord's published API docs do not list.
+- `teabot users delete` deletes the member's rows and history in the directory too.
+
+### Writing plugins
+
+- `on_member_roles` hears every member's role changes, not only those of members teabot has cached, so a plugin with it in a busy server runs more jobs.
+- `@plugin.on_member_join(late=True)`, and the same for `on_member_leave` and `on_member_roles`, also hears changes teabot found after a gap, such as a restart, with when the gap began. See [Changes found late](https://teabot-dev.github.io/teabot/plugins/reference/#changes-found-late).
+
 ## 1.9.0 - 2026-11-16
 
 ### Self-hosting

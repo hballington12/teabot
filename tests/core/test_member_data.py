@@ -6,7 +6,10 @@ import discord
 import pytest
 
 from teabot.core.member_data import delete_member_data
-from teabot.db.migrate import schema_problems
+from teabot.db.migrate import migrate, schema_problems
+from teabot.db.naming import Naming
+from teabot.db.pool import Pools
+from teabot.db.types import Conn
 from teabot.sdk import Context, EmptyConfig, Plugin
 from teabot.testing import HarnessFactory, PluginHarness
 from teabot.testing.fakes import FakeMember
@@ -66,3 +69,30 @@ async def test_a_bigint_member_column_is_a_problem_naming_the_type_to_use(harnes
     problems = await schema_problems(harness.admin, "plugin_raffle")
     assert any("notes.author_member_id" in p and "type teabot.member_id" in p for p in problems)
     assert any("notes.winner_ids" in p and "teabot.member_id[]" in p for p in problems)
+
+
+async def test_the_member_directory_forgets_the_member_and_whom_they_invited_or_removed(
+    admin: Conn, naming: Naming, pools: Pools
+) -> None:
+    await migrate(admin, naming, [])
+    for user_id, inviter in ((7, None), (8, 7)):
+        await admin.execute(
+            "INSERT INTO core.members (guild_id, user_id, name, inviter_id, observed_at) "
+            "VALUES (1, $1, 'x', $2, now())",
+            user_id,
+            inviter,
+        )
+    await admin.execute(
+        "INSERT INTO core.member_events (guild_id, user_id, kind, at, source, actor_id, detail) VALUES "
+        "(1, 7, 'joined', now(), 'event', NULL, '{}'), (1, 8, 'kicked', now(), 'event', 7, '{}'), "
+        """(1, 8, 'joined', now(), 'event', NULL, '{"inviter_id": "7"}'), """
+        """(1, NULL, 'role_deleted', now(), 'event', NULL, '{"holders": ["7", "8"]}')"""
+    )
+    deleted = await delete_member_data(admin, naming, 7)
+    assert deleted.core["member directory"] == 1 and deleted.core["member history"] == 1
+    assert await admin.fetchval("SELECT inviter_id FROM core.members WHERE user_id = 8") == 0
+    assert await admin.fetchval("SELECT actor_id FROM core.member_events WHERE kind = 'kicked'") == 0
+    details = [
+        r["detail"] for r in await admin.fetch("SELECT detail::text FROM core.member_events ORDER BY kind")
+    ]
+    assert all('"7"' not in d for d in details)

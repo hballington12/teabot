@@ -34,7 +34,7 @@ class _Collector:
     def job(self, name: str, handler: JobHandler, timeout: timedelta | None = None) -> None:
         self.jobs[name] = handler
 
-    def event(self, name: EventName, handler: JobHandler) -> None:
+    def event(self, name: EventName, handler: JobHandler, *, late: bool = False) -> None:
         self.events.append(name)
 
     def recurring(self, name: str, every: timedelta) -> None:

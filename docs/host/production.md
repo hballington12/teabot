@@ -56,6 +56,8 @@ With a public address, your teabot serves its own site there, at `https://your.h
 - **Your privacy policy and terms**, at `/privacy` and `/terms`, from `pages/privacy.md` and `pages/terms.md` in your instance's folder. Each shows, and is linked from every page's footer, once its file exists. Write them in Markdown.
 - **`/plugins.json`**, the plugins your teabot runs, which the plugin hub reads to say which plugins a teabot offers.
 
+Your privacy policy should say what the [member directory](../use/members.md#privacy) keeps about every member of the servers your teabot is in, and for how long: `TEABOT_DIRECTORY_RETENTION_DAYS`, a year unless you set it.
+
 The site shows without sign-in. To let admins sign in:
 
 1. In the [Discord developer portal](https://discord.com/developers/applications), open your application, then **OAuth2**.
@@ -151,6 +153,7 @@ Deleted or anonymised:
 
 - Every plugin's rows that hold the member are deleted, such as their giveaway entries.
 - Their tokens are deleted. The audit log keeps what was done, with their ID replaced by `0`.
+- Their rows and history in the [member directory](../use/members.md) are deleted. Where others' history names them, as who invited, kicked or banned someone, their ID is replaced by `0`. A member who is still in a server reappears in its directory at their next change or the next daily comparison, with no history before it.
 - `--server 987654321098765432` limits it to one server.
 - Backups taken earlier still hold the data, until they are rotated out.
 

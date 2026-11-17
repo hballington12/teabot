@@ -1,6 +1,6 @@
 # Member directory
 
-A proposed design, reviewed until it converged: teabot keeps a directory of every server's members, with their history, so admins, AI assistants and plugins can query it. Channels and permissions are a separate design, [server-permissions.md](server-permissions.md).
+teabot keeps a directory of every server's members, with their history, so admins, AI assistants and plugins can query it (D55). The design was reviewed until it converged. The directory, its sync and the admin tools are built, in `src/teabot/core/directory/` and `src/teabot/builtin/members.py`. The site's Members page and plugins' `ctx.members` follow. Channels and permissions are a separate design, [server-permissions.md](server-permissions.md).
 
 ## Why
 
@@ -22,20 +22,20 @@ Tables in `core`, all carrying `guild_id`, so server deletion (D49) and member d
   - Indexes lead with `guild_id`: (`guild_id`, `left_at`) and (`guild_id`, `joined_at`); and one on `user_id`, for a deletion request across every server. One server is at most a few hundred thousand rows, so role and name filters scan its rows; a composite GIN or trigram index is added only where measurement shows the need.
   - Account age is not stored. A user ID grows with time, so "account created between" is a range on `user_id`, which the primary key serves.
 - **`core.member_events`**, the history, partitioned by month: levelling and reaction-role bots, and teabot's own bulk role changes (D21), can write thousands of rows a day in a large server, and a month is dropped whole, as `core.audit_reads` drops its days (D24).
-  - `user_id`, `kind`, `at`, `actor_id` (who did it, when Discord says), and per kind:
+  - `user_id`, `kind`, `at`, `actor_id` (who did it, when Discord says), and a `detail` object holding, per kind:
     - `joined`: `join_source`, `source_invite_code`, `inviter_id`, this join's method, since a member may rejoin by another way.
     - `left`; `kicked` and `banned`, which replace the member's `left` row when Discord's audit log entry or ban event matches it, whichever arrives first, within a minute; `unbanned`. Bans are recorded only for a member the directory knows. Members pruned together stay `left`, since a prune's audit entry names no one.
     - `timeout`: until when, or its removal.
     - `roles`: `added` and `removed` role IDs.
     - `nickname`: the old nickname and the new one. A nickname belongs to the server. Usernames and display names belong to the user, so their changes are not kept: the row holds only the current ones.
-    - `role_deleted`: one row for the server, with the role's name and the IDs of the members who held it, so "who had it" stays answerable.
+    - `role_deleted`: one row for the server, with no `user_id`, holding the role's name and the IDs of the members who held it, so "who had it" stays answerable.
   - `reason`, from Discord's audit log entry, for kicks, bans and timeouts: untrusted text (D23).
-  - Teabot's own changes, such as a bulk role change (D21), name the audit log row (D24) of the change, so the member who confirmed it is known, not only the bot.
+  - Teabot's own changes, such as a bulk role change (D21), name the member who asked: teabot tells Discord's audit log "via teabot: <action>, for member <id>", and the writer takes that member as the actor, not the bot.
   - `source`: `event`, from the gateway as it happened; or `reconcile`, found by a reconcile, with `since` as well as `at`, so tools say "between since and at".
   - Indexes on (`guild_id`, `at`), (`guild_id`, `user_id`, `at`) and `user_id`.
 - **`core.directory_state`**, one row per server: when its history starts, whether its backfill is done, its last reconcile, whether events were dropped since, whether its last reconcile's guard stopped it, and the join-method lookup's cursor.
-- **Retention:** one period, the operator's, a year by default; the official Teabot sets 90 days. Whole months of history are dropped once older, and members who left that long ago are deleted in batches by the daily maintenance.
-- **Size:** an operator may set a member-count ceiling; there is none by default, and the official Teabot sets one. Above it, the directory is off for that server: its rows are kept as they were, and the tools say the directory is off. Back under it, the server is backfilled again.
+- **Retention:** one period, the operator's, `TEABOT_DIRECTORY_RETENTION_DAYS`, a year by default; the official Teabot sets 30 days, as its privacy policy says for its other records. Whole months of history are dropped once older, and members who left that long ago are deleted in batches by the daily maintenance.
+- **Size:** an operator may set a member-count ceiling, `TEABOT_DIRECTORY_MEMBER_LIMIT`; there is none by default. Above it, the directory is off for that server: its rows are kept as they were, and the tools say the directory is off. Back under it, the server is backfilled again.
 
 ## Keeping it current
 
@@ -56,7 +56,7 @@ Tables in `core`, all carrying `guild_id`, so server deletion (D49) and member d
 
 ### Reconcile
 
-- **When:** for each server once a day, spread across the day, unless it was reconciled in the last 24 hours. Also, for a shard's servers, when the shard starts a fresh session rather than resuming, which every deploy does, since events are lost while the bot is down; for a server that becomes available again after a Discord outage; for a server whose events were dropped; and for a server that re-adds the bot within the grace period (D49). These are rate-limited across shards, and their history's `since` is when the gap began.
+- **When:** for each server once a day, spread across the day, unless it was reconciled in the last 24 hours. Also, for a shard's servers, when the shard starts a fresh session rather than resuming, which every deploy does, since events are lost while the bot is down; for a server that becomes available again after a Discord outage; for a server whose events were dropped; and for a server that re-adds the bot within the grace period (D49). A shard's fresh session spaces its servers' reconciles two seconds apart, and at most two run at once in a process, so the other workers stay free for plugins' jobs; the rest wait as pending jobs. Their history's `since` is the server's last reconcile, the latest time its copy is known to have been complete.
 - **A page at a time, through the writer:** it pages Discord's documented member list, `GET /guilds/{id}/members`, 1,000 at a time. Discord returns members in user ID order, so each page covers a known range of IDs. The reconcile puts each page on the shard's writer queue, and the writer compares that range when it reaches it, after every event received before it: new members, changed roles and nicknames, and members in the range missing from the page, who left. A queued join is therefore applied, and fires its plugin event, before the comparison could record it. A page changes only rows observed at least a minute before its request started, so an event received since wins over it, and a page served a little behind the gateway cannot undo it. A page is one short transaction, so no server's comparison holds up its shard's other servers.
 - **Rejoins in a gap:** a member whose `joined_at` changed left and joined again while the bot was not watching: a `left` and a `joined`, both from the reconcile.
 - **Progress:** the cursor is the job's progress (D31), so a crash resumes at the next page. Nothing is staged. It never uses discord.py's member cache or `chunk()`, so memory stays small (D25, D43).
@@ -67,7 +67,7 @@ Tables in `core`, all carrying `guild_id`, so server deletion (D49) and member d
 ### Join method
 
 - Discord's member search, `POST /guilds/{id}/members-search`, returns `join_source_type`, `source_invite_code` and `inviter_id` to a bot (S9). It is not in Discord's published docs, so it is used for nothing else, and an operator can turn it off. Before the official Teabot uses it, its rate limits, its delay behind joins and its paging limit are measured, and Discord's Developer Terms on undocumented endpoints are checked.
-- **Daily:** with each server's daily reconcile, the search is read newest join first, back to the lookup's cursor, usually one page. The backfill reads it all once, in windows of `joined_at`, in case its deep paging is capped. Results go on the `joined` rows and the member rows.
+- **Daily:** with each server's daily reconcile, the search is read newest join first, 1,000 a page, back to the newest join read before, usually one page. The backfill reads it all once. Results go on the `joined` rows and the member rows, only where the row's `joined_at` still matches, so a lookup racing a rejoin never gives the new join the old one's method. Discord answers 202 while it builds a server's search index; the lookup then tries again the next day.
 - So join method is never known at the moment of joining: plugins' `on_member_join` does not get it.
 - **On demand:** when `admin.members` filters by join method, members joined since the last lookup are looked up first.
 - If the search fails, is off, or has nothing, join method is `unknown`, and nothing else is affected. Discord has no join method for very old joins.

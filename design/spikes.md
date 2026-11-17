@@ -241,4 +241,6 @@ Run on 2026-11-16 on Linux with Python 3.13, before designing the member directo
 
 - A bot can read each member's join method. The member directory uses the search for that alone, since the endpoint is not in Discord's published docs and may change.
 - Join method is `unknown` for old joins, and whenever the search fails.
-- Still unmeasured: the endpoint's rate limits, how long a join takes to appear in it, and whether Manage Server, rather than Administrator, is enough.
+- Paging, probed on 2026-11-17: newest join first is `"sort": 1`, and the next page is `"after": {"guild_joined_at": <ms>, "user_id": "<id>"}`, the last member's. `before` goes back toward newer joins.
+- Its rate limit is 10 requests per 10 seconds per server, the same as the documented member list's.
+- Still unmeasured: how long a join takes to appear in it, and whether Manage Server, rather than Administrator, is enough.

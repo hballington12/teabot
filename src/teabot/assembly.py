@@ -14,6 +14,8 @@ from typing import Protocol
 from teabot.auth.tokens import Tokens
 from teabot.builtin.admin import Admin
 from teabot.builtin.lookups import Lookups
+from teabot.builtin.members import Members
+from teabot.builtin.permissions import Permissions
 from teabot.builtin.tokens import TokenCommands
 from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
 from teabot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
@@ -48,6 +50,7 @@ class Core:
     outbox: Outbox
     recurring: Recurring
     voice: VoiceService
+    members: Members
 
 
 def assemble(
@@ -64,7 +67,9 @@ def assemble(
     else:
         token_commands = TokenCommands(tokens)
     lookups = Lookups(pools.core_db())
-    sources = sources_from(report.loaded) | admin.sources() | token_commands.sources() | lookups.sources()
+    members = Members(pools.core_db())
+    admin_tools = lookups.sources(members.specs(), Permissions().specs())
+    sources = sources_from(report.loaded) | admin.sources() | token_commands.sources() | admin_tools
     sync = CommandSync(pools.core_db(), queue, sources, client)
     admin.on_change = sync.request
     audit = AuditLog(queue)
@@ -90,11 +95,12 @@ def assemble(
     queue.register("core", POST_MESSAGE, outbox)
     recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})
     register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice))
-    events = Events(pools.core_db(), queue, listeners)
+    late = {plugin_id: loaded.late for plugin_id, loaded in report.loaded.items() if loaded.late}
+    events = Events(pools.core_db(), queue, listeners, late)
 
     async def enabled(guild_id: int, plugin_id: str, user_id: int) -> None:
         await recurring.ensure(guild_id, plugin_id)
         await events.enabled(guild_id, plugin_id, user_id)
 
     admin.on_enabled = enabled
-    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox, recurring, voice)
+    return Core(registry, sources, statuses, sync, tokens, queue, events, outbox, recurring, voice, members)

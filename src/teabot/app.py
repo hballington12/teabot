@@ -24,6 +24,9 @@ from teabot.adapters.mcp import McpAdapter
 from teabot.assembly import assemble
 from teabot.cli.init import application_id
 from teabot.core.audit import AuditMaintenance, ensure_read_partitions
+from teabot.core.directory.discord_api import DiscordMembers
+from teabot.core.directory.reconcile import DirectorySettings
+from teabot.core.directory.service import Directory, ensure_partitions
 from teabot.core.events import Events
 from teabot.core.lifecycle import PURGE_GUILD, Guilds
 from teabot.core.loader import LoadReport, discover, load
@@ -99,6 +102,7 @@ class TeabotClient(discord.AutoShardedClient):
         self.lifecycle: Guilds | None = None
         self.events: Events | None = None
         self.voice: VoiceService | None = None
+        self.directory: Directory | None = None
         self._shards: asyncio.Future[int] = asyncio.get_running_loop().create_future()
 
     async def setup_hook(self) -> None:
@@ -126,15 +130,21 @@ class TeabotClient(discord.AutoShardedClient):
         if self.router is not None:
             await self.router.handle(interaction)
 
+    def _directory_listens(self) -> bool:
+        """Whether the member directory's writer tells plugins of joins, leaves and role changes (D55). It does
+        unless discord.py's parsers could not be wrapped, when these handlers do as before."""
+        return self.directory is not None and self.directory.listening
+
     async def on_member_join(self, member: discord.Member) -> None:
-        if self.events is not None:
+        if self.events is not None and not self._directory_listens():
             await self.events.fire(member.guild.id, "member_join", {"user_id": member.id})
 
     async def on_raw_member_remove(self, payload: discord.RawMemberRemoveEvent) -> None:
         """Raw, so a member who left while not cached is still heard."""
-        await self._fire(
-            payload.guild_id, "member_leave", {"user_id": payload.user.id, "name": payload.user.name}
-        )
+        if not self._directory_listens():
+            await self._fire(
+                payload.guild_id, "member_leave", {"user_id": payload.user.id, "name": payload.user.name}
+            )
 
     async def _fire(self, guild_id: int | None, event: EventName, payload: dict[str, Any]) -> None:
         if self.events is not None and guild_id is not None and self.events.hears(event):
@@ -173,10 +183,10 @@ class TeabotClient(discord.AutoShardedClient):
         await self._reaction(payload, "reaction_remove")
 
     async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
-        """Role changes. Discord's gateway sends the change for any member, but discord.py tells only of the
-        members in its cache, which holds those seen since startup (D25)."""
+        """Role changes, when the directory cannot hear them. discord.py tells only of the members in its cache,
+        which holds those seen since startup (D25)."""
         old, new = {r.id for r in before.roles}, {r.id for r in after.roles}
-        if old == new:
+        if old == new or self._directory_listens():
             return
         payload = {"user_id": after.id, "added": sorted(new - old), "removed": sorted(old - new)}
         await self._fire(after.guild.id, "member_roles", payload)
@@ -205,6 +215,20 @@ class TeabotClient(discord.AutoShardedClient):
     async def on_guild_join(self, guild: discord.Guild) -> None:
         if self.lifecycle is not None:
             await self.lifecycle.joined(guild.id)
+        if self.directory is not None:
+            await self.directory.reconciler.request(guild.id, "joined")
+
+    async def on_shard_ready(self, shard_id: int) -> None:
+        """A fresh session, not a resume: events were lost while the shard was away, so its servers are reconciled
+        (D55)."""
+        if self.directory is not None:
+            guilds = [g.id for g in self.guilds if g.shard_id == shard_id]
+            await self.directory.fresh_session(guilds)
+
+    async def on_guild_available(self, guild: discord.Guild) -> None:
+        """A server back after a Discord outage. While a shard starts, its ready covers every server."""
+        if self.directory is not None and self.is_ready():
+            await self.directory.reconciler.request(guild.id, "available")
 
     async def on_guild_remove(self, guild: discord.Guild) -> None:
         if self.lifecycle is not None:
@@ -224,13 +248,32 @@ class TeabotClient(discord.AutoShardedClient):
             log.info("voice sessions resumed", extra={"count": resumed})
 
     async def close(self) -> None:
-        """Leave voice channels first, keeping their sessions, so the next process resumes them (D54)."""
+        """Leave voice channels first, keeping their sessions, so the next process resumes them (D54). Once the
+        gateway is closed, the directory's writers have ten seconds to empty their queues (D55)."""
         if self.voice is not None:
             await self.voice.close()
         await super().close()
+        if self.directory is not None:
+            await self.directory.close()
 
     async def wait_for_shards(self) -> int:
         return await asyncio.shield(self._shards)
+
+
+async def _open_directory(
+    settings: Settings, pools: Pools, queue: Queue, events: Events, client: TeabotClient
+) -> Directory:
+    """The member directory (D55), hearing member events through discord.py's parsers."""
+    options = DirectorySettings(
+        retention_days=settings.directory_retention_days,
+        member_limit=settings.directory_member_limit or None,
+        join_lookup=settings.directory_join_lookup,
+    )
+    directory = Directory(pools.core_db(), queue, events, DiscordMembers(client), options)
+    state = client._connection  # pyright: ignore[reportPrivateUsage]
+    directory.listen(state.parsers, client.get_guild)
+    await directory.start()
+    return directory
 
 
 def public_hosts(settings: Settings) -> list[str]:
@@ -286,14 +329,17 @@ async def _open_runtime(settings: Settings, token: str) -> Runtime:
         await prune_drafts(pools.core_db())
         await Sessions(pools.core_db()).prune()
 
-    daily = [AuditMaintenance(pools.core_db()).run, prune]
-    queue.register("core", "maintenance", Maintenance(queue, daily=daily))
     await ensure_read_partitions(pools.core_db(), datetime.now(UTC).date(), days_ahead=7)
+    await ensure_partitions(pools.core_db())
     runnable = ["core", *report.loaded]
     workers = Workers(queue, lambda: runnable)
     await lock.conn.add_listener(NOTIFY_CHANNEL, workers.on_notify)
     client = TeabotClient(lock, message_content=settings.message_content)
     core = assemble(report, pools, queue, client, settings.public_url)
+    client.directory = await _open_directory(settings, pools, queue, core.events, client)
+    core.members.lookup_joins = client.directory.reconciler.joins_now
+    daily = [AuditMaintenance(pools.core_db()).run, prune, client.directory.upkeep]
+    queue.register("core", "maintenance", Maintenance(queue, daily=daily))
     client.lifecycle = Guilds(pools, queue, core.sync, timedelta(days=settings.guild_retention_days))
     client.events = core.events
     client.voice = core.voice

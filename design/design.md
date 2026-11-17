@@ -92,6 +92,7 @@ The design targets a framework that many people run and that grows to many serve
     - A reshape that none of these cover goes in a `model_validator(mode="before")`.
     - Config is saved back in the new shape the next time it is written. Plugin tests keep stored samples from earlier versions and check that they still validate.
 11. **Deleting a member's data arrives with the first plugin that keeps it.** No plugin keeps per-member data yet. When the first one does, `teabot users delete` and a `delete_user_data` plugin hook, as in Red-DiscordBot, land together. Discord's developer policy expects bots to honour deletion requests, and the hosted service (D47) needs this from the start.
+    - The core keeps per-member data too: the member directory (D55). Deletion removes a member's rows and history there in every server, and puts 0 where others' rows name them as an inviter or an actor. A member who asks while still in a server reappears at their next event or reconcile, with no history before it, since the directory reflects current membership, as Discord's own member list does.
 12. **External connections are declared for review.** Every plugin's README has an "External connections" section listing each host it contacts, and the PR template asks for it. The reviewer checks the list against the code. The hosted service moves the list into the manifest, adds RuneLite-style consent at enable time and adds an HTTP client that refuses undeclared hosts.
 13. **The operator can block a plugin everywhere.** Listing it in `TEABOT_DISABLED_PLUGINS` in `teabot.env` and restarting stops it in every server, keeps its data and refuses enabling until it is removed from the list. The loader does not import a blocked plugin, so none of its code runs, and a plugin that hangs at import is stopped by blocking it. Blocking does not contain a plugin that may have misused its rights; uninstalling it, a new token and `teabot init --rotate` do, as the self-hosting troubleshooting page says. This plays the part of RuneLite delisting a plugin.
 14. **A broken plugin never takes down the bot.**
@@ -135,7 +136,7 @@ The design targets a framework that many people run and that grows to many serve
 25. **Reads come from the cache, and the cache stays small.**
     - Guilds, channels and roles are always cached. Members are cached when they appear in events or are fetched, and the bot never downloads full member lists at startup. A server with 100,000 members then costs memory only for the members who are active.
     - A permission check for an uncached member fetches it over REST (D18), and then caches it.
-    - Member search uses Discord's own search through the gateway, so it works without a full member list.
+    - Member lookups come from the member directory (D55), in Postgres. Full member lists are paged over REST into the directory, never into memory, and discord.py's `chunk()` is never used. Before a server's directory is ready, member search uses Discord's own search through the gateway.
     - MCP tools return compact summaries with paging instead of dumping members.
 26. **The bot's role sits below the owner and senior staff roles.** The setup docs say so. Discord's role hierarchy then stops the bot editing those roles, even with Administrator.
 
@@ -188,7 +189,7 @@ The design targets a framework that many people run and that grows to many serve
     - a deploy script that restarts the bot, which runs migrations, and ends with a health check
     - pgBackRest archiving WAL continuously to DigitalOcean Spaces, with weekly full and daily differential backups and its own retention, so a lost droplet costs seconds of data
 38. **Development uses a separate dev bot application and a test server**, so experiments never touch a live server. The whole stack runs locally against Postgres from the template's Compose file, and Claude Code connects to the local MCP URL with a dev server token.
-39. **Plan for verification early.** Turn on the Server Members intent, which joins, leaves and member updates need. Turn on Message Content only if a plugin needs message text. A bot must be verified by Discord before it can join more than 100 servers, and verified bots need approval for privileged intents. Large self-hosted instances meet this too, and the setup docs say so.
+39. **Plan for verification early.** Turn on the Server Members intent, which joins, leaves and member updates need, and which the member directory's justification names (D55). Turn on Message Content only if a plugin needs message text. A bot must be verified by Discord before it can join more than 100 servers, and verified bots need approval for privileged intents. Large self-hosted instances meet this too, and the setup docs say so.
 
 ### Scale
 
@@ -266,3 +267,14 @@ The design targets a framework that many people run and that grows to many serve
     - **teabot's `voice` extra** brings `discord.py[voice]` with `davey<0.2`, which S8 found silent for every listener with discord.py 2.7.1. Instances without voice plugins do not install it; without it, `join` refuses with a message naming the extra, and plugin tests, which use a fake connection, still run.
     - **Tests use a fake connection.** `teabot.testing` records joins, leaves and the packets each source yields, and `harness.end_track()` fires `on_track_end`. Encryption and real audio need a member listening, so they stay a live check against the test server.
     - **A music plugin is not first-party.** Streaming YouTube breaks its terms of service, so a music plugin lives in its own package, on the plugin hub (D51), never inside teabot. An instance's operator decides whether to install it.
+
+### Members
+
+55. **The core keeps a directory of every server's members and their history, for admins, AI assistants and plugins to query.** `design/member-directory.md` holds the full design and its review.
+    - **Tables:** `core.members`, one row per member per server, kept with `left_at` after they leave; `core.member_events`, the history, partitioned by month; `core.directory_state`, how far each server's copy can be trusted. Every answer carries that state.
+    - **One way in, one writer.** discord.py drops some member events before handlers see them, so teabot wraps its parsers for member add, update and remove, bans, role deletion and audit log entries. Each shard has one writer, the only writer of member state, which batches events in receipt order, compares each with the stored row, and writes the row, its history and the plugins' event jobs in one transaction.
+    - **The reconcile** pages Discord's documented member list through the writer, daily and after a fresh session, an outage, dropped events or a re-add. A server's first is its backfill, which writes rows, no history, and fires nothing. A guard stops it marking anyone left when Discord lists far fewer members than it counts.
+    - **Join method** comes from Discord's member search, which its published docs do not list (S9). The operator can turn it off.
+    - **Reading:** `admin.members` and `admin.member_history`, with structured filters and no raw SQL, need Manage Server; `admin.find_members` answers from the directory once it is ready. Permission checks never use the directory (D18).
+    - **Plugins** hear member events from the writer, so `on_member_roles` reaches every member where the directory runs. Changes a reconcile found reach only handlers declared `late=True`, with when the gap began.
+    - **Retention and size** are the operator's: a year by default, and an optional member-count ceiling above which a server has no directory. The instance's privacy policy says how long.

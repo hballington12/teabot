@@ -23,6 +23,7 @@ nav = [
     { "Confirming changes" = "use/confirming.md" },
     { "The audit log" = "use/audit.md" },
     { "Connect an AI assistant" = "use/ai.md" },
+    { "Members and permissions" = "use/members.md" },
     { "Built-in commands" = "use/commands.md" },
     { "Plugins" = [
       { "Announcements" = "use/plugins/announcements.md" },

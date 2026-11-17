@@ -265,6 +265,20 @@ async def farewell(ctx: Ctx, user: User) -> None:
 - Each runs as one of the plugin's jobs, `on_member_join` or `on_member_leave`, so a failure is retried, up to three attempts, and shows in `/admin job_status`. A member who has left again by the time a join runs is skipped.
 - A leave gets a `User`, with the `id` and the `name` they had, since they are no longer a member to look up.
 
+### Changes found late
+
+When teabot restarts, or misses events, it compares its member directory with Discord's member list and finds what changed meanwhile, such as joins during a deploy. A handler hears those only when it asks, with `late=True`, and then takes a third argument, `since`: when the gap began, or `None` for a change heard as it happened. Added in 1.10.
+
+```python
+@plugin.on_member_join(late=True)
+async def give_role(ctx: Ctx, member: Member, since: datetime | None) -> None:
+    await member.add_role(ctx.config.role_id)
+```
+
+- `on_member_join`, `on_member_leave` and `on_member_roles` take `late=True`.
+- An auto-role plugin wants late joins, so nobody who joined during a restart is left without the role. A welcome plugin does not, so nobody is greeted hours after joining.
+- In tests, `harness.join(member, since=...)`, `harness.leave(member, since=...)` and `harness.change_roles(member, added=..., since=...)` fire a late change.
+
 The other events work the same way:
 
 ```python
@@ -292,7 +306,7 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 - A message's `content` and `attachments` are empty unless the operator turns on the Message Content intent, with `TEABOT_MESSAGE_CONTENT=true` (see [Settings](../host/settings.md)). Messages that mention the bot carry them anyway. Say in the plugin's README when it needs the intent.
 - Each `Attachment` has its `filename`, `url` and `content_type`, and `image` says whether an embed can show it. Added in 1.7, with `created_at`, when the message was posted.
 - Every message in a busy server queues one job for each listening plugin, so keep the handler quick, such as one statement.
-- A role change is heard for members teabot has seen since it started, such as by a command, a join or a lookup. Discord tells it of others only once they are seen.
+- A role change is heard for every member, from teabot's [member directory](../use/members.md). While a server's directory is still taking its first copy, or is off above the operator's member limit, only changes for members teabot has seen since it started are heard. A server with a levelling or reaction-role bot changes roles often, so a plugin with `on_member_roles` gets a job for each change.
 - `emoji` is the character, such as `"⭐"`, or a server emoji as `"<:raids:123>"`, as a `Button`'s `emoji` takes it.
 
 ## Voice

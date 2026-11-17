@@ -2,7 +2,7 @@
 
 At the end of this page, an AI assistant such as Claude Code can use teabot in your server, as you.
 
-teabot's plugin actions, and the `/admin` look-ups, are also tools an AI assistant can call, through MCP, the protocol AI assistants use for tools. `/plugins`, `/audit` and `/tokens` work only in Discord. The assistant acts as you, with your permissions in your server at the moment of each call, and every call is in the [audit log](audit.md).
+teabot's plugin actions, the `/admin` look-ups, and the [member directory and channel permissions](members.md), are also tools an AI assistant can call, through MCP, the protocol AI assistants use for tools. `/plugins`, `/audit` and `/tokens` work only in Discord. The assistant acts as you, with your permissions in your server at the moment of each call, and every call is in the [audit log](audit.md).
 
 ## 1. Make a token
 

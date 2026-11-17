@@ -9,7 +9,7 @@ import pytest
 import teabot
 from teabot.cli.new_plugin import teabot_range, write_package
 from teabot.plugins import announcements
-from teabot.sdk import Plugin
+from teabot.sdk import Plugin, Surface
 from teabot.settings import Settings
 from teabot.testing import HarnessFactory
 
@@ -25,11 +25,15 @@ def command(action: str) -> str:
 
 
 async def test_every_built_in_command_is_in_the_commands_table(teabot_harness: HarnessFactory) -> None:
+    """A built-in with a command is in its table; one without, an AI assistant's tool alone, is named as a tool."""
     harness = await teabot_harness(announcements.plugin)
-    built_in = [a for a in harness.registry.actions if a.split(".")[0] in BUILT_IN]
+    built_in = {a: s for a, s in harness.registry.actions.items() if a.split(".")[0] in BUILT_IN}
     page = (DOCS / "use/commands.md").read_text()
     assert len(built_in) >= 12
-    assert [a for a in built_in if command(a) not in page] == []
+    commands = [a for a, spec in built_in.items() if Surface.SLASH in spec.surfaces]
+    tools = [a for a, spec in built_in.items() if Surface.SLASH not in spec.surfaces]
+    assert [a for a in commands if command(a) not in page] == []
+    assert [a for a in tools if f"`{a.replace('.', '_')}`" not in page] == []
 
 
 def first_party() -> list[Plugin[Any]]:

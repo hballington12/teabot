@@ -18,6 +18,8 @@ On a [bare-metal host](bare-metal.md), the file is `/etc/teabot/teabot.env`, and
 | `TEABOT_SITE_PAGES` | The folder with your site's `privacy.md` and `terms.md`. `pages` if left out. See [Your teabot's site](production.md#your-teabots-site). |
 | `TEABOT_DISABLED_PLUGINS` | Plugins turned off in every server. See [Adding plugins](adding-plugins.md#turn-a-plugin-off-everywhere). |
 | `TEABOT_GUILD_RETENTION_DAYS` | How long a server's data is kept after the bot leaves it. |
+| `TEABOT_DIRECTORY_RETENTION_DAYS` | How long the [member directory](../use/members.md) keeps its history and members who have left. A year if left out. Your privacy policy says how long. |
+| `TEABOT_DIRECTORY_MEMBER_LIMIT` | Servers with more members than this have no member directory. 0, the default, is no limit. |
 | `TEABOT_MESSAGE_CONTENT` | `true` lets plugins read what members write. Turn on **Message Content Intent** under **Bot** in the Discord developer portal first. A bot in more than 100 servers needs Discord's approval for it. |
 
 A plugin may need settings of its own, such as an API key. They are named `TEABOT_PLUGIN_<ID>_<NAME>`, such as `TEABOT_PLUGIN_WOM_API_KEY`, and go in `teabot.env` too. The plugin's README lists them. Restart teabot after changing one.

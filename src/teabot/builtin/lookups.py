@@ -2,8 +2,8 @@
 and follows progress through the same call path as everything else.
 
 - `admin.describe_guild`: channels and roles the member can see, paged, from the cache. No extra permission.
-- `admin.find_members`: up to 100 members whose name or nickname starts with the query, from Discord's
-  gateway member search. No extra permission.
+- `admin.find_members`: up to 100 members whose username, display name or nickname starts with the query, from the
+  member directory (D55), or from Discord's gateway member search until the directory is ready. No extra permission.
 - `admin.job_status`: a job in this server. Its starter can always see it; other jobs need Manage Server.
 
 Names come from members, so they are `UntrustedText` and MCP wraps them (D23).
@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 
 from teabot.builtin.config import AdminConfig
 from teabot.builtin.suggest import matching
+from teabot.core.directory import state as states
+from teabot.core.directory.query import starts_like
 from teabot.core.registry import ActionSource, find_member, member_permissions
 from teabot.db.pool import Database
 from teabot.sdk import (
@@ -34,6 +36,12 @@ from teabot.sdk import (
 )
 
 PAGE = 50
+FIND = """
+SELECT user_id, name, global_name, nickname FROM core.members
+WHERE guild_id = $1 AND left_at IS NULL
+  AND (lower(name) LIKE $2 OR lower(global_name) LIKE $2 OR lower(nickname) LIKE $2)
+ORDER BY lower(coalesce(nickname, global_name, name)), user_id LIMIT $3
+"""
 # The member's latest jobs here, for suggestions.
 THEIR_JOBS = """
 SELECT j.id, j.state,
@@ -144,6 +152,19 @@ class Lookups:
         )
 
     async def find_members(self, ctx: ActionContext, data: FindMembers) -> Found:
+        state = await states.load(self.db, ctx.guild.id)
+        if state.backfilled and not state.off:
+            rows = await self.db.fetch(FIND, ctx.guild.id, starts_like(data.query), data.limit)
+            return Found(
+                members=[
+                    MemberInfo(
+                        id=r["user_id"],
+                        name=r["name"],
+                        display_name=r["nickname"] or r["global_name"] or r["name"],
+                    )
+                    for r in rows
+                ]
+            )
         found = await ctx.guild.query_members(data.query, limit=data.limit)
         return Found(members=[MemberInfo(id=m.id, name=m.name, display_name=m.display_name) for m in found])
 
@@ -172,7 +193,14 @@ class Lookups:
         rows = await self.db.fetch(THEIR_JOBS, ctx.guild.id, ctx.actor.user_id)
         return matching((Choice(f"{r['id']} {r['label']} ({r['state']})", int(r["id"])) for r in rows), typed)
 
-    def sources(self) -> dict[str, ActionSource]:
+    def sources(self, *more: dict[str, ActionSpec[Any, Any]]) -> dict[str, ActionSource]:
+        """The `admin` group: these lookups and the `more` actions given, such as the member directory's."""
+        specs = self.specs()
+        for extra in more:
+            specs |= extra
+        return {"admin": ActionSource(AdminConfig, specs, builtin=True)}
+
+    def specs(self) -> dict[str, ActionSpec[Any, Any]]:
         table: list[tuple[str, str, type[BaseModel], type[BaseModel], Any]] = [
             (
                 "admin.describe_guild",
@@ -190,7 +218,7 @@ class Lookups:
             ),
             ("admin.job_status", "The progress of a job here", JobStatus, JobInfo, self.job_status),
         ]
-        specs = {
+        return {
             name: ActionSpec(
                 name,
                 summary,
@@ -202,4 +230,3 @@ class Lookups:
             )
             for name, summary, inp, out, run in table
         }
-        return {"admin": ActionSource(AdminConfig, specs, builtin=True)}

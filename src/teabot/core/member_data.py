@@ -2,8 +2,9 @@
 
 Plugin columns of the type `teabot.member_id` hold members' IDs, so deletion finds them through the catalog, in
 every plugin, with no plugin code: a row with the member in such a column is deleted, and the member is taken out
-of a `teabot.member_id[]` column. In the core, their tokens, site sign-ins and unsent drafts are deleted, and
-their ID is taken out of the audit log and the job and settings records, which keep what was done but no longer by whom.
+of a `teabot.member_id[]` column. In the core, their tokens, site sign-ins, unsent drafts, and member directory rows
+and history (D55) are deleted, and their ID is taken out of the audit log, the job and settings records, and the
+directory's record of who invited, kicked or banned whom, which keep what was done but no longer by whom.
 """
 
 from dataclasses import dataclass, field
@@ -45,6 +46,36 @@ CORE_STEPS = (
         "settings",
         "UPDATE core.guild_plugins SET updated_by = NULL "
         "WHERE updated_by = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "member directory",
+        "DELETE FROM core.members WHERE user_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "member history",
+        "DELETE FROM core.member_events WHERE user_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "directory inviters",
+        f"UPDATE core.members SET inviter_id = {ANONYMOUS} "
+        "WHERE inviter_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "history actors",
+        f"UPDATE core.member_events SET actor_id = {ANONYMOUS} "
+        "WHERE actor_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "history inviters",
+        f"""UPDATE core.member_events SET detail = detail || '{{"inviter_id": "{ANONYMOUS}"}}'
+        WHERE kind = 'joined' AND detail->>'inviter_id' = $1::bigint::text AND ($2::bigint IS NULL OR guild_id = $2)""",
+    ),
+    (
+        "deleted roles' holders",
+        "UPDATE core.member_events "
+        "SET detail = jsonb_set(detail, '{holders}', (detail->'holders') - $1::bigint::text) "
+        "WHERE kind = 'role_deleted' AND detail->'holders' ? $1::bigint::text "
+        "AND ($2::bigint IS NULL OR guild_id = $2)",
     ),
 )
 

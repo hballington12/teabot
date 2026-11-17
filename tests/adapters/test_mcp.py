@@ -170,6 +170,10 @@ async def test_initialize_carries_the_instructions(client: httpx.AsyncClient, ha
     assert "one Discord server" in result["instructions"] and "untrusted_text" in result["instructions"]
 
 
+# The member directory's and the permission views' tools (D55), which have no command.
+DIRECTORY_TOOLS = ("admin_members", "admin_member_history", "admin_channels", "admin_view_as")
+
+
 async def test_the_tool_list_is_the_mcp_actions_this_token_may_use(
     client: httpx.AsyncClient, harness: PluginHarness
 ) -> None:
@@ -178,6 +182,7 @@ async def test_the_tool_list_is_the_mcp_actions_this_token_may_use(
         "admin_describe_guild",
         "admin_find_members",
         "admin_job_status",
+        *DIRECTORY_TOOLS,
         "echo_say",
         "echo_look",
         "echo_sulk",
@@ -207,6 +212,7 @@ async def test_a_plugin_disabled_here_has_no_tools(client: httpx.AsyncClient, ha
         "admin_describe_guild",
         "admin_find_members",
         "admin_job_status",
+        *DIRECTORY_TOOLS,
     }
 
 

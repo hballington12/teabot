@@ -127,10 +127,11 @@ class Registrar(Protocol):
         enabled, the first time one `every` after it is turned on or teabot starts."""
         ...
 
-    def event(self, name: "EventName", handler: JobHandler) -> None:
+    def event(self, name: "EventName", handler: JobHandler, *, late: bool = False) -> None:
         """Handle an event in the servers where the plugin is enabled. It runs as a job, `on_<name>`, with the
         event's details in its payload, such as the member's ID as `user_id`. `track_end`'s holds `track` and
-        `error`, and `voice_resume`'s and `voice_alone`'s hold `channel_id`."""
+        `error`, and `voice_resume`'s and `voice_alone`'s hold `channel_id`. With `late`, a member event also
+        arrives when the member directory found it late, with `since` in its payload (D55)."""
         ...
 
 

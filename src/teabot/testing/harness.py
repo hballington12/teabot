@@ -4,7 +4,7 @@ import json
 import sys
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -199,19 +199,22 @@ class PluginHarness:
         see."""
         return await self.as_member(self.member).choose(select, values)
 
-    async def join(self, member: FakeMember) -> None:
+    async def join(self, member: FakeMember, *, since: datetime | None = None) -> None:
         """Fire a member joining the server, as Discord would, and run the jobs it queues. Add the member to
-        `harness.guild` first."""
+        `harness.guild` first. With `since`, it is a join teabot found late, which only `late=True` handlers
+        hear (D55)."""
         assert self.events is not None
-        await self.events.fire(self.guild.id, "member_join", {"user_id": member.id})
+        await self.events.fire(self.guild.id, "member_join", {"user_id": member.id}, since=since)
         await self.run_jobs()
 
-    async def leave(self, member: FakeMember) -> None:
-        """Take the member out of the server, fire them leaving, as Discord would, and run the jobs it queues."""
+    async def leave(self, member: FakeMember, *, since: datetime | None = None) -> None:
+        """Take the member out of the server, fire them leaving, as Discord would, and run the jobs it queues.
+        With `since`, it is a leave teabot found late."""
         assert self.events is not None
         self.guild.members.pop(member.id, None)
         self.guild.fetchable.pop(member.id, None)
-        await self.events.fire(self.guild.id, "member_leave", {"user_id": member.id, "name": member.name})
+        payload = {"user_id": member.id, "name": member.name}
+        await self.events.fire(self.guild.id, "member_leave", payload, since=since)
         await self.run_jobs()
 
     async def enable(self) -> None:
@@ -263,15 +266,23 @@ class PluginHarness:
         await self._fire("reaction_remove" if remove else "reaction_add", payload)
 
     async def change_roles(
-        self, member: FakeMember, *, added: Sequence[FakeRole] = (), removed: Sequence[FakeRole] = ()
+        self,
+        member: FakeMember,
+        *,
+        added: Sequence[FakeRole] = (),
+        removed: Sequence[FakeRole] = (),
+        since: datetime | None = None,
     ) -> None:
-        """Give and take roles as Discord would when someone else changes them, fire it and run its jobs."""
+        """Give and take roles as Discord would when someone else changes them, fire it and run its jobs. With
+        `since`, it is a change teabot found late."""
         gone = {r.id for r in removed}
         member.roles = [r for r in member.roles if r.id not in gone] + [
             r for r in added if r not in member.roles
         ]
         payload = {"user_id": member.id, "added": [r.id for r in added], "removed": [r.id for r in removed]}
-        await self._fire("member_roles", payload)
+        assert self.events is not None
+        await self.events.fire(self.guild.id, "member_roles", payload, since=since)
+        await self.run_jobs()
 
     async def voice(self, member: FakeMember, *, joined: Any = None, left: Any = None) -> None:
         """Move `member` into the voice channel `joined`, out of `left`, or both, fire it and run its jobs. A

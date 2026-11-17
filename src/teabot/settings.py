@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     disabled_plugins: Annotated[tuple[str, ...], NoDecode] = ()
     guild_retention_days: int = Field(default=30, ge=0)
     message_content: bool = False
+    directory_retention_days: int = Field(default=365, ge=1)
+    directory_member_limit: int = Field(default=0, ge=0)
+    directory_join_lookup: bool = True
     loop_warn_seconds: float = Field(default=1.0, gt=0)
     loop_limit_seconds: float = Field(default=30.0, gt=0)
     startup_limit_seconds: float = Field(default=600.0, gt=0)
