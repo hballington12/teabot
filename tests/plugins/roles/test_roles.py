@@ -73,7 +73,9 @@ async def test_an_admin_cannot_offer_a_role_above_their_own(teabot_harness: Harn
     channel = harness.guild.add_channel(FakeChannel())
     with pytest.raises(ActionFailed) as caught:
         await harness.as_member(admin).call(post, channel=channel, title="Perks", roles=[vips])
-    assert caught.value.public_message == "VIPs is at or above your highest role, so you cannot give it out."
+    assert (
+        caught.value.public_message == "VIPs is at or above your highest role, so you cannot give or take it."
+    )
 
 
 async def test_posting_needs_manage_roles(teabot_harness: HarnessFactory) -> None:

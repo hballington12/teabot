@@ -15,6 +15,7 @@ from typing import Any, cast
 
 import discord
 
+from teabot.sdk._roles import MEMBER_GONE_CODES, MemberGone, problem, reason_text
 from teabot.sdk.actions import ActionError
 from teabot.sdk.components import BUTTONS_BESIDE_SELECT, BUTTONS_MAX, Button, Select
 from teabot.sdk.guild import (
@@ -192,6 +193,7 @@ class MemberView:
     raw: Any
     guild: Any
     reason: str = DEFAULT_REASON
+    action: str = ""
 
     @property
     def id(self) -> int:
@@ -243,23 +245,8 @@ class MemberView:
         channel = getattr(getattr(self.raw, "voice", None), "channel", None)
         return int(channel.id) if channel is not None else None
 
-    def _role_to_change(self, role: Role) -> Any:
-        found = self.guild.get_role(role.id)
-        if found is None:
-            raise ActionError("That role is not in this server.")
-        if int(found.id) == int(self.guild.id):
-            raise ActionError("Everyone has @everyone; it cannot be given or taken.")
-        if found.managed:
-            raise ActionError(
-                f"{found.name} is managed by Discord or an integration, so nobody can give or take it."
-            )
-        if int(found.position) >= _top_position(self.guild.me, self.guild):
-            raise ActionError(
-                f"{found.name} is at or above my highest role, so I cannot give or take it. "
-                "Move my role above it in Server Settings, then Roles."
-            )
-        _require(self.guild, "manage_roles", f"give or take {found.name}")
-        return found
+    def _role_to_change(self, role: Role, by: Member | None = None, *, give: bool = True) -> Any:
+        return role_to_change(self.guild, role, by, give=give)
 
     def check_outranked(self, doing: str, permission: str) -> None:
         if self.id == int(self.guild.owner_id):
@@ -276,13 +263,17 @@ class MemberView:
         except discord.Forbidden:
             raise ActionError(f"Discord would not let me {doing}.") from None
 
-    async def add_role(self, role: Role, /, *, reason: str | None = None) -> None:
-        found = self._role_to_change(role)
-        await self._call(f"give {found.name}", self.raw.add_roles(found, reason=reason or self.reason))
+    async def add_role(self, role: Role, /, *, reason: str | None = None, by: Member | None = None) -> None:
+        found = self._role_to_change(role, by, give=True)
+        text = reason_text(self.reason, self.action, by, reason)
+        await self._call(f"give {found.name}", self.raw.add_roles(found, reason=text))
 
-    async def remove_role(self, role: Role, /, *, reason: str | None = None) -> None:
-        found = self._role_to_change(role)
-        await self._call(f"take {found.name}", self.raw.remove_roles(found, reason=reason or self.reason))
+    async def remove_role(
+        self, role: Role, /, *, reason: str | None = None, by: Member | None = None
+    ) -> None:
+        found = self._role_to_change(role, by, give=False)
+        text = reason_text(self.reason, self.action, by, reason)
+        await self._call(f"take {found.name}", self.raw.remove_roles(found, reason=text))
 
     async def set_nickname(self, nickname: str | None, /, *, reason: str | None = None) -> None:
         if nickname is not None and not 1 <= len(nickname) <= 32:
@@ -526,6 +517,7 @@ class VoiceChannelView:
 class GuildView:
     raw: Any
     reason: str = DEFAULT_REASON
+    action: str = ""
 
     @property
     def id(self) -> int:
@@ -582,7 +574,47 @@ class GuildView:
         return RoleView(role) if role is not None else None
 
     def _member(self, raw: Any) -> Member:
-        return MemberView(raw, self.raw, self.reason)
+        return MemberView(raw, self.raw, self.reason, self.action)
+
+    def can_assign(self, role: Role, /, *, by: Member | None = None, give: bool = True) -> str | None:
+        found = self.raw.get_role(role.id)
+        if found is None:
+            return "That role is not in this server."
+        return problem(self.raw, found, _raw_member(self.raw, by), give=give)
+
+    async def add_role(
+        self, user_id: int, role: Role, /, *, by: Member | None = None, reason: str | None = None
+    ) -> None:
+        await self._change_role(user_id, role, (True, by, reason))
+
+    async def remove_role(
+        self, user_id: int, role: Role, /, *, by: Member | None = None, reason: str | None = None
+    ) -> None:
+        await self._change_role(user_id, role, (False, by, reason))
+
+    async def _change_role(
+        self, user_id: int, role: Role, how: tuple[bool, Member | None, str | None]
+    ) -> None:
+        """Give or take a role by member ID, in one request, without fetching the member first."""
+        give, by, extra = how
+        found = role_to_change(self.raw, role, by, give=give)
+        http = self.raw._state.http  # pyright: ignore[reportPrivateUsage]
+        change = http.add_role if give else http.remove_role
+        try:
+            await change(
+                int(self.raw.id),
+                user_id,
+                int(found.id),
+                reason=reason_text(self.reason, self.action, by, extra),
+            )
+        except discord.NotFound as exc:
+            if exc.code in MEMBER_GONE_CODES:
+                raise MemberGone("That member is no longer in this server.") from None
+            raise ActionError("That role is not in this server.") from None
+        except discord.Forbidden:
+            raise ActionError(
+                f"Discord would not let me {'give' if give else 'take'} {found.name}."
+            ) from None
 
     async def get_member(self, user_id: int, /) -> Member | None:
         member = self.raw.get_member(user_id)
@@ -630,7 +662,26 @@ class GuildView:
         return [Ban(int(e.user.id), str(e.user.name), e.reason) async for e in self.raw.bans(limit=limit)]
 
 
-def guild_view(guild: Any, reason: str = DEFAULT_REASON) -> Guild:
+def guild_view(guild: Any, reason: str = DEFAULT_REASON, action: str = "") -> Guild:
     """The SDK's view of a server, for plugin code: discord.py's `Guild`, or a `teabot.testing` fake. `reason` goes
-    to Discord's audit log with every change the plugin makes without its own."""
-    return GuildView(guild, reason)
+    to Discord's audit log with every change the plugin makes, with any reason of the plugin's after it. `action`
+    names the action or job, for a change made `by=` a member."""
+    return GuildView(guild, reason, action)
+
+
+def _raw_member(guild: Any, by: Member | None) -> Any:
+    if by is None:
+        return None
+    raw = getattr(by, "raw", None)
+    return raw if raw is not None else guild.get_member(by.id)
+
+
+def role_to_change(guild: Any, role: Role, by: Member | None, *, give: bool) -> Any:
+    """The server's role, once every check for the change passes; else `ActionError` says why."""
+    found = guild.get_role(role.id)
+    if found is None:
+        raise ActionError("That role is not in this server.")
+    if why := problem(guild, found, _raw_member(guild, by), give=give):
+        raise ActionError(why)
+    _require(guild, "manage_roles", f"give or take {found.name}")
+    return found

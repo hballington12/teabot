@@ -35,7 +35,7 @@ MATCH_WINDOW = timedelta(minutes=1)
 KICK, BAN, UNBAN, MEMBER_UPDATE, ROLE_UPDATE = 20, 22, 23, 24, 25
 AUDITED = frozenset({KICK, BAN, UNBAN, MEMBER_UPDATE, ROLE_UPDATE})
 # What teabot tells Discord's audit log for a change it makes for a member (`teabot.sdk.authoring`).
-TEABOT_REASON = re.compile(r"^via teabot: .*, for member (\d+)$")
+TEABOT_REASON = re.compile(r"^via teabot: [^,]+, for member (\d+)(?:: |$)")
 
 ROW = (
     f"SELECT user_id, {COLUMNS}, left_at, observed_at FROM core.members WHERE guild_id = $1 AND user_id = $2"

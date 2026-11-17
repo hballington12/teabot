@@ -6,9 +6,10 @@ from datetime import timedelta
 import discord
 import pytest
 
-from teabot.sdk import ActionError, Context, EmptyConfig, File, Plugin, Role
+from teabot.sdk import ActionError, Context, EmptyConfig, File, MemberGone, Plugin, Role
 from teabot.sdk._views import guild_view
 from teabot.testing import FakeCategory, FakeChannel, FakeGuild, FakeVoiceChannel, HarnessFactory
+from teabot.testing.fakes import FakeMember, FakeRole
 
 NONE = discord.Permissions.none()
 
@@ -29,7 +30,70 @@ async def test_a_role_is_given_and_taken_with_a_reason() -> None:
     assert raw.role_ids == {raids.id}
     await sam.remove_role(role, reason="tidying")
     assert raw.role_ids == frozenset()
-    assert raw.reasons == ["via teabot: roles.toggle, for member 1", "tidying"]
+    assert raw.reasons == [
+        "via teabot: roles.toggle, for member 1",
+        "via teabot: roles.toggle, for member 1: tidying",
+    ]
+
+
+def acting(guild: FakeGuild) -> tuple[FakeRole, FakeRole, FakeMember, FakeMember]:
+    """A low role, a role granting Ban Members, a moderator with Manage Roles ranked between them, and a target."""
+    low = guild.add_role("Friends", position=2)
+    mod_role = guild.add_role("Mod", position=5, permissions=discord.Permissions(manage_roles=True))
+    risky = guild.add_role("Bans", position=3, permissions=discord.Permissions(ban_members=True))
+    mod = guild.add_member(discord.Permissions(manage_roles=True), roles=[mod_role])
+    target = guild.add_member(NONE, cached=False)
+    return low, risky, mod, target
+
+
+async def test_by_changes_a_role_for_a_member_and_names_them_in_the_reason() -> None:
+    guild = server()
+    low, _risky, mod, target = acting(guild)
+    view = guild_view(guild, "via teabot: roles.give, for member 1", "roles.give")
+    by = await view.get_member(mod.id)
+    role = view.get_role(low.id)
+    assert by is not None and role is not None
+    assert view.can_assign(role, by=by) is None
+    await view.add_role(target.id, role, by=by, reason="clean-up")
+    assert target.role_ids == {low.id}
+    assert target.reasons == [f"via teabot: roles.give, for member {mod.id}: clean-up"]
+
+
+async def test_by_refuses_a_role_granting_what_the_member_lacks_but_lets_them_take_it() -> None:
+    guild = server()
+    _low, risky, mod, target = acting(guild)
+    view = guild_view(guild, "via teabot", "roles.give")
+    by = await view.get_member(mod.id)
+    role = view.get_role(risky.id)
+    assert by is not None and role is not None
+    assert "Ban Members, which you do not have" in (view.can_assign(role, by=by) or "")
+    with pytest.raises(ActionError, match="which you do not have"):
+        await view.add_role(target.id, role, by=by)
+    assert view.can_assign(role, by=by, give=False) is None
+
+
+async def test_by_refuses_a_role_at_or_above_the_members_own_and_a_member_without_manage_roles() -> None:
+    guild = server()
+    low, _risky, mod, target = acting(guild)
+    high = guild.add_role("Officer", position=6)
+    plain = guild.add_member(NONE, roles=[guild.add_role("Rank", position=9)])
+    view = guild_view(guild)
+    by, nobody = await view.get_member(mod.id), await view.get_member(plain.id)
+    role, top = view.get_role(low.id), view.get_role(high.id)
+    assert by is not None and nobody is not None and role is not None and top is not None
+    assert "at or above your highest role" in (view.can_assign(top, by=by) or "")
+    assert "needs Manage Roles" in (view.can_assign(role, by=nobody) or "")
+    assert target.role_ids == frozenset()
+
+
+async def test_a_change_by_id_says_when_the_member_has_left() -> None:
+    guild = server()
+    low, _risky, _mod, _target = acting(guild)
+    view = guild_view(guild)
+    role = view.get_role(low.id)
+    assert role is not None
+    with pytest.raises(MemberGone):
+        await view.add_role(424242, role)
 
 
 @pytest.mark.parametrize(

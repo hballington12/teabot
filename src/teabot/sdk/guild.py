@@ -143,12 +143,19 @@ class Member(Protocol):
         """The voice channel the member is in now, or None when they are in none."""
         ...
 
-    async def add_role(self, role: Role, /, *, reason: str | None = None) -> None:
-        """Give them the role. Refused for a managed role, @everyone, or a role at or above the bot's own."""
+    async def add_role(self, role: Role, /, *, reason: str | None = None, by: "Member | None" = None) -> None:
+        """Give them the role. Refused for a managed role, @everyone, or a role at or above the bot's own.
+
+        With `by`, the member the change is made for, it is refused too unless `by` owns the server, has Manage
+        Roles, ranks above the role, and holds every permission the role grants. Discord's audit log then names
+        `by`. A `reason` follows teabot's own part of the audit log's text."""
         ...
 
-    async def remove_role(self, role: Role, /, *, reason: str | None = None) -> None:
-        """Take the role from them, with the same limits as `add_role`."""
+    async def remove_role(
+        self, role: Role, /, *, reason: str | None = None, by: "Member | None" = None
+    ) -> None:
+        """Take the role from them, with the same limits as `add_role`, except that `by` need not hold the role's
+        permissions, since taking a role grants nothing."""
         ...
 
     async def set_nickname(self, nickname: str | None, /, *, reason: str | None = None) -> None:
@@ -513,6 +520,24 @@ class Guild(Protocol):
 
     async def get_member(self, user_id: int, /) -> Member | None:
         """The member with this ID, from the cache or else from Discord, or None when they are not in it."""
+        ...
+
+    def can_assign(self, role: Role, /, *, by: Member | None = None, give: bool = True) -> str | None:
+        """Why the bot could not give `role`, or with `give=False` take it, for `by`, or None when it could. The
+        same checks as `add_role` and `remove_role` make, with nothing changed, such as for a plan."""
+        ...
+
+    async def add_role(
+        self, user_id: int, role: Role, /, *, by: Member | None = None, reason: str | None = None
+    ) -> None:
+        """Give the member with this ID the role, in one request, whether or not teabot has seen them, with the
+        checks `Member.add_role` makes. Raises `MemberGone` when they are no longer in the server."""
+        ...
+
+    async def remove_role(
+        self, user_id: int, role: Role, /, *, by: Member | None = None, reason: str | None = None
+    ) -> None:
+        """Take the role from the member with this ID, as `add_role` gives it."""
         ...
 
     async def find_members(self, prefix: str, /, *, limit: int = 10) -> list[Member]:

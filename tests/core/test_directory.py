@@ -207,7 +207,7 @@ async def test_a_ban_event_then_its_audit_entry_name_the_ban_and_who(setup: Setu
 
 async def test_a_role_change_teabot_made_names_the_member_who_asked(setup: Setup) -> None:
     await setup.send(Joined(GUILD, row(10), now()), Updated(GUILD, row(10, roles=(1,)), now()))
-    reason = "via teabot: roles.bulk_give, for member 42"
+    reason = "via teabot: roles.give_matching, for member 42: for member 7 instead"
     await setup.send(AuditEntry(GUILD, ROLE_UPDATE, 10, BOT, reason, ({"key": "$add"},), now()))
     roles = [r for r in await setup.history() if r["kind"] == "roles"]
     assert roles[0]["actor_id"] == 42

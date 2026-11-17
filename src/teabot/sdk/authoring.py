@@ -360,7 +360,7 @@ def _context_of(
     ctx: ActionContext, action: str, hosts: frozenset[str], reads: frozenset[str] = frozenset()
 ) -> _Context:
     diff = getattr(ctx, "diff", None) or Diff()
-    guild = guild_view(ctx.guild, _reason(action, ctx.actor))
+    guild = guild_view(ctx.guild, _reason(action, ctx.actor), action)
     return _Context(
         guild,
         ctx.actor,
@@ -418,7 +418,7 @@ class Job[C: BaseModel, **P]:
             raise ActionError("The bot is no longer in this job's server.")
         actor = Actor(job.started_by or SYSTEM, "job")
         context = _Context(
-            guild_view(guild, _reason(self.name, actor)),
+            guild_view(guild, _reason(self.name, actor), self.name),
             actor,
             job.config,
             lambda: job.db,
@@ -780,7 +780,7 @@ class Plugin(Generic[Cfg]):
                 return
             actor = Actor(SYSTEM, "event")
             context = _Context(
-                guild_view(guild, _reason(name, actor)),
+                guild_view(guild, _reason(name, actor), name),
                 actor,
                 job.config,
                 lambda: job.db,

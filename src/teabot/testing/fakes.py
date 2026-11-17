@@ -41,8 +41,10 @@ def forbidden(text: str = "Missing Permissions") -> discord.Forbidden:
     return discord.Forbidden(cast(Any, _ForbiddenResponse()), text)
 
 
-def not_found(text: str) -> discord.NotFound:
-    return discord.NotFound(cast(Any, _NotFoundResponse()), text)
+def not_found(text: str, *, code: int = 0) -> discord.NotFound:
+    error = discord.NotFound(cast(Any, _NotFoundResponse()), text)
+    error.code = code
+    return error
 
 
 @dataclass
@@ -601,6 +603,11 @@ class FakeGuild:
         self.roles.append(role)
         return role
 
+    @property
+    def _state(self) -> "_FakeState":
+        """discord.py's connection state, for the role changes the SDK makes by member ID."""
+        return _FakeState(_FakeHttp(self))
+
     async def ban(self, user: Any, *, reason: str | None = None, delete_message_seconds: int = 0) -> None:
         member = self.members.pop(int(user.id), None) or self.fetchable.pop(int(user.id), None)
         name = member.name if member is not None else "user"
@@ -615,6 +622,40 @@ class FakeGuild:
     async def bans(self, *, limit: int | None = 1000) -> AsyncIterator[FakeBan]:
         for entry in list(self.banned.values())[:limit]:
             yield entry
+
+
+@dataclass(frozen=True)
+class _FakeHttp:
+    """The part of discord.py's HTTP client that changes a member's role by ID."""
+
+    guild: "FakeGuild"
+
+    def _member(self, user_id: int) -> FakeMember:
+        member = self.guild.members.get(user_id) or self.guild.fetchable.get(user_id)
+        if member is None:
+            raise not_found("Unknown Member", code=10007)
+        return member
+
+    async def add_role(
+        self, _guild_id: int, user_id: int, role_id: int, *, reason: str | None = None
+    ) -> None:
+        role = self.guild.get_role(role_id)
+        if role is None:
+            raise not_found("Unknown Role", code=10011)
+        await self._member(user_id).add_roles(role, reason=reason)
+
+    async def remove_role(
+        self, _guild_id: int, user_id: int, role_id: int, *, reason: str | None = None
+    ) -> None:
+        role = self.guild.get_role(role_id)
+        if role is None:
+            raise not_found("Unknown Role", code=10011)
+        await self._member(user_id).remove_roles(role, reason=reason)
+
+
+@dataclass(frozen=True)
+class _FakeState:
+    http: _FakeHttp
 
 
 @dataclass

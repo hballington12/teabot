@@ -17,6 +17,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from teabot.sdk import (
+    DANGEROUS,
     DESTRUCTIVE,
     READ,
     ActionError,
@@ -26,8 +27,8 @@ from teabot.sdk import (
     Diff,
     DiffEntry,
     EmptyConfig,
+    Guild,
     Member,
-    Permission,
     Plugin,
     Role,
     Surface,
@@ -41,28 +42,6 @@ plugin = Plugin(
 type Ctx = Context[EmptyConfig]
 
 BUTTONS_MAX = 25
-DANGEROUS: frozenset[Permission] = frozenset(
-    {
-        "administrator",
-        "ban_members",
-        "kick_members",
-        "manage_channels",
-        "manage_events",
-        "manage_expressions",
-        "manage_guild",
-        "manage_messages",
-        "manage_nicknames",
-        "manage_roles",
-        "manage_threads",
-        "manage_webhooks",
-        "mention_everyone",
-        "moderate_members",
-        "move_members",
-        "mute_members",
-        "deafen_members",
-        "view_audit_log",
-    }
-)
 
 NEW_POST = "INSERT INTO posts (guild_id, channel_id, title, note) VALUES ($1, $2, $3, $4) RETURNING id"
 SET_MESSAGE = "UPDATE posts SET message_id = $3 WHERE guild_id = $1 AND id = $2"
@@ -113,28 +92,22 @@ def _words(permission: str) -> str:
     return permission.replace("_", " ").title()
 
 
-def refusal(guild_id: int, owner_id: int, bot: Member, role: Role, offerer: Member | None) -> str | None:
-    """Why `role` may not be given out by a button, or None when it may."""
-    if role.id == guild_id:
+def refusal(guild: Guild, role: Role, offerer: Member | None) -> str | None:
+    """Why `role` may not be given out by a button, or None when it may: the SDK's rules for who may give a role
+    (`can_assign`), for the member setting the picker up when there is one, and the pickers' own rule on top, that
+    a button never gives out a role with a dangerous permission."""
+    if role.id == guild.id:
         return "Everyone has @everyone already."
-    if role.managed:
-        return f"{role.name} is managed by Discord or an integration, so nobody can give it out."
     risky = sorted(role.permissions & DANGEROUS)
     if risky:
         return f"{role.name} grants {', '.join(_words(p) for p in risky)}, so a button cannot give it out."
-    if bot.top_role is None or role.position >= bot.top_role.position:
-        return f"{role.name} is at or above my highest role. Move my role above it in Server Settings, then Roles."
-    if offerer is not None and offerer.id != owner_id:
-        top = offerer.top_role
-        if top is None or role.position >= top.position:
-            return f"{role.name} is at or above your highest role, so you cannot give it out."
-    return None
+    return guild.can_assign(role, by=offerer)
 
 
 async def check_offerable(ctx: Ctx, roles: list[Role]) -> None:
     offerer = await ctx.guild.get_member(ctx.actor.user_id)
     for role in roles:
-        reason = refusal(ctx.guild.id, ctx.guild.owner_id, ctx.guild.me, role, offerer)
+        reason = refusal(ctx.guild, role, offerer)
         if reason is not None:
             raise ActionError(reason)
 
@@ -246,7 +219,7 @@ async def toggle(ctx: Ctx, post: int, role: Role) -> str:
     """
     if not await ctx.db.fetchval(bool, IS_OFFERED, ctx.guild.id, post, role.id):
         raise ActionError(f"{role.name} is no longer offered here.")
-    reason = refusal(ctx.guild.id, ctx.guild.owner_id, ctx.guild.me, role, None)
+    reason = refusal(ctx.guild, role, None)
     if reason is not None:
         raise ActionError(reason)
     member = await ctx.guild.get_member(ctx.actor.user_id)

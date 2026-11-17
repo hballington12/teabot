@@ -9,7 +9,8 @@ A plugin:
 - `Plugin`: a plugin, with its id and its config model. `@plugin.action` makes a function an `Action`, and
   `@plugin.job` makes one a `Job`.
 - `Context`: what an action or a job receives: the server, the actor, the config, the database and the time.
-- `READ`, `WRITE` and `DESTRUCTIVE`: an action's `Risk`. `Permission` names what a member needs.
+- `READ`, `WRITE` and `DESTRUCTIVE`: an action's `Risk`. `Permission` names what a member needs, and `DANGEROUS` the
+  permissions that act on others or the server.
 - `Manifest`: a plugin's id, version, config model and migrations. `EmptyConfig` is the config of none.
 - `InstanceSettings`: settings for the whole instance, such as an API key, from `plugin.instance_settings(Model)`,
   read from `TEABOT_PLUGIN_<ID>_<FIELD>`.
@@ -32,7 +33,9 @@ Actions:
 The server (D45):
 - `Guild`: the server, to find a `TextChannel`, any `Channel`, a `Role` or a `Member`, and to ban. A channel's `send`
   returns a `Message`, and mentions nobody unless asked. Members can be given roles, renamed, timed out, kicked and
-  sent a direct message, as the bot. `File` attaches a file; `Ban` is one of the server's bans, and `User` someone
+  sent a direct message, as the bot. With `by=`, a role is given or taken for a member, within what they could give
+  themselves, and `Guild.can_assign` says whether it could be; `Guild.add_role` changes a member by ID, raising
+  `MemberGone` when they have left. `File` attaches a file; `Ban` is one of the server's bans, and `User` someone
   who is no longer a member. `ChannelKind` is what sort of channel a `Channel` is.
 - The event handlers receive a `Member` on a join, a `User` on a leave, a `ReceivedMessage`, a `Reaction`, a
   `RoleChange` or a `VoiceChange`. A channel's `read_message` reads anyone's message as a `ReceivedMessage`, with
@@ -70,6 +73,7 @@ The database (D9, D30):
   returns a `Post`.
 """
 
+from teabot.sdk._roles import MemberGone
 from teabot.sdk.actions import (
     SYSTEM,
     ActionContext,
@@ -116,7 +120,7 @@ from teabot.sdk.members import (
     NotDeclared,
     PeopleFilter,
 )
-from teabot.sdk.permissions import Permission
+from teabot.sdk.permissions import DANGEROUS, Permission
 from teabot.sdk.plans import Diff, DiffEntry
 from teabot.sdk.plugin import EmptyConfig, JobContext, JobHandler, LoadablePlugin, Manifest, Registrar
 from teabot.sdk.settings import InstanceSettings
@@ -124,6 +128,7 @@ from teabot.sdk.store import Store
 from teabot.sdk.voice import Packets, Voice, VoiceState
 
 __all__ = [
+    "DANGEROUS",
     "DESTRUCTIVE",
     "READ",
     "SYSTEM",
@@ -166,6 +171,7 @@ __all__ = [
     "Manifest",
     "Member",
     "MemberFilter",
+    "MemberGone",
     "MemberRef",
     "Members",
     "Menu",

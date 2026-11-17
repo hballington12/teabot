@@ -17,3 +17,28 @@ type Permission = Literal[
     "view_channel", "view_creator_monetization_analytics", "view_guild_insights",
 ]  # fmt: skip
 """A Discord permission a member needs for an action, by discord.py's name for it."""
+
+DANGEROUS: frozenset[Permission] = frozenset(
+    {
+        "administrator",
+        "ban_members",
+        "kick_members",
+        "manage_channels",
+        "manage_events",
+        "manage_expressions",
+        "manage_guild",
+        "manage_messages",
+        "manage_nicknames",
+        "manage_roles",
+        "manage_threads",
+        "manage_webhooks",
+        "mention_everyone",
+        "moderate_members",
+        "move_members",
+        "mute_members",
+        "deafen_members",
+        "view_audit_log",
+    }
+)
+"""Permissions that let a member act on others or on the server: a role pickers never offer, and that role
+changes through an AI assistant's token never give or take."""
