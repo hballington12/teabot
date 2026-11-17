@@ -6,6 +6,8 @@ it back. Imports only `teabot.sdk`.
 - `roles.list` shows the server's posts.
 - `roles.delete` deletes a post, after a plan.
 - `roles.toggle` is what a button press runs: it gives the role, or takes it back.
+- Role changes for members, in `changes`: `roles.give`, `roles.take`, `roles.give_matching`, `roles.take_matching`,
+  `roles.list_changes`, `roles.stop` and `roles.revert`.
 
 A button gives a member a role they could not give themselves, so only safe roles are offered: none that Discord
 manages, none that grants a moderator's permission, and none at or above the bot's highest role or the highest role
@@ -37,7 +39,9 @@ from teabot.sdk import (
 )
 
 plugin = Plugin(
-    "roles", description="Posts with a button for each role, which members press to take it or give it back."
+    "roles",
+    description="Role pickers, with a button for each role, and role changes for named or matching members.",
+    reads=["members"],
 )
 type Ctx = Context[EmptyConfig]
 
@@ -264,3 +268,7 @@ async def pickers(ctx: Ctx, typed: str) -> list[Choice[int]]:
     return [
         Choice(f"{r.id}: {r.title}"[:100], r.id) for r in rows if typed.lower() in f"{r.id} {r.title}".lower()
     ]
+
+
+# Role changes for members register their actions on the plugin.
+from . import changes as changes  # noqa: E402

@@ -39,8 +39,87 @@
         "type": 1
       },
       {
+        "description": "Give a role to up to ten named members. It changes members, not a role picker; roles.add changes a p",
+        "name": "give",
+        "options": [
+          {
+            "description": "The role to give",
+            "name": "role",
+            "required": true,
+            "type": 8
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_1",
+            "required": true,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_2",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_3",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_4",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_5",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_6",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_7",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_8",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_9",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to give it to",
+            "name": "members_10",
+            "required": false,
+            "type": 6
+          }
+        ],
+        "type": 1
+      },
+      {
         "description": "The server's role pickers.",
         "name": "list",
+        "options": [],
+        "type": 1
+      },
+      {
+        "description": "The server's latest role changes to matching members, with how far each has got.",
+        "name": "list_changes",
         "options": [],
         "type": 1
       },
@@ -150,11 +229,116 @@
           }
         ],
         "type": 1
+      },
+      {
+        "description": "Undo a finished role change, for the members it changed, within 30 days. A member who already had th",
+        "name": "revert",
+        "options": [
+          {
+            "description": "The change's number, as roles.list_changes shows it",
+            "name": "change",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Stop a role change between bursts. What it changed stays changed; roles.revert undoes it.",
+        "name": "stop",
+        "options": [
+          {
+            "description": "The change's number, as roles.list_changes shows it",
+            "name": "change",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Take a role from up to ten named members. It changes members, not a role picker; roles.remove change",
+        "name": "take",
+        "options": [
+          {
+            "description": "The role to take",
+            "name": "role",
+            "required": true,
+            "type": 8
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_1",
+            "required": true,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_2",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_3",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_4",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_5",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_6",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_7",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_8",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_9",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "The members to take it from",
+            "name": "members_10",
+            "required": false,
+            "type": 6
+          }
+        ],
+        "type": 1
       }
     ],
     "type": 1
   },
-  "jobs": {},
+  "jobs": {
+    "run_change": {
+      "properties": {},
+      "title": "RolesRunChangeInput",
+      "type": "object"
+    }
+  },
   "tools": {
     "roles_add": {
       "properties": {
@@ -195,9 +379,264 @@
       "title": "RolesDeleteInput",
       "type": "object"
     },
+    "roles_give": {
+      "properties": {
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "members": {
+          "description": "The members to give it to",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Members",
+          "type": "array"
+        },
+        "role": {
+          "description": "The role to give",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "members"
+      ],
+      "title": "RolesGiveInput",
+      "type": "object"
+    },
+    "roles_give_matching": {
+      "$defs": {
+        "JoinMethod": {
+          "enum": [
+            "unknown",
+            "bot",
+            "integration",
+            "discovery",
+            "hub",
+            "invite",
+            "vanity_url",
+            "manual_verification"
+          ],
+          "type": "string"
+        }
+      },
+      "properties": {
+        "boosting": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boosts the server, or does not",
+          "title": "Boosting"
+        },
+        "bots": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false,
+          "description": "Only bots, or only people (the default); null for both",
+          "title": "Bots"
+        },
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "created_after": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Account made on or after this day",
+          "title": "Created After"
+        },
+        "created_before": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Account made on or before this day",
+          "title": "Created Before"
+        },
+        "invite_code": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined with this invite",
+          "title": "Invite Code"
+        },
+        "inviter": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined with an invite this member made",
+          "title": "Inviter"
+        },
+        "join_method": {
+          "default": [],
+          "description": "Joined by any of these ways",
+          "items": {
+            "$ref": "#/$defs/JoinMethod"
+          },
+          "maxItems": 8,
+          "title": "Join Method",
+          "type": "array"
+        },
+        "joined_after": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined on or after this day",
+          "title": "Joined After"
+        },
+        "joined_before": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined on or before this day",
+          "title": "Joined Before"
+        },
+        "no_roles": {
+          "default": false,
+          "description": "Has no roles at all",
+          "title": "No Roles",
+          "type": "boolean"
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Has not yet passed membership screening, or has",
+          "title": "Pending"
+        },
+        "role": {
+          "description": "The role to give",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "roles_all": {
+          "default": [],
+          "description": "Has every one of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles All",
+          "type": "array"
+        },
+        "roles_any": {
+          "default": [],
+          "description": "Has at least one of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles Any",
+          "type": "array"
+        },
+        "roles_none": {
+          "default": [],
+          "description": "Has none of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles None",
+          "type": "array"
+        },
+        "timed_out": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Is timed out now, or is not",
+          "title": "Timed Out"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "RolesGiveMatchingInput",
+      "type": "object"
+    },
     "roles_list": {
       "properties": {},
       "title": "RolesListInput",
+      "type": "object"
+    },
+    "roles_list_changes": {
+      "properties": {},
+      "title": "RolesListChangesInput",
       "type": "object"
     },
     "roles_post": {
@@ -260,6 +699,288 @@
         "role"
       ],
       "title": "RolesRemoveInput",
+      "type": "object"
+    },
+    "roles_revert": {
+      "properties": {
+        "change": {
+          "description": "The change's number, as roles.list_changes shows it",
+          "title": "Change",
+          "type": "integer"
+        },
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "change"
+      ],
+      "title": "RolesRevertInput",
+      "type": "object"
+    },
+    "roles_stop": {
+      "properties": {
+        "change": {
+          "description": "The change's number, as roles.list_changes shows it",
+          "title": "Change",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "change"
+      ],
+      "title": "RolesStopInput",
+      "type": "object"
+    },
+    "roles_take": {
+      "properties": {
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "members": {
+          "description": "The members to take it from",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Members",
+          "type": "array"
+        },
+        "role": {
+          "description": "The role to take",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "members"
+      ],
+      "title": "RolesTakeInput",
+      "type": "object"
+    },
+    "roles_take_matching": {
+      "$defs": {
+        "JoinMethod": {
+          "enum": [
+            "unknown",
+            "bot",
+            "integration",
+            "discovery",
+            "hub",
+            "invite",
+            "vanity_url",
+            "manual_verification"
+          ],
+          "type": "string"
+        }
+      },
+      "properties": {
+        "boosting": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boosts the server, or does not",
+          "title": "Boosting"
+        },
+        "bots": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false,
+          "description": "Only bots, or only people (the default); null for both",
+          "title": "Bots"
+        },
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "created_after": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Account made on or after this day",
+          "title": "Created After"
+        },
+        "created_before": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Account made on or before this day",
+          "title": "Created Before"
+        },
+        "invite_code": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined with this invite",
+          "title": "Invite Code"
+        },
+        "inviter": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined with an invite this member made",
+          "title": "Inviter"
+        },
+        "join_method": {
+          "default": [],
+          "description": "Joined by any of these ways",
+          "items": {
+            "$ref": "#/$defs/JoinMethod"
+          },
+          "maxItems": 8,
+          "title": "Join Method",
+          "type": "array"
+        },
+        "joined_after": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined on or after this day",
+          "title": "Joined After"
+        },
+        "joined_before": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined on or before this day",
+          "title": "Joined Before"
+        },
+        "no_roles": {
+          "default": false,
+          "description": "Has no roles at all",
+          "title": "No Roles",
+          "type": "boolean"
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Has not yet passed membership screening, or has",
+          "title": "Pending"
+        },
+        "role": {
+          "description": "The role to take",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Role",
+          "type": "string"
+        },
+        "roles_all": {
+          "default": [],
+          "description": "Has every one of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles All",
+          "type": "array"
+        },
+        "roles_any": {
+          "default": [],
+          "description": "Has at least one of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles Any",
+          "type": "array"
+        },
+        "roles_none": {
+          "default": [],
+          "description": "Has none of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles None",
+          "type": "array"
+        },
+        "timed_out": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Is timed out now, or is not",
+          "title": "Timed Out"
+        }
+      },
+      "required": [
+        "role"
+      ],
+      "title": "RolesTakeMatchingInput",
       "type": "object"
     }
   }

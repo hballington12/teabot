@@ -46,8 +46,10 @@ def first_party() -> list[Plugin[Any]]:
 
 @pytest.mark.parametrize("plugin", first_party(), ids=lambda p: p.id)
 def test_every_first_party_plugin_has_a_page_naming_each_action(plugin: Plugin[Any]) -> None:
+    """Each action as a command, or, for one with no command, as an AI assistant's tool."""
     page = (DOCS / f"use/plugins/{plugin.id}.md").read_text()
-    assert [a for a in plugin.actions if command(a) not in page] == []
+    missing = [a for a in plugin.actions if command(a) not in page and f"`{a.replace('.', '_')}`" not in page]
+    assert missing == []
 
 
 def test_the_env_example_names_every_setting() -> None:
