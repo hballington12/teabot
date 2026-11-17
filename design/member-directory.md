@@ -91,7 +91,7 @@ A Members page on the instance's site (D52), with the same filters and a CSV exp
 
 ### Plugins
 
-- **A typed API in the SDK:** `ctx.members.get(user_id)`, `ctx.members.find(...)` with the same filters as `admin.members`, and `ctx.members.history(...)`. Core code runs them for the current server only, so no plugin setting can widen them to other servers.
+- **A typed API in the SDK:** `ctx.members.count(filter)` and `ctx.members.find(filter)`, with the `MemberFilter` that `admin.members` takes, come first, with role changes ([role-changes.md](role-changes.md)). `get(user_id)` and `history(...)` follow when a plugin needs them. Core code runs them for the current server only, so no plugin setting can widen them to other servers.
 - **Declared:** a plugin declares that it reads the directory, `Plugin(..., reads=["members"])`, and only then does `ctx.members` work. The hub's catalogue and the site show the declaration, as they show external hosts (D12). It is a declaration, not a sandbox: plugin code runs in the core's process (D5), so the guide and the hub describe it as disclosure, which review checks.
 - **SQL views later:** when a plugin needs to join the directory with its own tables in SQL, read-only views follow, behind the same declaration. They are not part of this design, since plugin code can change the setting that holds SQL to one server (S6), which for the directory would expose every server's members.
 - **In the SDK guide:** names are untrusted text (D23), and `ctx.members` answers carry the directory's state, as the tools' do.
