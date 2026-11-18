@@ -40,3 +40,7 @@ target/
 .cache/
 # the plugin hub's pages, which scripts/docs/hub.py writes from the hub's catalogue
 docs/hub/
+
+# design notes kept out of the repository
+design/clan-links.md
+design/spikes.md
