@@ -197,7 +197,7 @@ Discord follows the game through role rules on `rank:` labels, so the rank rule 
 
 Tea ranks by time in the clan, with a person's oldest account setting the rank of all their accounts. That is Tea's `rank_rule`, counting from the current stint (`count_from: current_stint`).
 
-Staff ranks sit outside the tenure ladder. A staff member holds an in-game staff rank on a few of their accounts, the ones they play most, and any one of them is enough for the Discord staff role. Since every confirmed account in the clan gives a `rank:` label, a rule over the staff ranks does that with no special case.
+Staff ranks sit above the tenure ladder. A staff member holds an in-game staff rank on a few of their accounts, the ones they play most, and any one of them is enough for the Discord staff role, in place of a tenure rank role. Fred has three accounts: one holds Silver Key, a staff rank, and two hold Blue Gem. In Discord he holds the Silver Key role and Clan Member, and no Blue Gem role. Since every confirmed account in the clan gives a `rank:` label and a rule gives the first step a member matches, one rank rule with the staff ranks as its top steps does that with no special case.
 
 ### Step 1: load what's known (one evening, with an assistant)
 
@@ -206,8 +206,7 @@ Staff ranks sit outside the tenure ladder. A staff member holds an in-game staff
 3. Check `wom.gaps`, set missing join dates, and fix the in-game ranks the audit lists, so the rules' first run starts from a corrected game.
 4. On the site, make the role rules, scoped to linked members (`labels_from: wom, labels_any: [linked]`), so unlinked members keep their roles:
    - **Membership:** one rule with two steps, Clan Member on `in_clan`, then Friends on `left`, so a linked member holds exactly one. Friends is also for guests who never joined; they aren't linked, so they're outside the scope and keep the Friends an admin gives them by hand.
-   - **Tenure ranks:** one rule over the tenure rank roles, a step per rank, highest first, with a cap that fits a promotion night.
-   - **Staff:** one rule over the staff roles, a step per in-game staff rank, highest first.
+   - **Ranks:** one rule over every rank role, a step per in-game rank, the staff ranks first and then the tenure ranks, each highest first, with a cap that fits a promotion night. A member holds exactly one rank role.
 5. Turn nicknames on, read the plan, and confirm it.
 6. Note which admins confirmed the rules and nicknames, since their grants end when those admins lose the rights, and a second admin renews them by running the same action again.
 
@@ -245,7 +244,8 @@ Staff ranks sit outside the tenure ladder. A staff member holds an in-game staff
 1. Time in the clan counts from the current stint.
 2. Hand-kept links are not imported; claims start from scratch.
 3. Friends is for both people who left the clan and guests who never joined.
-4. Any account with an in-game staff rank gives its person the Discord staff role.
+4. Any account with an in-game staff rank gives its person that staff rank's Discord role, in place of a tenure rank role.
+5. Tea's WOM group is 651.
 
 ## Order of work
 
