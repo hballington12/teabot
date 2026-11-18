@@ -111,6 +111,7 @@ The design targets a framework that many people run and that grows to many serve
     - Claude Code connects with `--header "Authorization: Bearer teabot_..."`. OAuth 2.1 can come later as a second way to issue the same token row, once claude.ai or the desktop app need access.
 17. **Tokens carry a maximum risk.** Risks are ordered (`read` below `write` below `destructive`), and each token holds the highest risk it may use. New tokens default to `write`, so `destructive` is always an explicit choice. A monitoring token can be read-only whatever its creator's roles allow, and the check is one comparison.
 18. **Permission is checked live on every call.** Each call checks the member's current roles in the server, from the bot's member cache with a REST fetch when the member is not cached (D25). Removing a staff role ends access at once, for slash commands and tokens alike.
+    - Work that outlasts its apply, such as a role change to thousands of members, checks its grant, the apply's audit row, on each run with `ctx.authorized`, so it stops when the member who confirmed it, or their token, may no longer do it (role-changes.md).
 19. **The bot's own check is authoritative.** Each action declares a default requirement in Discord permissions (for example Manage Roles for role actions), and the core checks it against the member's current permissions. Slash commands also set `default_member_permissions`, which only controls who sees them in the Discord UI. Per-server overrides that remap an action to chosen roles come later, likely when event captains need to post in team channels. The call path keeps a place for them.
 20. **Each token is bound to one server and can be narrowed to chosen actions.**
     - The token decides the server, so no tool or route takes a guild id. An LLM cannot target the wrong server, and text injected from one server cannot steer actions in another.
@@ -126,6 +127,7 @@ The design targets a framework that many people run and that grows to many serve
     - The apply's audit row points at the plan's row, so the trail links each change to the plan a human saw.
     - An apply runs as a job on the work queue (D31) and reports progress. discord.py already waits out per-route and global rate limits, and the queue runs at most one apply per server at a time.
     - The LLM is responsible for judging whether a plan is correct. The MCP server's instructions and every destructive tool description always tell the LLM to show the plan to its user and get their agreement before applying it.
+    - A plan may carry notes, shown above its entries and never hashed. An apply may hand long work to a job of the plugin's, returning `HandedOff`, so the server's one apply slot covers the hand-off, not the hours of work (role-changes.md).
 22. **Risk levels map onto MCP tool annotations.** `readOnlyHint` and `destructiveHint` come from each action's risk, so clients can run their own confirmation prompts.
 23. **Member-written text is marked as untrusted.** Message content, nicknames and other text written by members is wrapped in an explicit untrusted marker in every MCP tool output. Together with plan then apply (D21), maximum risk (D17) and single-server tokens (D20), this limits prompt injection through server content.
 24. **Every action is logged, and changes are posted.**
@@ -133,6 +135,7 @@ The design targets a framework that many people run and that grows to many serve
     - A `READ` action has no side effects, so it gets a single row after the call and is never posted. An LLM session's lookups then cost one write each and do not flood the log channel.
     - An action's own database writes happen in its own short transactions (D30), so they are not atomic with the audit row. The `started` row covers that gap.
     - `READ` rows go to `core.audit_reads`, partitioned by day and kept for 30 days by default. Old partitions are dropped whole, so the high-volume table never needs batch deletes. Every other row goes to `core.audit_log`, a plain table kept for a year by default and trimmed by a batched delete, which its low volume keeps cheap.
+    - An apply that hands work off ends "handed off", and the work's outcome follows as a row of its own, linked to it and posted like any change.
 25. **Reads come from the cache, and the cache stays small.**
     - Guilds, channels and roles are always cached. Members are cached when they appear in events or are fetched, and the bot never downloads full member lists at startup. A server with 100,000 members then costs memory only for the members who are active.
     - A permission check for an uncached member fetches it over REST (D18), and then caches it.
@@ -152,6 +155,7 @@ The design targets a framework that many people run and that grows to many serve
     - Input fields are limited to a fixed set of types: `str`, `LongText`, `int`, `bool`, `Literal` and the `*Ref` types, each optional or not. Raw interaction data carries options as plain values and IDs, which is exactly what the `*Ref` types hold.
     - `LongText` holds multi-line text, which slash options cannot. A slash command with a `LongText` field opens a modal for it, and the action runs once the modal is submitted.
     - Outputs go back as JSON over MCP and the service API. The slash adapter renders them as an embed of the model's fields by default, and an action may supply its own renderer.
+    - An input may be a model of these types, such as `MemberFilter`, whose fields are inputs of their own.
 30. **Postgres through `asyncpg`, with raw SQL and short explicit transactions.**
     - Migrations already define the schema in SQL, so an ORM would describe it a second time.
     - Each process holds two pools: one logged in as `teabot_app` for the core, and one as `teabot_plugins` for plugin code (D9). A plugin connection switches to the plugin's role when it is acquired and runs `RESET ROLE` when it is released, because asyncpg's own reset leaves the role in place. A single read needs no transaction.
@@ -216,6 +220,7 @@ The design targets a framework that many people run and that grows to many serve
     - `teabot.testing` provides guild and member fakes, a harness that loads a plugin through the real loader and migrations, a test clock and snapshots, so plugin authors test the way the core does.
     - `teabot new-plugin <id>` scaffolds a package with its entry point, a one-file plugin, a first migration, a README with an "External connections" section, tests and a snapshot test. `teabot check` runs the review checklist's mechanical items, and the harness runs it too.
     - A breaking change to `teabot.sdk` needs a major version, and the old form keeps working with a deprecation warning for at least one minor release first.
+    - 1.11 adds `ctx.members`, `MemberFilter`, model inputs, `Diff.notes`, `HandedOff`, `by=` on role changes, role changes by member ID, `Guild.can_assign`, `ctx.audit_id`, `ctx.authorized`, `ctx.record_outcome` and `DANGEROUS` (role-changes.md).
 46. **Plugin ids are unique within an instance.**
     - An id matches `[a-z][a-z0-9_]{1,31}`, which fits Discord's command names and the Postgres schema and role names of D9.
     - The ids `core`, `admin`, `teabot` and `plugin` are reserved, as are `plugins`, `audit` and `tokens`, the admin plugin's command groups.

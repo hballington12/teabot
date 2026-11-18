@@ -639,6 +639,7 @@ class Plugin(Generic[Cfg]):
             self.config,
             self._migrations_dir(),
             self.description,
+            self.reads,
         )
 
     def _migrations_dir(self) -> Path | None:

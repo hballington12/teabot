@@ -112,6 +112,10 @@ def _settings(frame: Frame, plugin: str, here: Here) -> str:
 
 def plugin_page(frame: Frame, plugin: PluginInfo, here: Here | None, status: str = "") -> str:
     contacts = f"<li>Contacts: {escape(plugin.contacts)}</li>" if plugin.contacts else ""
+    if "members" in plugin.reads:
+        contacts += (
+            "<li>Reads the member directory: every member's roles, joins and history in the server</li>"
+        )
     hub = f'<li><a href="{HUB_PAGES}{escape(plugin.id)}/">On the plugin hub</a></li>' if plugin.on_hub else ""
     switch = ""
     if here is not None and here.switchable:

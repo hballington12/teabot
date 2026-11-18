@@ -17,10 +17,16 @@ class PluginInfo:
     description: str
     contacts: str
     on_hub: bool
+    reads: frozenset[str] = frozenset()
 
     def summary(self) -> dict[str, str]:
         """What `/plugins.json` says of it."""
-        return {"id": self.id, "version": self.version, "description": self.description}
+        return {
+            "id": self.id,
+            "version": self.version,
+            "description": self.description,
+            "reads": ",".join(sorted(self.reads)),
+        }
 
 
 def installed(manifests: Mapping[str, Manifest], hub: Mapping[str, Listed]) -> list[PluginInfo]:
@@ -37,6 +43,7 @@ def installed(manifests: Mapping[str, Manifest], hub: Mapping[str, Listed]) -> l
                 manifest.description or (listed.description if listed is not None else ""),
                 chosen.external_connections if chosen is not None else "",
                 listed is not None,
+                manifest.reads,
             )
         )
     return found

@@ -6,6 +6,22 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- Give a role to members, or take it away. `/roles give` and `/roles take` change up to ten named members, after a plan. AI assistants, the service API and the site also have `roles_give_matching` and `roles_take_matching`, which change every member a filter over the member directory matches, up to 10,000, such as "take Friends from everyone who has Clan Member". They run a few members a second, which Discord's limits allow, and resume after a restart. `roles_list_changes` follows them, `roles_stop` stops one and `roles_revert` undoes one. See [Roles](https://teabot-dev.github.io/teabot/use/plugins/roles/).
+- teabot gives or takes a role for you only within what you could do yourself: below your highest role and, to give it, with every permission it grants. Through an AI assistant it never gives or takes a role with a moderator's permission.
+- A role picker can no longer offer a role that grants a permission its admin lacks, such as Create Events.
+- A plan can say more than its changes, such as how many members a change holds and how long it will take.
+
+### Writing plugins
+
+- `ctx.members` reads the member directory, for a plugin that declares `Plugin(..., reads=["members"])`: `count` and `find` present members by a `MemberFilter`, the filter `admin_members` takes. See [The member directory](https://teabot-dev.github.io/teabot/plugins/reference/#the-member-directory).
+- An action can take a model as an input, such as `filter: MemberFilter`, whose fields become inputs of their own.
+- `Member.add_role` and `remove_role` take `by=`, the member a change is made for, and refuse what that member could not do themselves. `Guild.add_role(user_id, role, by=)` changes a member by ID without fetching them, raising `MemberGone` when they have left. `Guild.can_assign` says whether a change would be refused. A plugin's `reason=` for a role change now follows teabot's own part of Discord's audit log text rather than replacing it.
+- `Diff(notes=[...])` shows lines above a plan's entries, never hashed.
+- An apply can return `HandedOff` to hand long work to a job, which checks it may go on with `ctx.authorized(ctx.audit_id)` and closes it with `ctx.record_outcome`. See [Work that outlasts its apply](https://teabot-dev.github.io/teabot/plugins/reference/#work-that-outlasts-its-apply).
+- `DANGEROUS`, the permissions that act on others or the server, is part of the SDK.
+
 ## 1.10.0 - 2026-11-17
 
 ### Using teabot

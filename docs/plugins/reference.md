@@ -86,12 +86,14 @@ Every parameter after the context is an input. Each may be optional (`X | None =
 | `VoiceChannel` | a picker of voice channels only; the function receives the channel (1.4) |
 | `ChannelRef`, `VoiceChannelRef`, `RoleRef`, `MemberRef` | a picker; the function receives the Discord ID |
 | `list[X]` of any of these but `LongText`, with `Field(max_length=...)` up to 10 | numbered options, such as `roles_1` to `roles_5`; MCP clients send an array |
+| a pydantic model of these types, such as `MemberFilter` | each of its fields an input of its own; the function receives the model (1.11) |
 
 - Limits go in `Annotated[int, Field(ge=1, le=20)]` or `Annotated[str, Field(max_length=100)]`. Discord enforces them before the member sends.
 - A `TextChannel` that is missing or takes no messages, or a `Role` or `Member` not in the server, is refused with a message the member sees, and the function does not run.
 - A list needs its `max_length`, and its `min_length` says how many of its options are required: `Annotated[list[Role], Field(min_length=1, max_length=5)]`. Lists were added in 1.3.
 - Take a Discord ID as `Role`, `TextChannel`, `Member` or a `*Ref`, never as an `int`: Discord's number options stop at 2^53, and IDs are larger.
 - An ID can be typed as the ID or as a mention, such as `<#123>`, which is what Discord inserts when someone types `#` or `@` in a text option or a setting.
+- A model's fields take their descriptions from the model, so leave the model's parameter out of `Args:`. A field named like another input, or `confirm`, fails the load. A model with many fields suits an action offered to AI assistants and the service API, `surfaces=Surface.MCP | Surface.SERVICE`, since a slash command holds at most 25 options.
 - Any other type fails the load.
 
 ### Suggestions
@@ -130,6 +132,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - A destructive action's plan takes the same inputs and returns a `Diff` of what it would change. Without a plan the load fails.
 - The member sees the plan and confirms it within 15 minutes. If what it shows has changed by then, they get a fresh plan, marked stale, instead.
 - The action then runs as a job and reads the confirmed plan as `ctx.diff`. An entry's `key` carries what the apply needs, such as a row id, so it changes exactly what the member saw.
+- `Diff(notes=[...])` adds lines above the entries, such as counts, an estimate or the change in a sentence. Notes are never hashed, so only the entries decide whether a plan is stale. Added in 1.11.
 - A destructive action returns a model, a list or a string like any other, but the member does not see it: they see the plan, then a reply that follows the change as it applies, ending with `Done.` Report how far it has got with `await ctx.report({"done": 3, "total": 10})`, which that reply shows as `3 of 10`, and `/admin job_status` too. Other keys show as they are, such as `{"cleared": 3}` as `cleared 3`.
 
 ## The context
@@ -144,6 +147,8 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - `ctx.diff`: in a destructive action's apply, the confirmed plan, and an empty `Diff` everywhere else.
 - `await ctx.report(progress)`: progress for `/admin job_status`.
 - `ctx.voice`: the server's voice connection, which the plugin joins, plays through and leaves. [Voice](#voice) says how.
+- `ctx.members`: the server's member directory, for a plugin that declares it. [The member directory](#the-member-directory) says how.
+- `ctx.audit_id`, `ctx.authorized` and `ctx.record_outcome`: for work that outlasts its apply. [Work that outlasts its apply](#work-that-outlasts-its-apply) says how.
 
 To post, send to a `TextChannel`:
 
@@ -214,16 +219,43 @@ Every operation acts with the bot's own power, so **the plugin decides who may u
 
 | On | Read | Do |
 |---|---|---|
-| `Member` | `name`, `display_name`, `roles` (highest first), `top_role`, `role_ids`, `joined_at`, `avatar_url`, `bot`, `timed_out_until` | `add_role`, `remove_role`, `set_nickname`, `timeout(timedelta)` up to 28 days, `remove_timeout`, `kick`, `send` a direct message |
+| `Member` | `name`, `display_name`, `roles` (highest first), `top_role`, `role_ids`, `joined_at`, `avatar_url`, `bot`, `timed_out_until` | `add_role(role, by=)`, `remove_role(role, by=)`, `set_nickname`, `timeout(timedelta)` up to 28 days, `remove_timeout`, `kick`, `send` a direct message |
 | `Role` | `name`, `position`, `permissions` (as `needs=` names them), `colour`, `managed`, `mentionable`, `hoisted` | |
-| `Guild` | `name`, `icon_url`, `owner_id`, `member_count`, `me` (the bot), `roles`, `channels` (any kind, each with its `kind`, `parent_id` and `nsfw`) | `find_members(prefix)`, `ban(user_id, delete_message_days=)`, `unban`, `bans()` |
+| `Guild` | `name`, `icon_url`, `owner_id`, `member_count`, `me` (the bot), `roles`, `channels` (any kind, each with its `kind`, `parent_id` and `nsfw`), `can_assign(role, by=, give=)` | `find_members(prefix)`, `add_role(user_id, role, by=)` and `remove_role(...)` by member ID, `ban(user_id, delete_message_days=)`, `unban`, `bans()` |
 | `Message` the bot sent | `id`, `channel_id`, `jump_url` | `edit`, which replaces its text, embed, buttons and files; `delete` |
 | `TextChannel` | `name`, `mention`, `read_message(id)` for anyone's message, `reactors(message_id, emoji)` for who reacted | `send`, `get_message(id)` for one of the bot's own posts |
 
 - Every change takes `reason=`, which Discord's audit log shows. Without one, it says which action asked and for whom.
 - The bot cannot manage a role at or above its own highest role, a managed role, or a member who outranks it, and it cannot kick, ban or rename the server's owner.
+- **Acting for a member, `by=`.** A role given or taken `by=member` is refused, unless they own the server, when they lack Manage Roles, when the role sits at or above their highest role, or, for giving, when it grants a permission they lack. So the bot never gives a role the member could not give themselves, and Discord's audit log names them: "via teabot: roles.give, for member 123", with a `reason=` after it. `ctx.guild.can_assign(role, by=member)` runs the same checks without changing anything, for a plan, and returns why not, or `None`. Discord never compares the target member's rank for a role change. Added in 1.11.
+- **By member ID.** `ctx.guild.add_role(user_id, role, by=)` changes a member teabot has not seen in one request, without fetching them, and raises `MemberGone` when they have left. Added in 1.11.
+- `DANGEROUS` names the permissions that act on others or the server, such as Administrator, Ban Members and Manage Roles, for a plugin that refuses roles granting them.
 - `get_channel` and `get_text_channel` find threads too, so a reaction or message in a thread leads to its channel. A thread is `nsfw` when the channel it is in is.
 - `read_message(id)` returns any message in the channel as a `ReceivedMessage`, or None when it is gone. `reactors(message_id, emoji)` returns the IDs of the people who reacted with `emoji`, bots left out, oldest first: count from it, and a reaction given while teabot was down still counts. Both added in 1.7.
+
+## The member directory
+
+Added in 1.11. teabot keeps a directory of every server's members (D55), and a plugin that declares it reads it as `ctx.members`:
+
+```python
+plugin = Plugin("ranks", reads=["members"])
+
+
+@plugin.action(risk=READ)
+async def count_rank(ctx: Ctx, role: Role) -> str:
+    """How many people have a rank.
+
+    Args:
+        role: The rank
+    """
+    return f"{await ctx.members.count(PeopleFilter(roles_any=[role.id])):,} people"
+```
+
+- `await ctx.members.count(filter)` counts present members a `MemberFilter` matches. `await ctx.members.find(filter, after=0, limit=1000)` returns them as `DirectoryMember`s, in user ID order: pass the last one's `user_id` as `after` for the next page.
+- `MemberFilter` is the filter `admin_members` takes: roles any, all or none, no roles, joined and account-created days, join method, invite and inviter, boosting, timed out, pending, and bots. `PeopleFilter` matches people only unless told otherwise. An action can take one as an input, and an assistant then previews it with `admin_members` before calling.
+- Before a server's directory has its first copy, or where the operator turned it off, both raise `DirectoryUnavailable`, an `ActionError` that says why.
+- Without `reads=["members"]`, `ctx.members` raises `NotDeclared`. The site shows the declaration on the plugin's page, and the guide's [review checklist](#review-checklist) asks for it. It is a declaration, not a sandbox: plugin code runs in teabot's process.
+- Names are member-written text (D23), and `find` answers only for this server.
 
 ## Buttons and select menus
 
@@ -308,6 +340,24 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 - Every message in a busy server queues one job for each listening plugin, so keep the handler quick, such as one statement.
 - A role change is heard for every member, from teabot's [member directory](../use/members.md). While a server's directory is still taking its first copy, or is off above the operator's member limit, only changes for members teabot has seen since it started are heard. A server with a levelling or reaction-role bot changes roles often, so a plugin with `on_member_roles` gets a job for each change.
 - `emoji` is the character, such as `"⭐"`, or a server emoji as `"<:raids:123>"`, as a `Button`'s `emoji` takes it.
+
+## Work that outlasts its apply
+
+Added in 1.11. A destructive change to thousands of members can take hours, past an apply's time limit. The apply then stores the work, hands it to a job of the plugin's, and returns `HandedOff`:
+
+```python
+@plugin.action(risk=DESTRUCTIVE, needs="manage_roles")
+async def give_matching(ctx: Ctx, role: Role, filter: PeopleFilter) -> HandedOff:
+    async with ctx.db.transaction() as tx:
+        change = await tx.fetchval(int, NEW_CHANGE, ctx.guild.id, role.id, ctx.audit_id)
+        await tx.schedule(run_change.bind())
+    return HandedOff(id=str(change), text=f"Change {change} is under way.")
+```
+
+- `ctx.audit_id` is the apply's row in the audit log, which records who confirmed the work, through which door and with which token. Keep it with the work as its grant.
+- In each run of the job, `actor = await ctx.authorized(grant)` checks the grant as teabot checks a call: the plugin is still on, the member still has the action's permissions, and a token is still valid. It returns the member's `Actor`, or raises `NotAuthorized` with why, so the job stops the work rather than carrying on for someone who may no longer do it.
+- `await ctx.record_outcome(grant, text, failed=False)` closes the work once, in the audit log, which posts it to the server's log channel. The apply's own row says "handed off".
+- Work in short bursts, and have each run queue the next before it starts, so a restart resumes it. The roles plugin's `changes` module is a complete example.
 
 ## Voice
 
@@ -583,6 +633,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 - No Discord or HTTP awaits inside transaction blocks, and no blocking I/O.
 - No dynamic SQL built from member input.
 - Jobs are safe to run twice.
+- Reads the member directory only when it declares `Plugin(..., reads=["members"])`, and says why in its README.
 
 ## Lower level
 

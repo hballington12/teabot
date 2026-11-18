@@ -5,5 +5,5 @@
 - Each is off in a server until `/plugins enable plugin:<id>`. `TEABOT_DISABLED_PLUGINS` turns one off for a whole instance.
 - Each imports only `teabot.sdk`, which an import-linter contract checks, so they stay honest examples for plugin authors.
 - `announcements/`: post an announcement to a channel, now or later.
-- `roles/`: a role picker, with a button for each role that members press to take it and press again to give back.
+- `roles/`: a role picker, with a button for each role that members press to take it and press again to give back, and, in `changes.py`, role changes for named members or every member a filter matches, run as a paced job.
 - Their tests are in `tests/plugins/<id>/`, each with its `snapshot.json`.

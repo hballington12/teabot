@@ -1,6 +1,6 @@
 # Role changes
 
-The design, reviewed until it converged: admins and AI assistants give a role to members, or take it away, from one member to thousands, such as "take Friends from everyone who has Clan Member".
+The design, reviewed until it converged, and built in 1.11: admins and AI assistants give a role to members, or take it away, from one member to thousands, such as "take Friends from everyone who has Clan Member".
 
 ## Why
 
