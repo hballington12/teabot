@@ -19,17 +19,7 @@ The design, reviewed until it converged: Discord members link their Wise Old Man
 
 ### Spike S11: WOM's data, as it really behaves
 
-Before anything is built, a spike against Tea's group records what the plugin relies on, as S10 did for role changes. It is a go or no-go for the rank audit and the date order of mains, which need `clientSyncJoinedAt` to exist and hold. Linking, labels and nicknames ship whatever it finds; without join dates, a person's main is their pinned account, then the lowest WOM ID.
-
-- the membership payload: that `clientSyncJoinedAt` is there, and how many of Tea's memberships lack it. If many do, the rank audit lists them until an admin sets their dates;
-- whether a clan sync replaces the whole member list or can be partial, since "missing means away" depends on it, and that `GET /groups/:id` returns every membership in one response, with its size for Tea's group;
-- a rename, seen from `GET /groups/:id` between clan sync sending the new name and WOM approving it: whether the old ID leaves and a new one joins, and for how long;
-- whether `clientSyncJoinedAt` carries over a rename and a merge, and whether a leave and rejoin resets it;
-- an archive (`status: archived`, a name like `archive12345`, a new ID under the old name);
-- paging and ordering of `GET /groups/:id/name-changes`, by creation or by approval, and WOM's real rate limits and headers;
-- whether pending name changes (`GET /names?status=pending`) can pair an away account with its new ID before WOM approves the change, and whether that new ID's membership gets a join date of the day it appeared;
-- which field, if any, records the group's last clan sync;
-- Discord's rate limit on nickname changes (`PATCH /members/{id}`), which S10 didn't measure.
+Run on 2026-11-18 against Tea's group ([spikes.md](spikes.md#s11-wise-old-mans-data-for-clan-links)). Every membership has `clientSyncJoinedAt`, so the rank audit goes ahead. A rename keeps the account's ID and join date. WOM's record holds a broken sync that dropped three quarters of the group for a day. Nicknames have their own rate limit, 10 per 10 seconds per server.
 
 ### Member labels in the directory
 
@@ -48,7 +38,7 @@ Before anything is built, a spike against Tea's group records what the plugin re
 
 - `ctx.guild.set_nickname(user_id, nickname, by=, reason=)`, as `add_role` and `remove_role` by ID already are, raising `MemberGone`. A job over uncached members needs no fetch per member.
 - With `by=`, it refuses a member who ranks at or above `by`, unless `by` owns the server, as Discord refuses it when a person renames someone by hand, and needs `by`'s Manage Nicknames.
-- Discord limits nickname changes on their own route, so a plugin changing nicknames paces itself.
+- Discord limits nickname changes to 10 per 10 seconds per server, in a bucket of their own apart from role changes (S11), so a plugin changing nicknames paces itself.
 
 ### Buttons that ask
 
@@ -92,7 +82,7 @@ A hub plugin, `wom`, in its own repo (teabot-dev/teabot-wom). It depends on no o
   - `first_joined`, the earliest join date known for it, from WOM or set by an admin. A later date from WOM never replaces it; `wom.set_joined` can, to correct a wrong import.
 
   A membership without `clientSyncJoinedAt` has no join date. The plugin never guesses one from `createdAt`, which can be years late, and lists the account in `wom.gaps`.
-- **Leaving:** an account missing from the group is `away` for a grace period, 7 days by default, before it counts as left. While away it still counts as in the clan, and the plugin looks for its rename in the group's name changes. If S11 shows that feed misses renames of away accounts, it also looks each one up once a day with `GET /names?username=`, and with `GET /players/id/:id` for an archived status, which the group no longer shows once the account has left. A rename's in-between state, where clan sync has sent the new name before WOM approves the change, then never costs a member their role. A sync in which more than a tenth of the group's accounts, and more than five, go missing is treated as a failed fetch, since a partial clan sync, a wiped group and a clear-out of inactive members look the same: it writes nothing and posts to the admin channel once for the incident. `wom.accept_sync`, destructive, plans the leaves with their names and label changes, and once confirmed takes that group as it is. A new account with no person is listed in `wom.gaps` only after `away_days`, or sooner when a pending name change pairs it with an away account, so a rename isn't listed as a stranger.
+- **Leaving:** an account missing from the group is `away` for a grace period, 7 days by default, before it counts as left. While away it still counts as in the clan. A rename keeps the account's ID and join date (S11), so the group's name changes cover it with no look-ups per account. A rename's in-between state, where clan sync has sent the new name before WOM approves the change, then never costs a member their role. A sync in which more than a tenth of the group's accounts, and more than five, go missing is treated as a failed fetch, since a partial clan sync, a wiped group and a clear-out of inactive members look the same: it writes nothing and posts to the admin channel once for the incident. `wom.accept_sync`, destructive, plans the leaves with their names and label changes, and once confirmed takes that group as it is. A new account with no person is listed in `wom.gaps` only after `away_days`, so a rename that briefly shows as a new ID isn't listed as a stranger. Banned accounts are listed there too.
 - **Keeping accounts:** an account in a person is kept as long as the person. An unlinked account that left is deleted a year after it left, unless an admin set its `first_joined`, so an imported date survives a long gap. Account names are public, so keeping them costs little.
 - **Names:** one function normalises them as OSRS compares names, case-insensitive with spaces, underscores and hyphens the same, for the matcher and for merges.
 
@@ -121,9 +111,9 @@ For each person with a member, from their confirmed accounts. One keyed label jo
   - `GET /groups/:id/name-changes`: past names and merges. Paging stops at the first page older than the newest change already seen less 30 days, and changes are deduplicated by ID, so one approved late isn't missed. The first sync pages through all of them.
 - **Merges:** when a rename is approved for a name WOM already tracked, WOM keeps the renamed account's ID and archives and deletes the player that held the new name. The change carries only the survivor's ID, so the plugin finds the vanished account by matching the change's `newName` against the names it stored. It moves that account's person, claims and earlier `first_joined` onto the survivor, and lists the merge in `wom.gaps`.
 - **Archives:** WOM can archive a player, renaming its ID to `archive#####` with `status: archived`, and make a new ID under the old name, which takes over its recent memberships. The plugin treats an archived status, or an `archive` name, as an event for `wom.gaps`, never as a rename. It suggests the new ID to the same person, and keeps the old account's dates.
-- **Clan sync's age:** from the field S11 finds records the last clan sync. Until S11 finds one, the plugin doesn't flag it, since the latest `updatedAt` among memberships only says when one last changed.
+- **Clan sync's age:** no field records the last clan sync (S11), so `wom.gaps` shows the group's last change, from its `updatedAt`, and raises no flag on it.
 - The plugin never asks WOM to update players. WOM asks for that every few hours at most, and clan sync already does it.
-- **Limits:** without a key, 20 requests a minute, 500 an hour and 3,000 a day per address; with a key, 100 a minute and 20,000 a day, as S11 confirms. The two hourly requests cost 48 a day per server, before look-ups for away accounts and `wom.link`. The plugin paces its own WOM requests per instance. The official Teabot runs with `TEABOT_PLUGIN_WOM_API_KEY` from the start, from WOM's Discord.
+- **Limits:** without a key, 20 requests a minute, 500 an hour and 3,000 a day per address, from WOM's docs; with a key, 100 a minute and 20,000 a day. Answers carry only the minute's window in their headers (S11). The two hourly requests cost 48 a day per server, before `wom.link` look-ups. The plugin paces its own WOM requests per instance. The official Teabot runs with `TEABOT_PLUGIN_WOM_API_KEY` from the start, from WOM's Discord.
 - `Plugin(hosts=["api.wiseoldman.net"])`, with a descriptive User-Agent naming the project, `teabot-wom/<version> (+repo URL)`, as WOM asks, and nothing naming the operator.
 - **A rename WOM missed:** `/rsn me` links to WOM's own name-change form, where anyone can submit one. The plugin sends nothing to WOM, so members' input never spends the instance's key.
 
@@ -251,12 +241,11 @@ Staff ranks sit above the tenure ladder. A staff member holds an in-game staff r
 
 The linking campaign takes weeks of members' time, so it starts as early as it can. Every SDK piece comes before the plugin part that uses it.
 
-1. Spike S11, a go or no-go for the rank audit.
-2. Buttons that ask, member labels, the filter fields, several filters at once, `writes=["labels"]` and `on_labels_changed`. Labels change nothing in Discord on their own, so they ship before any rule reads them.
-3. The wom plugin's linking, labels and rank audit: sync, people, claims, `/rsn`, `wom.gaps`, the admin actions with their label plans, the link channel and the digest. Tea's step 1 up to its role rules, and step 2, start here.
-4. Nicknames by member ID, with `by=`.
-5. Role rules in the roles plugin.
-6. The wom plugin's nicknames, and Tea's rules.
+1. Buttons that ask, member labels, the filter fields, several filters at once, `writes=["labels"]` and `on_labels_changed`. Labels change nothing in Discord on their own, so they ship before any rule reads them.
+2. The wom plugin's linking, labels and rank audit: sync, people, claims, `/rsn`, `wom.gaps`, the admin actions with their label plans, the link channel and the digest. Tea's step 1 up to its role rules, and step 2, start here.
+3. Nicknames by member ID, with `by=`.
+4. Role rules in the roles plugin.
+5. The wom plugin's nicknames, and Tea's rules.
 
 ## Decisions this changes
 

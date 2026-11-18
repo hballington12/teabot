@@ -261,3 +261,38 @@ Run on 2026-11-18 on Linux with Python 3.13, before building role changes. The q
 - A server's role changes run at 10 per 10 seconds, so a change to 10,000 members takes close to three hours. Pacing at eight per 10 seconds leaves two for picker presses in the same window.
 - `MemberGone` is Discord's 10007, unknown member, and 10013, unknown user. 10011, an unknown role, stops a change.
 - Still unmeasured: whether a member still in membership screening can be given a role; the test server has none.
+
+## S11 Wise Old Man's data, for clan links
+
+Run on 2026-11-18 against Tea's group (WOM group 651, 312 members), reading WOM's public API without a key, and on the test server as the dev bot for nicknames. The question was whether WOM's data holds what clan links relies on ([clan-links.md](clan-links.md)), and how it behaves through renames, rejoins and clear-outs.
+
+| Check | Result |
+|---|---|
+| `GET /groups/651` | Every membership in one answer, 312 of `memberCount` 312, 181 KB |
+| `clientSyncJoinedAt` | On all 312 memberships, each at midnight UTC |
+| `roleOrders` | Set, 21 ranks with their indexes |
+| Player `status` | 308 `active`, 2 `unranked`, 2 `banned`; no `archived` in the group |
+| Renamed current members | 191 of 195 keep a join date from before their rename; 4 joined within two days of it |
+| The same ID leaving and joining within 14 days of a rename | 2 of 256 renames |
+| A rename, submitted to approved | Median under an hour, longest 96 hours |
+| `GET /groups/651/name-changes` | 256, all approved, ordered by `createdAt`, not by `resolvedAt` |
+| `GET /groups/651/activity` | 1,309 events since 2024-01-14: `joined`, `left` and `changed_role`, with `previousRole` |
+| The largest leave in one hour | 238 accounts on 2025-04-26; 175 rejoined, most the same day; 149 of the 158 still members keep a join date from before it |
+| Members who left and rejoined | 169; 161 keep a join date from before their first recorded join |
+| The group's last clan sync | No field records it; the group's `updatedAt` matches its newest membership change |
+| `GET /names?status=pending` | Answers, with `playerId`, `oldName` and `newName` |
+| Rate-limit headers | `ratelimit-limit: 20` a minute without a key; no other window in the headers |
+| 30 `PATCH /guilds/{id}/members/{user}` nickname changes, as the dev bot | 30 answers of 200, none of 429, in 30.9 s; `limit=10`, a window of 10 s |
+| A role change on the same member | A different bucket from nicknames |
+
+### Conclusions
+
+- The rank audit can go ahead: every membership has a join date, to the day.
+- A rename keeps the account's WOM ID and its join date, and rarely shows as a leave, so the grace period covers the in-between state and the plugin needs no per-account rename look-ups.
+- Name changes come newest-submitted first, so a late approval can sit behind newer changes; the sync re-reads 30 days past the newest change it has seen.
+- WOM's record has a mass leave of three quarters of the group, which most rejoined within a day with their join dates intact: a broken sync, not a clear-out. The guard on many accounts going missing at once is needed.
+- WOM's leaves and rejoins mostly keep the in-game join date, so most are WOM's own record and not real rejoins. Whether a real in-game rejoin resets `clientSyncJoinedAt` can't be told from WOM alone; the game's own join date resets, which `current_stint` wants.
+- Nothing records the last clan sync, so the plugin shows the group's last change and raises no staleness flag on it.
+- Banned and unranked players appear in the group; the plugin lists banned accounts in `wom.gaps`.
+- Nicknames run at 10 per 10 seconds per server in their own bucket, apart from role changes, so the nickname job paces itself and no shared pace is needed.
+- Still unmeasured: what a short-lived ID made during a rename looks like, since WOM deletes it on merge and the group's record keeps no trace.
