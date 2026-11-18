@@ -21,7 +21,7 @@ The design, reviewed until it converged: Discord members link their Wise Old Man
 
 Before anything is built, a spike against Tea's group records what the plugin relies on, as S10 did for role changes. It is a go or no-go for the rank audit and the date order of mains, which need `clientSyncJoinedAt` to exist and hold. Linking, labels and nicknames ship whatever it finds; without join dates, a person's main is their pinned account, then the lowest WOM ID.
 
-- the membership payload: that `clientSyncJoinedAt` is there, and how many of Tea's memberships lack it. If many do, Tea's step 1 leans on the import's dates, and the rank audit lists the rest until an admin sets them;
+- the membership payload: that `clientSyncJoinedAt` is there, and how many of Tea's memberships lack it. If many do, the rank audit lists them until an admin sets their dates;
 - whether a clan sync replaces the whole member list or can be partial, since "missing means away" depends on it, and that `GET /groups/:id` returns every membership in one response, with its size for Tea's group;
 - a rename, seen from `GET /groups/:id` between clan sync sending the new name and WOM approving it: whether the old ID leaves and a new one joins, and for how long;
 - whether `clientSyncJoinedAt` carries over a rename and a merge, and whether a leave and rejoin resets it;
@@ -195,19 +195,21 @@ Discord follows the game through role rules on `rank:` labels, so the rank rule 
 
 ## Part 4: Tea's setup
 
-Tea ranks by time in the clan, with a person's oldest account setting the rank of all their accounts. That is Tea's `rank_rule`.
+Tea ranks by time in the clan, with a person's oldest account setting the rank of all their accounts. That is Tea's `rank_rule`, counting from the current stint (`count_from: current_stint`).
+
+Staff ranks sit outside the tenure ladder. A staff member holds an in-game staff rank on a few of their accounts, the ones they play most, and any one of them is enough for the Discord staff role. Since every confirmed account in the clan gives a `rank:` label, a rule over the staff ranks does that with no special case.
 
 ### Step 1: load what's known (one evening, with an assistant)
 
 1. Enable `wom` with Tea's group ID and `rank_rule`, and let the first sync run.
-2. Import the hand-kept links, alt groupings and known first-join dates with `wom.link`.
-3. Work through `wom.claims` with an assistant over MCP, reading each batch's plan. The rules come at step 5, so the import meets no cap; later, a large batch of confirms may be held, and an admin lets it through with `cap_once=`.
-4. Check `wom.gaps`, set missing join dates, and fix the in-game ranks the audit lists, so the rules' first run starts from a corrected game.
-5. On the site, make the role rules, scoped to linked members (`labels_from: wom, labels_any: [linked]`), so unlinked members keep their roles:
-   - Clan Member follows `labels_any: [in_clan]`.
-   - One rule over the rank roles, a step per rank, highest first, with a cap that fits a promotion night.
-6. Turn nicknames on, read the plan, and confirm it.
-7. Note which admins confirmed the rules and nicknames, since their grants end when those admins lose the rights, and a second admin renews them by running the same action again.
+2. Work through `wom.claims` with an assistant over MCP, reading each batch's plan. Nothing kept by hand is imported; members' claims and the matcher's suggestions start from scratch, and hand-kept records can be checked against them later. The rules come at step 4, so this meets no cap; later, a large batch of confirms may be held, and an admin lets it through with `cap_once=`.
+3. Check `wom.gaps`, set missing join dates, and fix the in-game ranks the audit lists, so the rules' first run starts from a corrected game.
+4. On the site, make the role rules, scoped to linked members (`labels_from: wom, labels_any: [linked]`), so unlinked members keep their roles:
+   - **Membership:** one rule with two steps, Clan Member on `in_clan`, then Friends on `left`, so a linked member holds exactly one. Friends is also for guests who never joined; they aren't linked, so they're outside the scope and keep the Friends an admin gives them by hand.
+   - **Tenure ranks:** one rule over the tenure rank roles, a step per rank, highest first, with a cap that fits a promotion night.
+   - **Staff:** one rule over the staff roles, a step per in-game staff rank, highest first.
+5. Turn nicknames on, read the plan, and confirm it.
+6. Note which admins confirmed the rules and nicknames, since their grants end when those admins lose the rights, and a second admin renews them by running the same action again.
 
 ### Step 2: the link channel
 
@@ -238,12 +240,12 @@ Tea ranks by time in the clan, with a person's oldest account setting the rank o
 - **Left to members:** saying which accounts are theirs, which neither WOM nor Discord can know.
 - **Left to admins:** in-game ranks, and claims that don't fit the evidence.
 
-## Decisions for the user
+## Decided for Tea
 
-1. Does time in the clan count from a person's first join ever, or from their current stint (`count_from`)?
-2. Where are the hand-kept links, alt groupings and first-join dates now? That decides how step 1's import works.
-3. Is Friends for people who left the clan, or for guests who never joined? For the first, one rule with two steps, Clan Member on `in_clan` and then Friends on `left`, keeps the two apart.
-4. Should staff keep a Discord rank role? A member whose every account holds a staff rank matches no rank step. If they should keep one, the plugin would also write the rank `rank_rule` gives each person as a label, for the rank rule to follow instead.
+1. Time in the clan counts from the current stint.
+2. Hand-kept links are not imported; claims start from scratch.
+3. Friends is for both people who left the clan and guests who never joined.
+4. Any account with an in-game staff rank gives its person the Discord staff role.
 
 ## Order of work
 
