@@ -6,6 +6,16 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- `admin_members` filters on labels a plugin keeps about members, such as which members a clan plugin has linked to their game accounts.
+
+### Writing plugins
+
+- Member labels: a plugin that declares `Plugin(..., writes=["labels"])` keeps short strings about members with `ctx.labels.replace_all`, which `MemberFilter(labels_from=..., labels_any=[...])` matches while they are fresh. `@plugin.on_labels_changed` hears them change. See [Member labels](https://teabot-dev.github.io/teabot/plugins/reference/#member-labels).
+- `ctx.members.count` and `find` take several filters, which a member must all match.
+- `action.asking(...)` makes a button that leaves text inputs out and asks for them in a form when pressed.
+
 ## 1.11.0 - 2026-11-18
 
 ### Using teabot

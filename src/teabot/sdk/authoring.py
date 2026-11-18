@@ -29,7 +29,8 @@ from pathlib import Path
 from typing import Any, Concatenate, Generic, Literal, Protocol, cast, get_args, overload
 
 import discord
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+from pydantic_core import to_jsonable_python
 from typing_extensions import TypeVar
 
 from teabot.sdk import _clock as clock
@@ -71,6 +72,8 @@ from teabot.sdk.guild import (
     VoiceChannel,
 )
 from teabot.sdk.http import Http
+from teabot.sdk.inputs import MODAL_MAX, asked
+from teabot.sdk.labels import DEFAULT_FRESH, MAX_FRESH, WRITES, Labels
 from teabot.sdk.members import READS, Members, NotDeclared
 from teabot.sdk.permissions import Permission
 from teabot.sdk.plans import Diff
@@ -132,6 +135,11 @@ class Context[C: BaseModel](Protocol):
         ...
 
     @property
+    def labels(self) -> Labels:
+        """The plugin's member labels in this server, for a plugin that declares `Plugin(..., writes=["labels"])`."""
+        ...
+
+    @property
     def audit_id(self) -> int | None:
         """In a destructive action's apply, its row in the audit log, which work it hands off to a job keeps as the
         job's grant; None elsewhere."""
@@ -184,6 +192,8 @@ class _Context:
     open_members: Callable[[], Members] | None = None
     audit_id: int | None = None
     grants: Any = None
+    writes: frozenset[str] = frozenset()
+    open_labels: Callable[[], Labels] | None = None
 
     @property
     def db(self) -> Db:
@@ -209,6 +219,16 @@ class _Context:
         if self.open_members is None:
             raise RuntimeError("this context has no member directory")
         return self.open_members()
+
+    @property
+    def labels(self) -> Labels:
+        if "labels" not in self.writes:
+            raise NotDeclared(
+                f'{self.plugin_id} writes member labels: declare Plugin(..., writes=["labels"])'
+            )
+        if self.open_labels is None:
+            raise RuntimeError("this context has no member labels")
+        return self.open_labels()
 
     @property
     def http(self) -> Http:
@@ -240,8 +260,8 @@ class Action[C: BaseModel, **P, R]:
     - `planner` is the plan `.plan` attached, if any.
     - `surfaces` are the front doors it is offered through.
     - `suggesters` are the functions `.autocomplete` attached, by the option each suggests values for.
-    - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches, and `reads` what else it reads, such as
-      `members`, which opens `ctx.members`.
+    - `hosts` are the hosts its plugin declared, which its `ctx.http` reaches, `reads` what else it reads, such as
+      `members`, which opens `ctx.members`, and `writes` what it writes, such as `labels`, which opens `ctx.labels`.
     - `menu` is its right-click command, if `menu=` made one.
     - `timeout` is how long a call may take before it is stopped.
     """
@@ -262,6 +282,7 @@ class Action[C: BaseModel, **P, R]:
     menu: Menu | None = None
     timeout: timedelta = ACTION_TIMEOUT
     reads: frozenset[str] = frozenset()
+    writes: frozenset[str] = frozenset()
 
     def autocomplete[T: (str, int)](
         self, option: str
@@ -321,7 +342,9 @@ class Action[C: BaseModel, **P, R]:
         func = self.suggesters[option]
 
         async def suggest(ctx: ActionContext, typed: str) -> list[Choice[Any]]:
-            return list(await func(_context_of(ctx, self.name, self.hosts, self.reads), typed))[:25]
+            return list(await func(_context_of(ctx, self.name, self.hosts, self.reads, self.writes), typed))[
+                :25
+            ]
 
         return suggest
 
@@ -330,13 +353,37 @@ class Action[C: BaseModel, **P, R]:
         as its ID, and found again when the button is pressed."""
         if args:
             raise TypeError(f"{self.name}.bind takes its arguments by name")
-        refs = {r.name for r in self.inputs.resolved}
-        raw = {k: _ids(v) if k in refs else v for k, v in kwargs.items()}
-        payload = self.inputs.model.model_validate(raw).model_dump(mode="json", exclude_defaults=True)
+        payload = self.inputs.model.model_validate(self._raw(kwargs)).model_dump(
+            mode="json", exclude_defaults=True
+        )
         return BoundAction(self.name, payload)
 
+    def asking(self, **kwargs: Any) -> BoundAction:
+        """The action with some arguments fixed, for a `Button` that asks for the rest: pressing it opens a form for
+        the required text inputs left out, up to five, and runs the action with what the member types. Every other
+        required input must be given, as for `bind`."""
+        raw = self._raw(kwargs)
+        left_out = [f.name for f in asked(self.inputs.model, raw)]
+        if not left_out:
+            raise ValueError(f"{self.name}.asking leaves no text input out; use bind")
+        if len(left_out) > MODAL_MAX:
+            raise ValueError(
+                f"{self.name}.asking leaves out {len(left_out)} text inputs; a form asks for at most {MODAL_MAX}"
+            )
+        try:
+            self.inputs.model.model_validate(raw)
+        except ValidationError as exc:
+            wrong = [e for e in exc.errors() if not (e["type"] == "missing" and e["loc"][0] in left_out)]
+            if wrong:
+                raise ValueError(f"{self.name}.asking: {wrong[0]['loc'][0]}: {wrong[0]['msg']}") from exc
+        return BoundAction(self.name, to_jsonable_python(raw))
+
+    def _raw(self, kwargs: Mapping[str, Any]) -> dict[str, Any]:
+        refs = {r.name for r in self.inputs.resolved}
+        return {k: _ids(v) if k in refs else v for k, v in kwargs.items()}
+
     async def _run(self, ctx: ActionContext, data: BaseModel) -> BaseModel:
-        context = _context_of(ctx, self.name, self.hosts, self.reads)
+        context = _context_of(ctx, self.name, self.hosts, self.reads, self.writes)
         arguments = await _arguments(self.inputs, context, data)
         func: Callable[..., Awaitable[Any]] = self.func
         return self.output.wrap(await func(**arguments))
@@ -344,7 +391,9 @@ class Action[C: BaseModel, **P, R]:
     async def _plan(self, ctx: ActionContext, data: BaseModel) -> Diff:
         assert self.planner is not None
         return await self.planner(
-            **await _arguments(self.inputs, _context_of(ctx, self.name, self.hosts, self.reads), data)
+            **await _arguments(
+                self.inputs, _context_of(ctx, self.name, self.hosts, self.reads, self.writes), data
+            )
         )
 
 
@@ -385,8 +434,18 @@ def _members_of(ctx: Any) -> Callable[[], Members] | None:
     return cast(Callable[[], Members], opener) if callable(opener) else None
 
 
+def _labels_of(ctx: Any) -> Callable[[], Labels] | None:
+    """The core's `ctx.labels` for a context, when it has one."""
+    opener = getattr(ctx, "open_labels", None)
+    return cast(Callable[[], Labels], opener) if callable(opener) else None
+
+
 def _context_of(
-    ctx: ActionContext, action: str, hosts: frozenset[str], reads: frozenset[str] = frozenset()
+    ctx: ActionContext,
+    action: str,
+    hosts: frozenset[str],
+    reads: frozenset[str] = frozenset(),
+    writes: frozenset[str] = frozenset(),
 ) -> _Context:
     diff = getattr(ctx, "diff", None) or Diff()
     guild = guild_view(ctx.guild, _reason(action, ctx.actor), action)
@@ -403,6 +462,8 @@ def _context_of(
         reads=reads,
         open_members=_members_of(ctx),
         audit_id=getattr(ctx, "audit_id", None),
+        writes=writes,
+        open_labels=_labels_of(ctx),
     )
 
 
@@ -420,8 +481,8 @@ class Job[C: BaseModel, **P]:
     - `func` is the decorated function, and `name` the job's name within the plugin.
     - `inputs` is the payload's model, read from the function's signature.
     - `every` is how often it runs on its own, or None for a job that runs when scheduled.
-    - `plugin_id` is its plugin's id, `hosts` the hosts its plugin declared, which its `ctx.http` reaches, and
-      `reads` what else it reads, such as `members`.
+    - `plugin_id` is its plugin's id, `hosts` the hosts its plugin declared, which its `ctx.http` reaches, `reads`
+      what else it reads, such as `members`, and `writes` what it writes, such as `labels`.
     - `timeout` is how long a run may take before it is stopped, or None for teabot's fifteen minutes.
     """
 
@@ -433,6 +494,7 @@ class Job[C: BaseModel, **P]:
     hosts: frozenset[str] = frozenset()
     timeout: timedelta | None = None
     reads: frozenset[str] = frozenset()
+    writes: frozenset[str] = frozenset()
 
     def bind(self, *args: P.args, **kwargs: P.kwargs) -> Bound:
         """The job with its arguments fixed, for `tx.schedule` and `tx.unschedule`. Its key is the job's name and
@@ -459,6 +521,8 @@ class Job[C: BaseModel, **P]:
             reads=self.reads,
             open_members=_members_of(job),
             grants=getattr(job, "grants", None),
+            writes=self.writes,
+            open_labels=_labels_of(job),
         )
         data = self.inputs.model.model_validate(dict(job.payload))
         func: Callable[..., Awaitable[None]] = self.func
@@ -482,6 +546,8 @@ class Plugin(Generic[Cfg]):
         hosts: Iterable[str] = (),
         description: str = "",
         reads: Iterable[str] = (),
+        writes: Iterable[str] = (),
+        labels_fresh_for: timedelta = DEFAULT_FRESH,
     ) -> None:
         self.id = id
         self.description = description
@@ -489,6 +555,14 @@ class Plugin(Generic[Cfg]):
         self.reads = frozenset(reads)
         if unknown := self.reads - READS:
             raise SignatureError(f"{id}: Plugin(reads=...) takes {sorted(READS)}, not {sorted(unknown)}")
+        self.writes = frozenset(writes)
+        if unknown := self.writes - WRITES:
+            raise SignatureError(f"{id}: Plugin(writes=...) takes {sorted(WRITES)}, not {sorted(unknown)}")
+        if not timedelta(0) < labels_fresh_for <= MAX_FRESH:
+            raise SignatureError(
+                f"{id}: Plugin(labels_fresh_for=...) is more than nothing and at most a week"
+            )
+        self.labels_fresh_for = labels_fresh_for
         self.config = config
         self._migrations = migrations
         self._module: str | None = None
@@ -549,6 +623,7 @@ class Plugin(Generic[Cfg]):
                 menu=found_menu,
                 timeout=timeout,
                 reads=self.reads,
+                writes=self.writes,
             )
             self.actions[action_name] = built
             self._module = self._module or func.__module__
@@ -609,7 +684,7 @@ class Plugin(Generic[Cfg]):
                 raise SignatureError(
                     f"{where(func)}: {self.id}.{job_name} runs on its own, so it takes no parameters after ctx"
                 )
-        built = Job(func, job_name, inputs, every, self.id, self.hosts, timeout, self.reads)
+        built = Job(func, job_name, inputs, every, self.id, self.hosts, timeout, self.reads, self.writes)
         self.jobs[job_name] = built
         self._module = self._module or func.__module__
         return built
@@ -640,6 +715,8 @@ class Plugin(Generic[Cfg]):
             self._migrations_dir(),
             self.description,
             self.reads,
+            self.writes,
+            self.labels_fresh_for,
         )
 
     def _migrations_dir(self) -> Path | None:
@@ -759,6 +836,14 @@ class Plugin(Generic[Cfg]):
         each time the plugin is turned back on, so check what is already there first. It runs as a job."""
         return self._listen("enable", func)
 
+    def on_labels_changed(
+        self, func: Callable[[Context[Cfg], str], Awaitable[None]]
+    ) -> Callable[[Context[Cfg], str], Awaitable[None]]:
+        """Run `func` when a plugin's member labels change in a server where this plugin is enabled, with that
+        plugin's ID: when its `replace_all` changes anyone's, when its labels become fresh again, or when it is
+        turned back on. It runs as a job, once for each change."""
+        return self._listen("labels_changed", func)
+
     def on_track_end(
         self, func: Callable[[Context[Cfg], str, str | None], Awaitable[None]]
     ) -> Callable[[Context[Cfg], str, str | None], Awaitable[None]]:
@@ -823,9 +908,14 @@ class Plugin(Generic[Cfg]):
                 reads=self.reads,
                 open_members=_members_of(job),
                 grants=getattr(job, "grants", None),
+                writes=self.writes,
+                open_labels=_labels_of(job),
             )
             if event == "enable":
                 await func(context)
+                return
+            if event == "labels_changed":
+                await func(context, str(job.payload["plugin"]))
                 return
             if event == "track_end":
                 error = job.payload.get("error")

@@ -7,6 +7,7 @@ with the field's name, so an action cannot be built with a field a front door co
 """
 
 import types
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, TypeAliasType, Union, get_args, get_origin
 
@@ -160,3 +161,22 @@ def classify(name: str, info: FieldInfo) -> InputField:
 def input_fields(model: type[BaseModel]) -> list[InputField]:
     """Every field of an input model, or `InputError` naming the first one that is not allowed."""
     return [classify(name, info) for name, info in model.model_fields.items()]
+
+
+MODAL_MAX = 5
+"""How many inputs Discord's modal holds."""
+
+
+def asked(model: type[BaseModel], given: Iterable[str]) -> list[InputField]:
+    """The text inputs a button leaves out, which a press asks for in a modal: required plain or long text with no
+    fixed choices, not among `given`."""
+    names = set(given)
+    return [
+        f
+        for f in input_fields(model)
+        if f.required
+        and f.name not in names
+        and f.kind in ("string", "long")
+        and f.choices is None
+        and f.count is None
+    ]

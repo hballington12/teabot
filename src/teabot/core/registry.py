@@ -18,6 +18,7 @@ import discord
 from pydantic import BaseModel, ValidationError
 
 from teabot.core.config import ConfigError, ConfigStore
+from teabot.core.directory.labels import LabelService
 from teabot.core.directory.plugin_api import GuildMembers
 from teabot.core.loader import Loaded
 from teabot.core.voice import VoiceService
@@ -172,6 +173,8 @@ class PluginActionContext:
     open_voice: Callable[[], Any] | None = None
     # The server's member directory, as `ctx.members` (D55); the SDK checks the plugin declared it.
     open_members: Callable[[], Any] | None = None
+    # The plugin's member labels, as `ctx.labels`; the SDK checks the plugin declared them.
+    open_labels: Callable[[], Any] | None = None
     # In an apply, its audit row, which work it hands off keeps as its grant.
     audit_id: int | None = None
 
@@ -256,6 +259,7 @@ class Registry:
         self.sources = sources
         # The voice service gives plugin calls `ctx.voice` (D54); `assemble` sets it.
         self.voice: VoiceService | None = None
+        self.labels: LabelService | None = None
         self.pools = pools
         self.config = ConfigStore(pools.core_db())
         self.client = client
@@ -349,9 +353,24 @@ class Registry:
             if source.builtin or self.voice is None
             else partial(self.voice.bound, plugin_id, call.guild_id)
         )
-        open_members = None if source.builtin else partial(GuildMembers, self.pools.core_db(), call.guild_id)
+        open_members = (
+            None
+            if source.builtin
+            else partial(GuildMembers, self.pools.core_db(), call.guild_id, self.labels)
+        )
+        open_labels = (
+            None
+            if source.builtin or self.labels is None
+            else partial(self.labels.bound, plugin_id, call.guild_id)
+        )
         context = PluginActionContext(
-            guild, call.actor, config, open_db, open_voice=open_voice, open_members=open_members
+            guild,
+            call.actor,
+            config,
+            open_db,
+            open_voice=open_voice,
+            open_members=open_members,
+            open_labels=open_labels,
         )
         return context, data
 

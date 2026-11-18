@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from teabot.sdk.actions import ActionSpec
 from teabot.sdk.db import Db
 from teabot.sdk.ids import check_plugin_id_free
+from teabot.sdk.labels import DEFAULT_FRESH
 from teabot.sdk.voice import Voice
 
 
@@ -32,8 +33,9 @@ class Manifest:
     - `config` is the pydantic model of its per-server config (D10); `EmptyConfig` when it has none.
     - `migrations` is the directory of its numbered SQL migrations (D9), or None when it has no tables.
     - `description` says in a sentence what it does, for the instance's plugin browser.
-    - `reads` names what else of the server it reads, such as `members`, the member directory (D55), which the
-      plugin browser shows.
+    - `reads` names what else of the server it reads, such as `members`, the member directory (D55), and `writes`
+      what it writes there, such as `labels`; the plugin browser shows both.
+    - `labels_fresh_for` is how long its labels count after the data they came from.
     """
 
     id: str
@@ -42,6 +44,8 @@ class Manifest:
     migrations: Path | None = None
     description: str = ""
     reads: frozenset[str] = frozenset()
+    writes: frozenset[str] = frozenset()
+    labels_fresh_for: timedelta = DEFAULT_FRESH
 
     def __post_init__(self) -> None:
         check_plugin_id_free(self.id)
@@ -106,8 +110,10 @@ type EventName = Literal[
     "track_end",
     "voice_resume",
     "voice_alone",
+    "labels_changed",
 ]
-"""The events a plugin can handle: Discord's, the plugin being turned on, and its own voice connection's (D54)."""
+"""The events a plugin can handle: Discord's, the plugin being turned on, its own voice connection's (D54), and a
+plugin's member labels changing."""
 
 VOICE_EVENTS: frozenset[EventName] = frozenset({"track_end", "voice_resume", "voice_alone"})
 """The events about the plugin's own voice connection, which only the plugin holding it hears."""
@@ -133,8 +139,9 @@ class Registrar(Protocol):
     def event(self, name: "EventName", handler: JobHandler, *, late: bool = False) -> None:
         """Handle an event in the servers where the plugin is enabled. It runs as a job, `on_<name>`, with the
         event's details in its payload, such as the member's ID as `user_id`. `track_end`'s holds `track` and
-        `error`, and `voice_resume`'s and `voice_alone`'s hold `channel_id`. With `late`, a member event also
-        arrives when the member directory found it late, with `since` in its payload (D55)."""
+        `error`, `voice_resume`'s and `voice_alone`'s hold `channel_id`, and `labels_changed`'s holds `plugin`.
+        With `late`, a member event also arrives when the member directory found it late, with `since` in its
+        payload (D55)."""
         ...
 
 

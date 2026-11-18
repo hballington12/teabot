@@ -25,7 +25,7 @@ from teabot.sdk.actions import Via
 from teabot.sdk.components import PREFIX as BUTTON_PREFIX
 from teabot.sdk.components import SELECT_PREFIX, parse_custom_id, parse_select_id
 from teabot.sdk.fields import LONG_TEXT_MAX
-from teabot.sdk.inputs import input_fields
+from teabot.sdk.inputs import InputField, asked, input_fields
 
 log = logging.getLogger(__name__)
 
@@ -37,12 +37,13 @@ DRAFT_MINUTES = 15
 FIELD_SHOWN = 1024
 
 SAVE_DRAFT = """
-INSERT INTO core.interaction_drafts (id, guild_id, user_id, action, input) VALUES ($1, $2, $3, $4, $5::jsonb)
+INSERT INTO core.interaction_drafts (id, guild_id, user_id, action, input, via)
+VALUES ($1, $2, $3, $4, $5::jsonb, $6)
 """
 TAKE_DRAFT = """
 DELETE FROM core.interaction_drafts
 WHERE id = $1 AND guild_id = $2 AND user_id = $3 AND created_at > now() - make_interval(mins => $4)
-RETURNING action, input
+RETURNING action, input, via
 """
 
 
@@ -66,17 +67,18 @@ def default_embed(spec: ActionSpec[Any, Any], output: BaseModel) -> discord.Embe
     return embed
 
 
-def _modal(spec: ActionSpec[Any, Any], draft_id: uuid.UUID, fields: tuple[str, ...]) -> discord.ui.Modal:
+def _modal(spec: ActionSpec[Any, Any], draft_id: uuid.UUID, fields: list[InputField]) -> discord.ui.Modal:
+    """A form for `fields`: long text in a paragraph box, plain text in a line."""
     modal = discord.ui.Modal(title=spec.summary[:45], custom_id=f"{MODAL_PREFIX}{draft_id}")
-    described = {f.name: f for f in input_fields(spec.input)}
-    for name in fields:
+    for f in fields:
+        long = f.kind == "long"
         modal.add_item(
             discord.ui.TextInput(
-                label=described[name].description[:45],
-                custom_id=name,
-                style=discord.TextStyle.paragraph,
-                max_length=LONG_TEXT_MAX,
-                required=described[name].required,
+                label=f.description[:45],
+                custom_id=f.name,
+                style=discord.TextStyle.paragraph if long else discord.TextStyle.short,
+                max_length=LONG_TEXT_MAX if long else min(f.max_length or LONG_TEXT_MAX, LONG_TEXT_MAX),
+                required=f.required,
             )
         )
     return modal
@@ -218,6 +220,11 @@ class InteractionRouter:
         if bound is None or interaction.guild_id is None:
             await interaction.response.send_message(BUTTON_GONE, ephemeral=True)
             return
+        spec = self.registry.actions.get(bound.action)
+        fields = asked(spec.input, bound.input) if spec is not None else []
+        if spec is not None and fields:
+            await self._ask(interaction, spec, dict(bound.input), fields, "component")
+            return
         await self._run(interaction, bound.action, dict(bound.input), via="component")
 
     async def _confirm(self, interaction: Any) -> None:
@@ -262,13 +269,25 @@ class InteractionRouter:
             raw = fold_lists(spec.input, raw)
         modal_fields = slash_fields(spec.input).modal if spec is not None else ()
         if spec is not None and modal_fields:
-            draft_id = uuid.uuid4()
-            await self.db.execute(
-                SAVE_DRAFT, draft_id, interaction.guild_id, interaction.user.id, name, json.dumps(raw)
-            )
-            await interaction.response.send_modal(_modal(spec, draft_id, modal_fields))
+            described = {f.name: f for f in input_fields(spec.input)}
+            await self._ask(interaction, spec, raw, [described[n] for n in modal_fields], "slash")
             return
         await self._run(interaction, name, raw)
+
+    async def _ask(
+        self,
+        interaction: Any,
+        spec: ActionSpec[Any, Any],
+        raw: dict[str, Any],
+        fields: list[InputField],
+        via: Via,
+    ) -> None:
+        """Save what the member gave as a draft, and open a form for the rest, which any process can finish."""
+        draft_id = uuid.uuid4()
+        await self.db.execute(
+            SAVE_DRAFT, draft_id, interaction.guild_id, interaction.user.id, spec.name, json.dumps(raw), via
+        )
+        await interaction.response.send_modal(_modal(spec, draft_id, fields))
 
     async def _menu(self, interaction: Any) -> None:
         """A right-click command on a member or a message: the action whose menu has that name fills its one
@@ -319,7 +338,7 @@ class InteractionRouter:
             await interaction.response.send_message(EXPIRED, ephemeral=True)
             return
         raw = json.loads(row["input"]) | _modal_values(interaction.data)
-        await self._run(interaction, row["action"], raw)
+        await self._run(interaction, row["action"], raw, via=row["via"])
 
     async def _run(self, interaction: Any, name: str, raw: dict[str, Any], via: Via = "slash") -> None:
         await interaction.response.defer(ephemeral=True, thinking=True)

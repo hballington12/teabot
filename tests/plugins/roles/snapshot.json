@@ -551,6 +551,40 @@
           "description": "Joined on or before this day",
           "title": "Joined Before"
         },
+        "labels_all": {
+          "default": [],
+          "description": "Has every one of these labels from labels_from",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Labels All",
+          "type": "array"
+        },
+        "labels_any": {
+          "default": [],
+          "description": "Has at least one of these labels from labels_from",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Labels Any",
+          "type": "array"
+        },
+        "labels_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Has a label from this plugin; with labels_any or labels_all, those labels",
+          "title": "Labels From"
+        },
         "no_roles": {
           "default": false,
           "description": "Has no roles at all",
@@ -904,6 +938,40 @@
           "default": null,
           "description": "Joined on or before this day",
           "title": "Joined Before"
+        },
+        "labels_all": {
+          "default": [],
+          "description": "Has every one of these labels from labels_from",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Labels All",
+          "type": "array"
+        },
+        "labels_any": {
+          "default": [],
+          "description": "Has at least one of these labels from labels_from",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Labels Any",
+          "type": "array"
+        },
+        "labels_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Has a label from this plugin; with labels_any or labels_all, those labels",
+          "title": "Labels From"
         },
         "no_roles": {
           "default": false,

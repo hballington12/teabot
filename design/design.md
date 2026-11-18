@@ -221,6 +221,7 @@ The design targets a framework that many people run and that grows to many serve
     - `teabot new-plugin <id>` scaffolds a package with its entry point, a one-file plugin, a first migration, a README with an "External connections" section, tests and a snapshot test. `teabot check` runs the review checklist's mechanical items, and the harness runs it too.
     - A breaking change to `teabot.sdk` needs a major version, and the old form keeps working with a deprecation warning for at least one minor release first.
     - 1.11 adds `ctx.members`, `MemberFilter`, model inputs, `Diff.notes`, `HandedOff`, `by=` on role changes, role changes by member ID, `Guild.can_assign`, `ctx.audit_id`, `ctx.authorized`, `ctx.record_outcome` and `DANGEROUS` (role-changes.md).
+    - 1.12 adds member labels: `writes=["labels"]`, `ctx.labels`, label fields on `MemberFilter`, `on_labels_changed` and `labels_fresh_for`; several filters at once in `ctx.members`; and `action.asking` for buttons that ask in a form.
 46. **Plugin ids are unique within an instance.**
     - An id matches `[a-z][a-z0-9_]{1,31}`, which fits Discord's command names and the Postgres schema and role names of D9.
     - The ids `core`, `admin`, `teabot` and `plugin` are reserved, as are `plugins`, `audit` and `tokens`, the admin plugin's command groups.

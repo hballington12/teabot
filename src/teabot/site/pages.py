@@ -116,6 +116,8 @@ def plugin_page(frame: Frame, plugin: PluginInfo, here: Here | None, status: str
         contacts += (
             "<li>Reads the member directory: every member's roles, joins and history in the server</li>"
         )
+    if "labels" in plugin.writes:
+        contacts += "<li>Keeps labels about members, which role rules and other plugins can match</li>"
     hub = f'<li><a href="{HUB_PAGES}{escape(plugin.id)}/">On the plugin hub</a></li>' if plugin.on_hub else ""
     switch = ""
     if here is not None and here.switchable:

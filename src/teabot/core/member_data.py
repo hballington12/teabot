@@ -2,9 +2,10 @@
 
 Plugin columns of the type `teabot.member_id` hold members' IDs, so deletion finds them through the catalog, in
 every plugin, with no plugin code: a row with the member in such a column is deleted, and the member is taken out
-of a `teabot.member_id[]` column. In the core, their tokens, site sign-ins, unsent drafts, and member directory rows
-and history (D55) are deleted, and their ID is taken out of the audit log, the job and settings records, and the
-directory's record of who invited, kicked or banned whom, which keep what was done but no longer by whom.
+of a `teabot.member_id[]` column. In the core, their tokens, site sign-ins, unsent drafts, member directory rows
+and history (D55) and member labels are deleted, and their ID is taken out of the audit log, the job and settings
+records, and the directory's record of who invited, kicked or banned whom, which keep what was done but no longer
+by whom.
 """
 
 from dataclasses import dataclass, field
@@ -50,6 +51,10 @@ CORE_STEPS = (
     (
         "member directory",
         "DELETE FROM core.members WHERE user_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "member labels",
+        "DELETE FROM core.member_labels WHERE user_id = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
     ),
     (
         "member history",

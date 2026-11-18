@@ -32,6 +32,7 @@ from teabot.sdk._views import attachments
 from teabot.sdk.actions import Via
 from teabot.sdk.components import parse_custom_id, parse_select_id
 from teabot.sdk.db import Bound
+from teabot.sdk.inputs import asked
 from teabot.sdk.plugin import EventName
 from teabot.testing.fakes import (
     FakeButton,
@@ -189,10 +190,11 @@ class PluginHarness:
         )
         await self.run_jobs()
 
-    async def press(self, button: FakeButton, /) -> str:
+    async def press(self, button: FakeButton, /, typed: Mapping[str, str] | None = None) -> str:
         """Press a button on a fake message as the server's first member, through the real call path, as Discord
-        would on a click. Returns the reply they would see."""
-        return await self.as_member(self.member).press(button)
+        would on a click. Returns the reply they would see. A button that asks for text in a form takes what the
+        member types there as `typed`, by input name."""
+        return await self.as_member(self.member).press(button, typed)
 
     async def choose(self, select: FakeSelect, values: Sequence[Any], /) -> str:
         """Choose from a select menu on a fake message as the server's first member. Returns the reply they would
@@ -430,13 +432,19 @@ class MemberCalls:
         self.harness._plans[out.confirm] = (action.name, raw, self.user)  # pyright: ignore[reportPrivateUsage]
         return out
 
-    async def press(self, button: FakeButton, /) -> str:
+    async def press(self, button: FakeButton, /, typed: Mapping[str, str] | None = None) -> str:
         """Press a button on a fake message as this member, through the real call path. Returns the reply they
-        would see. A refusal raises `Refused`, and an `ActionError` raises `ActionFailed`."""
+        would see. A button that asks for text in a form takes what the member types there as `typed`. A refusal
+        raises `Refused`, and an `ActionError` raises `ActionFailed`."""
         bound = parse_custom_id(button.custom_id)
         if bound is None:
             raise ValueError(f"{button.custom_id!r} is not one of teabot's buttons")
-        call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), dict(bound.input))
+        spec = self.harness.registry.actions[bound.action]
+        wanted = [f.name for f in asked(spec.input, bound.input)]
+        if wanted and not typed:
+            raise ValueError(f"{bound.action}'s button opens a form asking for {wanted}; pass typed={{...}}")
+        raw = dict(bound.input) | {k: v for k, v in (typed or {}).items() if k in wanted}
+        call = Call(bound.action, self.harness.guild.id, Actor(self.user, "component"), raw)
         out = await self.harness.registry.invoke(call)
         await self.harness.send_posts()
         return self._shown(bound.action, out)

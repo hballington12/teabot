@@ -16,6 +16,8 @@ import discord
 from pydantic import BaseModel, Field
 
 from teabot.core.directory import state as states
+from teabot.core.directory.labels import LabelService
+from teabot.core.directory.plugin_api import resolved
 from teabot.core.directory.query import (
     Criteria,
     GroupBy,
@@ -23,7 +25,6 @@ from teabot.core.directory.query import (
     Sort,
     Status,
     count_sql,
-    criteria,
     group_sql,
     history_count_sql,
     history_sql,
@@ -153,9 +154,11 @@ def _day(value: str | None) -> date | None:
     return None if value is None else date.fromisoformat(value)
 
 
-def member_filter(data: MembersQuery) -> Criteria:
-    return criteria(
+async def member_filter(data: MembersQuery, guild_id: int, labels: LabelService | None) -> Criteria:
+    return await resolved(
         data,
+        guild_id,
+        labels,
         status=data.status,
         left_after=_day(data.left_after),
         left_before=_day(data.left_before),
@@ -221,6 +224,8 @@ class Members:
     def __init__(self, db: Database) -> None:
         self.db = db
         self.lookup_joins: LookupJoins | None = None
+        # Whether a filter's labels count here; the assembly sets it.
+        self.labels: LabelService | None = None
 
     async def _ready(self, guild: discord.Guild) -> states.State:
         """The server's directory state, or a refusal saying why it cannot answer yet."""
@@ -237,7 +242,7 @@ class Members:
 
     async def members(self, ctx: ActionContext, data: MembersQuery) -> MembersPage:
         state = await self._ready(ctx.guild)
-        f = member_filter(data)
+        f = await member_filter(data, ctx.guild.id, self.labels)
         if f.needs_joins and self.lookup_joins is not None:
             await self.lookup_joins(ctx.guild.id)
         w = where(ctx.guild.id, f, datetime.now(UTC))

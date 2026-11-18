@@ -46,6 +46,7 @@ type Ctx = Context[RafflesConfig]
 
 - `Plugin(id, *, config=EmptyConfig, migrations=None, hosts=(), description="")`. The version comes from the installed package, and migrations from `migrations/` beside the module that made the plugin, unless `migrations` names another directory.
 - `description` is one sentence on what the plugin does. A teabot's site shows it in its plugin browser. Added in 1.8.
+- `reads=["members"]` opens [the member directory](#the-member-directory), and `writes=["labels"]` opens [member labels](#member-labels), with `labels_fresh_for`, how long they count. The site shows both on the plugin's page.
 - The id matches `[a-z][a-z0-9_]{1,31}`. `core`, `admin`, `teabot`, `plugin`, `plugins`, `audit` and `tokens` are reserved. Two installed packages with the same id both fail to load.
 - When the plugin loads, teabot imports every module of its package, so decorated functions in any module register themselves. It skips `tests`, modules whose names start with `_`, and `__main__`.
 - Anything that fails while the plugin loads fails that plugin alone, which keeps none of its registrations. Everything else still loads.
@@ -148,6 +149,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - `await ctx.report(progress)`: progress for `/admin job_status`.
 - `ctx.voice`: the server's voice connection, which the plugin joins, plays through and leaves. [Voice](#voice) says how.
 - `ctx.members`: the server's member directory, for a plugin that declares it. [The member directory](#the-member-directory) says how.
+- `ctx.labels`: the plugin's labels about the server's members, for a plugin that declares them. [Member labels](#member-labels) says how.
 - `ctx.audit_id`, `ctx.authorized` and `ctx.record_outcome`: for work that outlasts its apply. [Work that outlasts its apply](#work-that-outlasts-its-apply) says how.
 
 To post, send to a `TextChannel`:
@@ -252,10 +254,34 @@ async def count_rank(ctx: Ctx, role: Role) -> str:
 ```
 
 - `await ctx.members.count(filter)` counts present members a `MemberFilter` matches. `await ctx.members.find(filter, after=0, limit=1000)` returns them as `DirectoryMember`s, in user ID order: pass the last one's `user_id` as `after` for the next page.
-- `MemberFilter` is the filter `admin_members` takes: roles any, all or none, no roles, joined and account-created days, join method, invite and inviter, boosting, timed out, pending, and bots. `PeopleFilter` matches people only unless told otherwise. An action can take one as an input, and an assistant then previews it with `admin_members` before calling.
+- Both take several filters, `count(f1, f2)`, which a member must all match, such as a filter an admin gave and one the plugin adds. Added in 1.12.
+- `MemberFilter` is the filter `admin_members` takes: roles any, all or none, no roles, joined and account-created days, join method, invite and inviter, boosting, timed out, pending, bots, and a plugin's [labels](#member-labels). `PeopleFilter` matches people only unless told otherwise. An action can take one as an input, and an assistant then previews it with `admin_members` before calling.
 - Before a server's directory has its first copy, or where the operator turned it off, both raise `DirectoryUnavailable`, an `ActionError` that says why.
 - Without `reads=["members"]`, `ctx.members` raises `NotDeclared`. The site shows the declaration on the plugin's page, and the guide's [review checklist](#review-checklist) asks for it. It is a declaration, not a sandbox: plugin code runs in teabot's process.
 - Names are member-written text (D23), and `find` answers only for this server.
+
+### Member labels
+
+Added in 1.12. A plugin that knows something about members which Discord doesn't, such as which game account each one linked, keeps it as labels: short strings, such as `in_clan` or `rank:sapphire`. Filters match them, so `admin_members`, other plugins and role changes can act on them.
+
+```python
+plugin = Plugin("clan", reads=["members"], writes=["labels"])
+
+
+@plugin.job(every=timedelta(hours=1))
+async def sync(ctx: Ctx) -> None:
+    fetched = await fetch_roster(ctx)
+    await ctx.labels.replace_all({m.user_id: m.labels for m in fetched.members}, as_of=fetched.at)
+```
+
+- `await ctx.labels.replace_all(labels, as_of=...)` replaces every label the plugin keeps in the server, member ID to labels, in one transaction. A member left out loses theirs. It returns how many members' labels changed.
+- `as_of` is how fresh the data behind them is, such as the last successful fetch. Pass the time of the data, not the time of the write, so a write after a failed fetch never makes old data look current.
+- A filter matches them with `MemberFilter(labels_from="clan", labels_any=["in_clan"])`, or `labels_all`. `labels_from` alone matches anyone with a label from that plugin.
+- They count only while the plugin is enabled in the server and `as_of` is within `labels_fresh_for`, a day unless the plugin declares otherwise, up to a week. Otherwise a filter on them matches nobody, so a plugin that stops syncing stops counting.
+- A member has at most 32 labels from one plugin, each up to 64 characters with no spaces; `LabelError` says what is wrong. Writing waits for the server's directory, as `ctx.members` does, with `DirectoryUnavailable`.
+- `@plugin.on_labels_changed` runs with the ID of the plugin whose labels changed: when its `replace_all` changes anyone's, when its labels become fresh again, and when it is turned back on. Any plugin enabled in the server hears it.
+- Labels are deleted with a member's data. Any plugin that reads the directory can filter on them, so they say nothing a server's plugins shouldn't know.
+- Without `writes=["labels"]`, `ctx.labels` raises `NotDeclared`.
 
 ## Buttons and select menus
 
@@ -269,6 +295,7 @@ await channel.send(
 ```
 
 - `action.bind(...)` fixes an action's arguments, checked by pyright against its function. A `Role`, `TextChannel` or `Member` is kept as its ID.
+- `action.asking(...)` fixes some and leaves required text inputs out, up to five: pressing the button opens a form for them, and the action runs with what the member types. A "Link accounts" button that asks for names is one. In tests, `harness.press(button, typed={"names": "..."})` fills the form. Added in 1.12.
 - A `Button` runs the bound action as the member who presses it, through the same path as a slash command: `needs=` is checked against the presser, the call is audited, and a destructive action shows its plan.
 - The call is held in the button itself, so a button keeps working after a restart, and needs nothing stored. It must fit Discord's 100 characters: bind IDs, never long text.
 - A post holds up to 25 buttons, five to a row. `style` is `"primary"`, `"secondary"` (the default), `"success"` or `"danger"`.
@@ -633,7 +660,7 @@ def test_the_plugin_matches_its_snapshot(teabot_snapshot: SnapshotCheck) -> None
 - No Discord or HTTP awaits inside transaction blocks, and no blocking I/O.
 - No dynamic SQL built from member input.
 - Jobs are safe to run twice.
-- Reads the member directory only when it declares `Plugin(..., reads=["members"])`, and says why in its README.
+- Reads the member directory only when it declares `Plugin(..., reads=["members"])`, and writes labels only when it declares `writes=["labels"]`, and says why in its README.
 
 ## Lower level
 

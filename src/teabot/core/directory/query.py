@@ -90,6 +90,12 @@ class Criteria:
     timed_out: bool | None = None
     pending: bool | None = None
     bots: bool | None = None
+    labels_from: str | None = None
+    labels_any: Sequence[str] = ()
+    labels_all: Sequence[str] = ()
+    # Whether labels_from's labels count now: the plugin is enabled here and its data fresh. When they don't, a
+    # filter on them matches nobody.
+    labels_live: bool = False
 
     @property
     def needs_joins(self) -> bool:
@@ -119,6 +125,9 @@ def criteria(model: MemberFilter, **extra: Any) -> Criteria:
         timed_out=model.timed_out,
         pending=model.pending,
         bots=model.bots,
+        labels_from=model.labels_from,
+        labels_any=model.labels_any,
+        labels_all=model.labels_all,
         **extra,
     )
 
@@ -131,8 +140,19 @@ def _utc(day: date, *, end: bool = False) -> datetime:
 
 def where(guild_id: int, f: Criteria, now: datetime) -> Where:
     """The WHERE clause for a filter in one server."""
+    return where_all(guild_id, [f], now)
+
+
+def where_all(guild_id: int, filters: Sequence[Criteria], now: datetime) -> Where:
+    """The WHERE clause for members who match every one of `filters`, in one server."""
     w = Where()
     w.add("guild_id = {}", guild_id)
+    for f in filters:
+        _criteria(w, f, now)
+    return w
+
+
+def _criteria(w: Where, f: Criteria, now: datetime) -> None:
     if f.status == "present":
         w.add("left_at IS NULL")
     elif f.status == "left":
@@ -144,7 +164,24 @@ def where(guild_id: int, f: Criteria, now: datetime) -> Where:
         p = w.arg(_like(f.name))
         w.clauses.append(f"(lower(name) LIKE {p} OR lower(global_name) LIKE {p} OR lower(nickname) LIKE {p})")
     _flags(w, f, now)
-    return w
+    _labels(w, f)
+
+
+def _labels(w: Where, f: Criteria) -> None:
+    if f.labels_from is None:
+        return
+    if not f.labels_live:
+        w.add("false")
+        return
+    match = [f"l.plugin_id = {w.arg(f.labels_from)}"]
+    if f.labels_any:
+        match.append(f"l.labels && {w.arg(list(f.labels_any))}::text[]")
+    if f.labels_all:
+        match.append(f"l.labels @> {w.arg(list(f.labels_all))}::text[]")
+    w.clauses.append(
+        "EXISTS (SELECT 1 FROM core.member_labels l WHERE l.guild_id = members.guild_id "
+        f"AND l.user_id = members.user_id AND {' AND '.join(match)})"
+    )
 
 
 def _roles(w: Where, f: Criteria) -> None:

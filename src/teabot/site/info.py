@@ -18,6 +18,7 @@ class PluginInfo:
     contacts: str
     on_hub: bool
     reads: frozenset[str] = frozenset()
+    writes: frozenset[str] = frozenset()
 
     def summary(self) -> dict[str, str]:
         """What `/plugins.json` says of it."""
@@ -26,6 +27,7 @@ class PluginInfo:
             "version": self.version,
             "description": self.description,
             "reads": ",".join(sorted(self.reads)),
+            "writes": ",".join(sorted(self.writes)),
         }
 
 
@@ -44,6 +46,7 @@ def installed(manifests: Mapping[str, Manifest], hub: Mapping[str, Listed]) -> l
                 chosen.external_connections if chosen is not None else "",
                 listed is not None,
                 manifest.reads,
+                manifest.writes,
             )
         )
     return found

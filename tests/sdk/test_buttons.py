@@ -146,3 +146,30 @@ async def test_a_button_only_action_is_no_command_and_no_tool(teabot_harness: Ha
     assert caught.value.code == "wrong_surface"
     spec = button_only.actions["only.tap"].spec()
     assert command_group("only", [spec])["options"] == [] and Surface.MCP not in spec.surfaces
+
+
+@plugin.action()
+async def note(ctx: Ctx, role: Role, text: str) -> str:
+    """Leave a note about a role.
+
+    Args:
+        role: The role
+        text: The note
+    """
+    return f"{role.name}: {text}"
+
+
+async def test_a_button_can_leave_text_for_a_form_to_ask(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    role = harness.guild.add_role("Raids")
+    bound = note.asking(role=role)
+    assert bound.input == {"role": str(role.id)}
+    button = FakeButton("Note", None, "secondary", bound.custom_id())
+    with pytest.raises(ValueError, match="opens a form"):
+        await harness.press(button)
+    assert await harness.press(button, typed={"text": "on Fridays"}) == "Raids: on Fridays"
+
+
+def test_a_button_must_still_fix_what_is_not_text() -> None:
+    with pytest.raises(ValueError, match="role"):
+        note.asking()

@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from teabot.core.config import ConfigStore
+from teabot.core.directory.labels import GuildLabels, LabelService
 from teabot.core.directory.plugin_api import GuildMembers
 from teabot.core.grants import Grants
 from teabot.core.loader import Loaded
@@ -36,6 +37,13 @@ class PluginJobContext:
     open_voice: GuildVoice | None = None
     members: GuildMembers | None = None
     grants: "BoundGrants | None" = None
+    labels: GuildLabels | None = None
+
+    def open_labels(self) -> GuildLabels:
+        """The plugin's member labels, as `ctx.labels`; the SDK checks the plugin declared them."""
+        if self.labels is None:
+            raise RuntimeError("this job has no member labels")
+        return self.labels
 
     def open_members(self) -> GuildMembers:
         """The server's member directory, as `ctx.members` (D55); the SDK checks the plugin declared it."""
@@ -77,6 +85,7 @@ class _Runtime:
     recurring: Recurring | None = None
     voice: VoiceService | None = None
     grants: Grants | None = None
+    labels: LabelService | None = None
 
 
 @dataclass(frozen=True)
@@ -86,13 +95,14 @@ class JobServices:
     recurring: Recurring | None = None
     voice: VoiceService | None = None
     grants: Grants | None = None
+    labels: LabelService | None = None
 
 
 def _adapt(
     plugin_id: str, handler: JobHandler, runtime: _Runtime, config: type[BaseModel], recurs: bool
 ) -> Any:
     pools, client, recurring = runtime.pools, runtime.client, runtime.recurring if recurs else None
-    voice, grants = runtime.voice, runtime.grants
+    voice, grants, labels = runtime.voice, runtime.grants, runtime.labels
     store = ConfigStore(pools.core_db())
 
     async def run(core: CoreJobContext) -> None:
@@ -122,8 +132,9 @@ def _adapt(
                 started_by,
                 settings,
                 bound,
-                GuildMembers(pools.core_db(), guild_id),
+                GuildMembers(pools.core_db(), guild_id, labels),
                 BoundGrants(grants, guild_id, plugin_id) if grants is not None else None,
+                labels.bound(plugin_id, guild_id) if labels is not None else None,
             )
         )
 
@@ -137,7 +148,9 @@ def register_plugin_jobs(
     services = services or JobServices()
     for plugin_id, plugin in loaded.items():
         config = plugin.plugin.manifest.config
-        runtime = _Runtime(pools, client, services.recurring, services.voice, services.grants)
+        runtime = _Runtime(
+            pools, client, services.recurring, services.voice, services.grants, services.labels
+        )
         for name, handler in plugin.jobs.items():
             adapted = _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
             queue.register(plugin_id, name, adapted, plugin.timeouts.get(name, JOB_TIMEOUT))

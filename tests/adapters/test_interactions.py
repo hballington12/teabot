@@ -594,3 +594,21 @@ async def test_a_menu_no_action_has_is_told_to_the_member(
     await handler.handle(interaction)
     assert registry.calls == []
     assert "no longer here" in str(interaction.events[0])
+
+
+async def test_a_button_that_leaves_text_out_asks_for_it_in_a_form(
+    router: tuple[InteractionRouter, FakeRegistry], admin: Conn
+) -> None:
+    r, registry = router
+    interaction = press(BoundAction("announcements.post", {"channel": str(CHANNEL)}).custom_id())
+    await r.handle(interaction)
+    ((kind, modal),) = interaction.events
+    assert kind == "modal"
+    styles = {c.custom_id: c.style for c in modal.children}
+    assert styles == {"title": discord.TextStyle.short, "body": discord.TextStyle.paragraph}
+    assert registry.calls == []
+    registry.result = Posted(message_id=9, preview="Hi")
+    await r.handle(modal_submit(modal.custom_id, {"title": "Hi", "body": "Text"}))
+    (call,) = registry.calls
+    assert call.raw_input == {"channel": str(CHANNEL), "title": "Hi", "body": "Text"}
+    assert call.actor.via == "component"

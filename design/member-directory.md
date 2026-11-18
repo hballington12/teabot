@@ -97,6 +97,7 @@ A Members page on the instance's site (D52), with the same filters and a CSV exp
 - **In the SDK guide:** names are untrusted text (D23), and `ctx.members` answers carry the directory's state, as the tools' do.
 - **`on_member_roles` changes:** where the directory runs, it fires for every member, where today only members teabot has cached reach it. A plugin in a server with a levelling bot gets many more jobs. The changelog and the guide say so.
 - **Late events:** a handler receives changes a reconcile found only when it asks, `@plugin.on_member_join(late=True)`, and then gets `since` with them.
+- **Labels:** a plugin that declares `writes=["labels"]` keeps short strings about members in the core, `core.member_labels`, keyed by member ID, which filters match while the plugin is enabled and its data is within its freshness window. The core gives them no meaning. A whole-server replace compares inside one transaction and writes only changed rows.
 
 ## Privacy
 

@@ -60,7 +60,11 @@ The member directory (D55):
 - `Members`: `ctx.members`, for a plugin that declares `Plugin(..., reads=["members"])`: `count` and `find` present
   members by a `MemberFilter`, which `admin.members` takes too, as `DirectoryMember`s. `PeopleFilter` matches people
   only unless told otherwise. `DirectoryUnavailable` says the server's directory is not ready; `NotDeclared` that the
-  plugin did not declare it. `JoinMethod` names how a member joined.
+  plugin did not declare it. `JoinMethod` names how a member joined. `count` and `find` take several filters, which
+  a member must all match.
+- `Labels`: `ctx.labels`, for a plugin that declares `Plugin(..., writes=["labels"])`: `replace_all` replaces the
+  plugin's member labels in the server, which `MemberFilter(labels_from=..., labels_any=[...])` matches while they
+  are fresh. `LabelError` says a label is refused. `@plugin.on_labels_changed` hears a plugin's labels change.
 
 Plans (D21):
 - `Diff` and `DiffEntry`: what a destructive action's `plan` returns, with `notes` shown above its entries.
@@ -113,6 +117,7 @@ from teabot.sdk.guild import (
 from teabot.sdk.http import HostNotDeclared, Http, Response
 from teabot.sdk.ids import InvalidPluginId
 from teabot.sdk.inputs import InputError
+from teabot.sdk.labels import LabelError, Labels
 from teabot.sdk.members import (
     DirectoryMember,
     DirectoryUnavailable,
@@ -170,6 +175,8 @@ __all__ = [
     "JobContext",
     "JobHandler",
     "JoinMethod",
+    "LabelError",
+    "Labels",
     "LoadablePlugin",
     "LongText",
     "Manifest",

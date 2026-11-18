@@ -1,19 +1,21 @@
 """The member directory, as plugins read it (D55): `ctx.members`, for a plugin that declares
 `Plugin(..., reads=["members"])`.
 
-`MemberFilter` is the filter `admin.members` takes too, so an assistant can preview a filter with `admin.members` and
-pass the same fields to a plugin's action, and the counts match. Names are member-written, so they are untrusted
-text (D23).
+A filter can also match labels another plugin keeps about members (`labels_from`), which count only while that
+plugin's labels are fresh. `MemberFilter` is the filter `admin.members` takes too, so an assistant can preview a
+filter with `admin.members` and pass the same fields to a plugin's action, and the counts match. Names are
+member-written, so they are untrusted text (D23).
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from teabot.sdk.actions import ActionError
 from teabot.sdk.fields import MemberRef, RoleRef
+from teabot.sdk.labels import MAX_LENGTH
 
 type JoinMethod = Literal[
     "unknown", "bot", "integration", "discovery", "hub", "invite", "vanity_url", "manual_verification"
@@ -49,6 +51,25 @@ class MemberFilter(BaseModel):
     timed_out: bool | None = Field(default=None, description="Is timed out now, or is not")
     pending: bool | None = Field(default=None, description="Has not yet passed membership screening, or has")
     bots: bool | None = Field(default=None, description="Only bots, or only people; both when left out")
+    labels_from: str | None = Field(
+        default=None,
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="Has a label from this plugin; with labels_any or labels_all, those labels",
+    )
+    labels_any: list[str] = Field(
+        default=[], max_length=10, description="Has at least one of these labels from labels_from"
+    )
+    labels_all: list[str] = Field(
+        default=[], max_length=10, description="Has every one of these labels from labels_from"
+    )
+
+    @model_validator(mode="after")
+    def _labels_need_a_plugin(self) -> "MemberFilter":
+        if (self.labels_any or self.labels_all) and self.labels_from is None:
+            raise ValueError("labels_any and labels_all need labels_from, the plugin whose labels they are")
+        if any(len(label) > MAX_LENGTH for label in [*self.labels_any, *self.labels_all]):
+            raise ValueError(f"a label is at most {MAX_LENGTH} characters")
+        return self
 
 
 class PeopleFilter(MemberFilter):
@@ -96,13 +117,13 @@ class NotDeclared(RuntimeError):
 class Members(Protocol):
     """The server's member directory (D55), for a plugin that declares `reads=["members"]`."""
 
-    async def count(self, filter: MemberFilter, /) -> int:
-        """How many present members match."""
+    async def count(self, *filters: MemberFilter) -> int:
+        """How many present members match every one of `filters`."""
         ...
 
     async def find(
-        self, filter: MemberFilter, /, *, after: int = 0, limit: int = FIND_LIMIT
+        self, *filters: MemberFilter, after: int = 0, limit: int = FIND_LIMIT
     ) -> list[DirectoryMember]:
-        """Present members who match, in user ID order, with IDs above `after`, at most `limit`, up to 1,000. Page
-        by passing the last one's `user_id` as `after`."""
+        """Present members who match every one of `filters`, in user ID order, with IDs above `after`, at most
+        `limit`, up to 1,000. Page by passing the last one's `user_id` as `after`."""
         ...

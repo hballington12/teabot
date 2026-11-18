@@ -19,6 +19,7 @@ from teabot.builtin.permissions import Permissions
 from teabot.builtin.tokens import TokenCommands
 from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
 from teabot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
+from teabot.core.directory.labels import LabelService
 from teabot.core.events import Events
 from teabot.core.grants import Grants
 from teabot.core.loader import LoadReport
@@ -29,7 +30,7 @@ from teabot.core.queue import APPLY_HANDLER, JobContext, Queue
 from teabot.core.recurring import Recurring
 from teabot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
 from teabot.core.voice import DiscordConnector, VoiceService
-from teabot.db.pool import Pools
+from teabot.db.pool import Pools, Queries
 from teabot.sdk.plans import Diff
 
 APPLY_TIMEOUT = timedelta(hours=1)
@@ -69,6 +70,13 @@ def assemble(
         token_commands = TokenCommands(tokens)
     lookups = Lookups(pools.core_db())
     members = Members(pools.core_db())
+    fresh_for = {
+        plugin_id: loaded.plugin.manifest.labels_fresh_for
+        for plugin_id, loaded in report.loaded.items()
+        if "labels" in loaded.plugin.manifest.writes
+    }
+    labels = LabelService(pools.core_db(), fresh_for)
+    members.labels = labels
     admin_tools = lookups.sources(members.specs(), Permissions().specs())
     sources = sources_from(report.loaded) | admin.sources() | token_commands.sources() | admin_tools
     sync = CommandSync(pools.core_db(), queue, sources, client)
@@ -79,6 +87,7 @@ def assemble(
     voice = VoiceService(pools.core_db(), queue, DiscordConnector(client), listeners)
     registry = Registry(sources, pools=pools, client=client, audit=audit, plans=plans)
     registry.voice = voice
+    registry.labels = labels
     token_commands.known = frozenset(registry.actions)
 
     async def apply(ctx: JobContext) -> None:
@@ -96,13 +105,21 @@ def assemble(
     queue.register("core", POST_MESSAGE, outbox)
     recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})
     grants = Grants(registry, tokens, audit)
-    register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice, grants))
+    register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice, grants, labels))
     late = {plugin_id: loaded.late for plugin_id, loaded in report.loaded.items() if loaded.late}
     events = Events(pools.core_db(), queue, listeners, late)
+
+    async def labels_changed(guild_id: int, plugin_id: str, within: Queries) -> None:
+        await events.fire(guild_id, "labels_changed", {"plugin": plugin_id}, within=within)
+
+    labels.notify = labels_changed
 
     async def enabled(guild_id: int, plugin_id: str, user_id: int) -> None:
         await recurring.ensure(guild_id, plugin_id)
         await events.enabled(guild_id, plugin_id, user_id)
+        if plugin_id in fresh_for:
+            # Its labels count again from now, so whatever reads them looks again.
+            await events.fire(guild_id, "labels_changed", {"plugin": plugin_id})
 
     admin.on_enabled = enabled
     return Core(registry, sources, statuses, sync, tokens, queue, events, outbox, recurring, voice, members)

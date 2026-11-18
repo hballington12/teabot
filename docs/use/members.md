@@ -23,7 +23,7 @@ The assistant uses these tools:
 
 | Tool | What it answers |
 |---|---|
-| `admin_members` | Members, filtered by roles, when they joined, account age, how they joined (invite, vanity URL, server discovery, a bot), who invited them, name, boosting, timed out, membership screening, bots, and members who left. It sorts and pages them, 100 a page, or counts them by role, join method, inviter or join month. |
+| `admin_members` | Members, filtered by roles, when they joined, account age, how they joined (invite, vanity URL, server discovery, a bot), who invited them, name, boosting, timed out, membership screening, bots, labels a plugin keeps about members, and members who left. It sorts and pages them, 100 a page, or counts them by role, join method, inviter or join month. |
 | `admin_member_history` | One member's history, or the whole server's, between two dates, by kind of event. Each event says who did it, when Discord's audit log names them. |
 | `admin_channels` | Every category and channel, in Discord's order, with each permission overwrite: for each role or member, what is allowed and denied. |
 | `admin_view_as` | For one or more roles, each channel, visible or hidden, and what those roles may do there. |
