@@ -10,16 +10,21 @@ teabot records every action run through it: who ran it, what they asked for, and
 /audit channel channel:#staff-log
 ```
 
-teabot replies `Audit posts now go to #staff-log.` Pick a channel only your staff can see. From then on, every change appears there as a post:
+teabot replies `Audit posts now go to #staff-log.` Pick a channel only your staff can see. From then on, every change appears there, one line each:
 
-| Field | What it shows |
-|---|---|
-| title | the action, such as `giveaways.start` |
-| Member | who ran it |
-| Outcome | `ok`, `refused` or `error` |
-| Front door | how it came in: `slash` for a command, `component` for a button, `mcp` for an AI assistant, `service` for another program, `cli` when the operator changed something on the bot's machine |
-| Input | what was asked for, with channels, roles and members as their IDs |
-| Error | what went wrong, when something did |
+```text
+**wom.link** · @Sam · mcp
+🟢 names: `Void Cho` · member: @Void · #88
+🟢 names: `Xiuol` · member: @Xiuol · #89
+```
+
+- **The first line** names the action, who ran it, and how it came in: `slash` for a command, `component` for a button, `mcp` for an AI assistant, `service` for another program, `cli` when the operator changed something on the bot's machine.
+- **Each entry** shows its outcome, what was asked for, with members, roles and channels as mentions that notify nobody, any error, and its audit number:
+  - 🟢 ok;
+  - 🟠 refused;
+  - 🔴 error;
+  - 🔵 handed off to work that finishes later.
+- **Entries close together share a post.** Changes by one member for one action, through one front door, up to two minutes apart, are added to the same post, up to ten.
 
 Actions that only look things up, such as `/plugins list`, are recorded but never posted, which keeps the channel readable. If the audit channel is deleted, posts stop until you choose another.
 

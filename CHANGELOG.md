@@ -6,6 +6,10 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- The audit channel shows each change as one line, with members, roles and channels as mentions that notify nobody, and gathers a run of changes by one member for one action into one post. See [The audit log](https://teabot-dev.github.io/teabot/use/audit/).
+
 ## 1.12.0 - 2026-11-18
 
 ### Using teabot

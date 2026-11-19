@@ -11,7 +11,7 @@ from typer.testing import CliRunner, Result
 
 from teabot.cli import app
 from teabot.cli.plugins import describe, operator_name
-from teabot.core.audit import OPERATOR, audit_embed
+from teabot.core.audit import OPERATOR, audit_header
 from teabot.core.lifecycle import PurgePlan
 from teabot.core.processes import open_lock_connection
 from teabot.db.migrate import PluginMigrations, migrate
@@ -90,8 +90,7 @@ def test_the_log_channel_names_the_operator() -> None:
         "error": None,
         "time": datetime.now(UTC),
     }
-    member = audit_embed(row).fields[0]  # type: ignore[arg-type]
-    assert (member.name, member.value) == ("Member", "the operator")
+    assert audit_header(row) == "**plugins.purge** · the operator · cli"  # type: ignore[arg-type]
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows has no uids")

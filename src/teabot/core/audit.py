@@ -4,15 +4,17 @@
   transaction, so a post is never lost and never sent for a change that was not recorded.
 - A lookup gets one row in `core.audit_reads`, whatever its outcome, and is never posted. A refused change
   gets one row in `core.audit_log` and is posted.
-- `post_audit` posts to the server's log channel from the admin plugin's config, naming the audit row, so a
-  repeat after a crash is recognisable.
+- `post_audit` posts to the server's log channel from the admin plugin's config, one line per entry naming its
+  audit row. A run of entries by one member for one action is gathered into one post, and the post's row lists
+  its entries, so a repeat after a crash adds nothing.
 - Retention: read partitions are created ahead and dropped whole; old changes are trimmed in batches.
 """
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import date, timedelta
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import discord
 
@@ -23,6 +25,7 @@ from teabot.core.registry import CallRecord
 from teabot.db.pool import Database
 from teabot.db.types import Record
 from teabot.sdk import Risk
+from teabot.sdk.inputs import InputKind
 
 log = logging.getLogger(__name__)
 
@@ -30,7 +33,6 @@ POST_HANDLER = "post_audit"
 # With back-off capped at an hour, 48 attempts span more than a day: an outage, or a log channel the bot cannot
 # see until an admin fixes its permissions, delays a post without losing it (D24).
 POST_ATTEMPTS = 48
-INPUT_SHOWN = 1000
 # A change the operator made from the CLI has no Discord member, and one that spans the instance no server.
 # Discord ids are never 0.
 OPERATOR = 0
@@ -112,41 +114,90 @@ class AuditLog:
         await self.queue.schedule(job, within=tx)
 
 
+class Message(Protocol):
+    async def edit(self, *, content: str, allowed_mentions: discord.AllowedMentions) -> Any: ...
+
+
 class Channel(Protocol):
-    async def send(self, *, embed: discord.Embed) -> Any: ...
+    async def send(self, content: str, *, allowed_mentions: discord.AllowedMentions) -> Any: ...
+
+    def get_partial_message(self, message_id: int, /) -> Message: ...
 
 
 class ChannelSource(Protocol):
     def get_channel(self, channel_id: int, /) -> Any: ...
 
 
-COLOURS = {"ok": discord.Colour.green(), "refused": discord.Colour.orange(), "error": discord.Colour.red()}
+type Kinds = Mapping[str, Mapping[str, InputKind]]
+"""Each action's input fields and their kinds, so a post shows members, roles and channels as mentions."""
+
+OUTCOMES = {"ok": "🟢", "refused": "🟠", "error": "🔴", "handed_off": "🔵"}
+# Entries by one member for one action, through one front door, this close together, share a post.
+GATHER_WITHIN = timedelta(minutes=2)
+GATHER_MOST = 10
+POST_MAX = 1900
+VALUE_SHOWN = 80
+ERROR_SHOWN = 300
+# A plan's confirm value says nothing a reader needs.
+HIDDEN = frozenset({"confirm"})
+MENTIONS = {"member": "<@{}>", "role": "<@&{}>", "channel": "<#{}>", "voice_channel": "<#{}>"}
 
 
-def audit_embed(row: Record) -> discord.Embed:
-    """What a log channel shows for one audit row."""
-    embed = discord.Embed(
-        title=row["action"], colour=COLOURS.get(row["outcome"], discord.Colour.light_grey())
-    )
+def _shown(value: Any, kind: InputKind | None) -> str:
+    if isinstance(value, list):
+        return ", ".join(_shown(v, kind) for v in cast(list[Any], value))
+    if kind in MENTIONS and str(value).isdigit():
+        return MENTIONS[kind].format(value)
+    if isinstance(value, str):
+        text = value.replace("`", "'").replace("\n", " ")
+        return f"`{text[:VALUE_SHOWN]}{'…' if len(text) > VALUE_SHOWN else ''}`"
+    return str(value)
+
+
+def audit_header(row: Record) -> str:
+    """The first line of a post: the action, who ran it, and how it came in."""
     member = "the operator" if row["user_id"] == OPERATOR else f"<@{row['user_id']}>"
-    embed.add_field(name="Member", value=member)
-    embed.add_field(name="Outcome", value=row["outcome"])
-    embed.add_field(name="Front door", value=row["surface"])
-    embed.add_field(name="Input", value=f"```{row['input'][:INPUT_SHOWN]}```", inline=False)
+    return f"**{row['action']}** · {member} · {row['surface']}"
+
+
+def audit_line(row: Record, kinds: Kinds) -> str:
+    """One entry's line: its outcome, what was asked for, any error, and its audit number."""
+    fields = kinds.get(row["action"], {})
+    given: dict[str, Any] = json.loads(row["input"]) if row["input"] else {}
+    parts = [
+        f"{name}: {_shown(value, fields.get(name))}"
+        for name, value in given.items()
+        if name not in HIDDEN and value not in (None, "", [])
+    ]
     if row["error"]:
-        embed.add_field(name="Error", value=row["error"][:INPUT_SHOWN], inline=False)
-    embed.set_footer(text=f"audit #{row['id']}")
-    embed.timestamp = row["time"]
-    return embed
+        error = str(row["error"]).replace("\n", " ")
+        parts.append(f"error: {error[:ERROR_SHOWN]}")
+    return f"{OUTCOMES.get(row['outcome'], '⚪')} " + " · ".join([*parts, f"#{row['id']}"])
+
+
+def _content(header: str, lines: list[str]) -> str:
+    return "\n".join([header, *lines])
+
+
+NO_MENTIONS = discord.AllowedMentions.none()
+LOCK = "SELECT pg_advisory_xact_lock(hashtextextended('audit_posts:' || $1::bigint::text, 0))"
+LAST = "SELECT * FROM core.audit_posts WHERE guild_id = $1"
+SAVE = """
+INSERT INTO core.audit_posts (guild_id, channel_id, message_id, audit_ids, lines, posted_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (guild_id) DO UPDATE SET channel_id = $2, message_id = $3, audit_ids = $4, lines = $5, posted_at = $6
+"""
 
 
 class PostAudit:
-    """The `core.post_audit` handler."""
+    """The `core.post_audit` handler. A run of entries by one member for one action, through one front door, a
+    couple of minutes apart at most, is gathered into one post, a line each, by editing it."""
 
-    def __init__(self, db: Database, client: ChannelSource) -> None:
+    def __init__(self, db: Database, client: ChannelSource, kinds: Kinds | None = None) -> None:
         self.db = db
         self.config = ConfigStore(db)
         self.client = client
+        self.kinds: Kinds = kinds or {}
 
     async def __call__(self, ctx: JobContext) -> None:
         row = await self.db.fetchrow(
@@ -158,7 +209,56 @@ class PostAudit:
         channel = self.client.get_channel(config.log_channel_id) if config.log_channel_id else None
         if channel is None:
             return
-        await channel.send(embed=audit_embed(row))
+        line = audit_line(row, self.kinds)
+        async with self.db.transaction() as tx:
+            await tx.execute(LOCK, row["guild_id"])
+            last = await tx.fetchrow(LAST, row["guild_id"])
+            if last is not None and row["id"] in last["audit_ids"]:
+                return
+            if last is not None and await self._joins(
+                tx, last, row, channel_id=config.log_channel_id, line=line
+            ):
+                lines = [*last["lines"], line]
+                try:
+                    message = channel.get_partial_message(last["message_id"])
+                    await message.edit(
+                        content=_content(audit_header(row), lines), allowed_mentions=NO_MENTIONS
+                    )
+                except discord.NotFound:
+                    pass
+                else:
+                    await tx.execute(
+                        SAVE,
+                        row["guild_id"],
+                        last["channel_id"],
+                        last["message_id"],
+                        [*last["audit_ids"], row["id"]],
+                        lines,
+                        row["time"],
+                    )
+                    return
+            sent = await channel.send(_content(audit_header(row), [line]), allowed_mentions=NO_MENTIONS)
+            await tx.execute(
+                SAVE, row["guild_id"], config.log_channel_id, sent.id, [row["id"]], [line], row["time"]
+            )
+
+    async def _joins(self, tx: Any, last: Record, row: Record, *, channel_id: int | None, line: str) -> bool:
+        """Whether `row` joins the server's latest post: same channel, member, action and front door, soon after,
+        with room left."""
+        if last["channel_id"] != channel_id or len(last["lines"]) >= GATHER_MOST:
+            return False
+        if row["time"] - last["posted_at"] > GATHER_WITHIN:
+            return False
+        if len(_content(audit_header(row), [*last["lines"], line])) > POST_MAX:
+            return False
+        previous = await tx.fetchrow(
+            "SELECT action, user_id, surface FROM core.audit_log WHERE id = $1", last["audit_ids"][-1]
+        )
+        return previous is not None and (previous["action"], previous["user_id"], previous["surface"]) == (
+            row["action"],
+            row["user_id"],
+            row["surface"],
+        )
 
 
 async def ensure_read_partitions(db: Database, start: date, *, days_ahead: int) -> None:

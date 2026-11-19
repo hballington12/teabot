@@ -17,7 +17,7 @@ from teabot.builtin.lookups import Lookups
 from teabot.builtin.members import Members
 from teabot.builtin.permissions import Permissions
 from teabot.builtin.tokens import TokenCommands
-from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, PostAudit
+from teabot.core.audit import POST_HANDLER, AuditLog, ChannelSource, Kinds, PostAudit
 from teabot.core.command_sync import SYNC_HANDLER, CommandApi, CommandSync
 from teabot.core.directory.labels import LabelService
 from teabot.core.events import Events
@@ -31,6 +31,7 @@ from teabot.core.recurring import Recurring
 from teabot.core.registry import ActionSource, Call, GuildSource, Registry, sources_from
 from teabot.core.voice import DiscordConnector, VoiceService
 from teabot.db.pool import Pools, Queries
+from teabot.sdk.inputs import input_fields
 from teabot.sdk.plans import Diff
 
 APPLY_TIMEOUT = timedelta(hours=1)
@@ -98,7 +99,10 @@ def assemble(
         await registry.run_apply(call, audit_id, ctx.report, diff)
 
     queue.register("core", SYNC_HANDLER, sync)
-    queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client))
+    kinds: Kinds = {
+        name: {f.name: f.kind for f in input_fields(spec.input)} for name, spec in registry.actions.items()
+    }
+    queue.register("core", POST_HANDLER, PostAudit(pools.core_db(), client, kinds))
     # An apply waits out Discord's rate limits, so a change to hundreds of members can rightly take a while.
     queue.register("core", APPLY_HANDLER, apply, APPLY_TIMEOUT)
     outbox = Outbox(pools.core_db(), client)
