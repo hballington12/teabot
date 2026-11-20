@@ -235,7 +235,7 @@ The handler is the event's `by`. More events, such as `claimed` or `cancelled`, 
 ## How Tea uses it
 
 - **A queue,** "Link your account":
-  - `openers: handlers`, `claimers` everyone, and `handlers` Tea's staff;
+  - `claimers` everyone, and `handlers` Tea's staff, with the handlers' channel set;
   - its board in the link channel.
 - **Tea's program** is outside teabot. On a timer, it calls `tickets.create` with one ticket per clan account, keyed by WOM's player ID.
   - The account's name is the title, and its rank and join date are the body. A rename updates the title.
