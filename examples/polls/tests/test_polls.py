@@ -13,9 +13,7 @@ from teabot_polls import Cfg, close, delete, list_, plugin, start, vote
 # --8<-- [start:helper]
 async def started(harness: PluginHarness) -> tuple[FakeChannel, int]:
     channel = harness.guild.add_channel(FakeChannel())
-    out = await harness.call(
-        start, channel=channel, question="Tea or coffee?", option_1="Tea", option_2="Coffee"
-    )
+    out = await harness.call(start, channel=channel, question="Tea or coffee?", options=["Tea", "Coffee"])
     return channel, out.poll
 
 
@@ -68,6 +66,41 @@ async def test_a_missing_option_or_a_closed_poll_is_refused(teabot_harness: Harn
         await harness.call(vote, poll=poll, option=1)
 
 
+async def test_a_poll_takes_up_to_ten_options(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    channel = harness.guild.add_channel(FakeChannel())
+    ten = [f"Option {n}" for n in range(1, 11)]
+    out = await harness.call(start, channel=channel, question="Which?", options=ten)
+    assert await harness.call(vote, poll=out.poll, option=10) == "Your vote is option 10."
+    with pytest.raises(Refused):
+        await harness.call(start, channel=channel, question="Which?", options=[*ten, "Option 11"])
+
+
+# --8<-- [start:suggestions]
+async def test_voting_suggests_the_running_polls_then_the_chosen_polls_options(
+    teabot_harness: HarnessFactory,
+) -> None:
+    harness = await teabot_harness(plugin)
+    _, poll = await started(harness)
+    polls = await harness.autocomplete(vote, "poll")
+    assert [(c.name, c.value) for c in polls] == [(f"{poll}: Tea or coffee?", poll)]
+    options = await harness.autocomplete(vote, "option", filled={"poll": poll})
+    assert [(c.name, c.value) for c in options] == [("1: Tea", 1), ("2: Coffee", 2)]
+    assert await harness.autocomplete(vote, "option") == []
+
+
+# --8<-- [end:suggestions]
+
+
+async def test_a_closed_poll_is_not_suggested(teabot_harness: HarnessFactory) -> None:
+    harness = await teabot_harness(plugin)
+    _, poll = await started(harness)
+    await harness.advance(minutes=61)
+    await harness.run_jobs()
+    assert await harness.autocomplete(vote, "poll") == []
+    assert await harness.autocomplete(vote, "option", filled={"poll": poll}) == []
+
+
 # --8<-- [start:role]
 async def test_only_the_voter_role_may_vote(teabot_harness: HarnessFactory) -> None:
     harness = await teabot_harness(plugin)
@@ -117,5 +150,5 @@ async def test_starting_needs_manage_messages(teabot_harness: HarnessFactory) ->
     channel = harness.guild.add_channel(FakeChannel())
     member = harness.guild.add_member(discord.Permissions.none())
     with pytest.raises(Refused) as caught:
-        await harness.as_member(member).call(start, channel=channel, question="Q", option_1="a", option_2="b")
+        await harness.as_member(member).call(start, channel=channel, question="Q", options=["a", "b"])
     assert caught.value.code == "forbidden"

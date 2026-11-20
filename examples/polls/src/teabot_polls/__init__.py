@@ -1,7 +1,8 @@
 """teabot-polls, the plugin the tutorial builds. Imports only `teabot.sdk`.
 
-- `polls.start` posts a poll with two to four numbered options, and schedules the job that closes it.
-- `polls.vote` records a member's one vote in a poll; voting again changes it.
+- `polls.start` posts a poll with two to ten numbered options, and schedules the job that closes it.
+- `polls.vote` records a member's one vote in a poll; voting again changes it. As the member types, it suggests
+  the running polls, then the chosen poll's options.
 - `polls.list` shows the running polls, with how many have voted.
 - `polls.delete` deletes a poll and its votes, after a plan.
 - The `close` job posts the results when time is up.
@@ -17,6 +18,7 @@ from teabot.sdk import (
     DESTRUCTIVE,
     READ,
     ActionError,
+    Choice,
     Context,
     Diff,
     DiffEntry,
@@ -61,6 +63,7 @@ SELECT channel_id, question, options FROM polls WHERE guild_id = $1 AND id = $2 
 COUNTS = "SELECT choice, count(*) AS votes FROM votes WHERE guild_id = $1 AND poll_id = $2 GROUP BY choice"
 CLOSE = "UPDATE polls SET state = 'closed' WHERE guild_id = $1 AND id = $2"
 ONE = "SELECT id, question FROM polls WHERE guild_id = $1 AND id = $2"
+OPTIONS = "SELECT options FROM polls WHERE guild_id = $1 AND id = $2 AND state = 'running'"
 DELETE = "DELETE FROM polls WHERE guild_id = $1 AND id = $2"
 # --8<-- [end:queries]
 
@@ -74,7 +77,7 @@ class Started(BaseModel):
         return f"Poll {self.poll} started; it closes <t:{int(self.ends_at.timestamp())}:R>."
 
 
-type Choice = Annotated[str, Field(min_length=1, max_length=100)]
+type Answer = Annotated[str, Field(min_length=1, max_length=100)]
 
 
 @plugin.action(needs="manage_messages")
@@ -82,10 +85,7 @@ async def start(
     ctx: Ctx,
     channel: TextChannel,
     question: Annotated[str, Field(max_length=200)],
-    option_1: Choice,
-    option_2: Choice,
-    option_3: Choice | None = None,
-    option_4: Choice | None = None,
+    options: Annotated[list[Answer], Field(min_length=2, max_length=10)],
     minutes: Annotated[int, Field(ge=1, le=10080)] | None = None,
 ) -> Started:
     """Start a poll.
@@ -93,13 +93,9 @@ async def start(
     Args:
         channel: Where to post the poll.
         question: What the poll asks.
-        option_1: The first option.
-        option_2: The second option.
-        option_3: A third option.
-        option_4: A fourth option.
+        options: The answers to choose from.
         minutes: How long it runs; the server's default if left out.
     """
-    options = [o for o in (option_1, option_2, option_3, option_4) if o]
     ends_at = ctx.now + timedelta(minutes=minutes or ctx.config.default_minutes)
     async with ctx.db.transaction() as tx:
         poll = await tx.fetchval(int, START, ctx.guild.id, channel.id, question, options, ends_at)
@@ -114,7 +110,7 @@ async def start(
 
 # --8<-- [start:vote]
 @plugin.action()
-async def vote(ctx: Ctx, poll: int, option: Annotated[int, Field(ge=1, le=4)]) -> str:
+async def vote(ctx: Ctx, poll: int, option: Annotated[int, Field(ge=1, le=10)]) -> str:
     """Vote in a running poll, or change your vote.
 
     Args:
@@ -150,6 +146,27 @@ async def list_(ctx: Ctx) -> list[Running]:
 
 
 # --8<-- [end:list]
+
+
+# --8<-- [start:suggest]
+@vote.autocomplete("poll")
+async def running_polls(ctx: Ctx, typed: str) -> list[Choice[int]]:
+    polls = await ctx.db.fetch(Running, RUNNING, ctx.guild.id)
+    shown = [Choice(f"{p.id}: {p.question}"[:100], p.id) for p in polls]
+    return [c for c in shown if typed.lower() in c.name.lower()]
+
+
+@vote.autocomplete("option")
+async def poll_options(ctx: Ctx, typed: str) -> list[Choice[int]]:
+    poll = ctx.filled.get("poll")
+    if not isinstance(poll, int):
+        return []
+    options = await ctx.db.fetchval(list[str] | None, OPTIONS, ctx.guild.id, poll)
+    shown = [Choice(f"{n}: {option}"[:100], n) for n, option in enumerate(options or [], start=1)]
+    return [c for c in shown if typed.lower() in c.name.lower()]
+
+
+# --8<-- [end:suggest]
 
 
 # --8<-- [start:close]
