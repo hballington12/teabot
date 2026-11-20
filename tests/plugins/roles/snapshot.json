@@ -244,6 +244,25 @@
         "type": 1
       },
       {
+        "description": "Remove a role rule. Members keep the roles they hold.",
+        "name": "rule_remove",
+        "options": [
+          {
+            "description": "The rule's number, as roles.rules shows it",
+            "name": "rule",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "The server's role rules, with their steps, scope and last run.",
+        "name": "rules",
+        "options": [],
+        "type": 1
+      },
+      {
         "description": "Stop a role change between bursts. What it changed stays changed; roles.revert undoes it.",
         "name": "stop",
         "options": [
@@ -332,12 +351,30 @@
     ],
     "type": 1
   },
+  "events": [
+    "labels_changed",
+    "member_join",
+    "member_roles"
+  ],
   "jobs": {
+    "rules_daily": {
+      "properties": {},
+      "title": "RolesRulesDailyInput",
+      "type": "object"
+    },
     "run_change": {
       "properties": {},
       "title": "RolesRunChangeInput",
       "type": "object"
+    },
+    "run_rules": {
+      "properties": {},
+      "title": "RolesRunRulesInput",
+      "type": "object"
     }
+  },
+  "recurring": {
+    "rules_daily": 86400.0
   },
   "tools": {
     "roles_add": {
@@ -751,6 +788,323 @@
         "change"
       ],
       "title": "RolesRevertInput",
+      "type": "object"
+    },
+    "roles_rule_add": {
+      "$defs": {
+        "JoinMethod": {
+          "enum": [
+            "unknown",
+            "bot",
+            "integration",
+            "discovery",
+            "hub",
+            "invite",
+            "vanity_url",
+            "manual_verification"
+          ],
+          "type": "string"
+        }
+      },
+      "properties": {
+        "boosting": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boosts the server, or does not",
+          "title": "Boosting"
+        },
+        "bots": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": false,
+          "description": "Only bots, or only people (the default); null for both",
+          "title": "Bots"
+        },
+        "cap": {
+          "anyOf": [
+            {
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many members a run may change before it waits for an admin",
+          "title": "Cap"
+        },
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "created_after": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Account made on or after this day",
+          "title": "Created After"
+        },
+        "created_before": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Account made on or before this day",
+          "title": "Created Before"
+        },
+        "invite_code": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined with this invite",
+          "title": "Invite Code"
+        },
+        "inviter": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined with an invite this member made",
+          "title": "Inviter"
+        },
+        "join_method": {
+          "default": [],
+          "description": "Joined by any of these ways",
+          "items": {
+            "$ref": "#/$defs/JoinMethod"
+          },
+          "maxItems": 8,
+          "title": "Join Method",
+          "type": "array"
+        },
+        "joined_after": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined on or after this day",
+          "title": "Joined After"
+        },
+        "joined_before": {
+          "anyOf": [
+            {
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Joined on or before this day",
+          "title": "Joined Before"
+        },
+        "labels": {
+          "description": "A label for each role, from the scope's labels_from",
+          "items": {
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 25,
+          "title": "Labels",
+          "type": "array"
+        },
+        "labels_all": {
+          "default": [],
+          "description": "Has every one of these labels from labels_from",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Labels All",
+          "type": "array"
+        },
+        "labels_any": {
+          "default": [],
+          "description": "Has at least one of these labels from labels_from",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Labels Any",
+          "type": "array"
+        },
+        "labels_from": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Has a label from this plugin; with labels_any or labels_all, those labels",
+          "title": "Labels From"
+        },
+        "no_roles": {
+          "default": false,
+          "description": "Has no roles at all",
+          "title": "No Roles",
+          "type": "boolean"
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Has not yet passed membership screening, or has",
+          "title": "Pending"
+        },
+        "roles": {
+          "description": "The rule's roles, highest first",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 25,
+          "minItems": 1,
+          "title": "Roles",
+          "type": "array"
+        },
+        "roles_all": {
+          "default": [],
+          "description": "Has every one of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles All",
+          "type": "array"
+        },
+        "roles_any": {
+          "default": [],
+          "description": "Has at least one of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles Any",
+          "type": "array"
+        },
+        "roles_none": {
+          "default": [],
+          "description": "Has none of these roles",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Roles None",
+          "type": "array"
+        },
+        "rule": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A rule to replace, by its number",
+          "title": "Rule"
+        },
+        "timed_out": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Is timed out now, or is not",
+          "title": "Timed Out"
+        }
+      },
+      "required": [
+        "roles",
+        "labels"
+      ],
+      "title": "RolesRuleAddInput",
+      "type": "object"
+    },
+    "roles_rule_remove": {
+      "properties": {
+        "rule": {
+          "description": "The rule's number, as roles.rules shows it",
+          "title": "Rule",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rule"
+      ],
+      "title": "RolesRuleRemoveInput",
+      "type": "object"
+    },
+    "roles_rules": {
+      "properties": {},
+      "title": "RolesRulesInput",
       "type": "object"
     },
     "roles_stop": {

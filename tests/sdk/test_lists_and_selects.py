@@ -7,13 +7,14 @@ import pytest
 from pydantic import Field
 
 from teabot.adapters.schema import fold_lists, mcp_input_schema, slash_fields
-from teabot.sdk import Choice, Context, EmptyConfig, Option, Plugin, Role, Select, TextChannel
+from teabot.sdk import Choice, Context, EmptyConfig, Option, Plugin, Role, Select, Surface, TextChannel
 from teabot.sdk._signature import SignatureError
 from teabot.sdk._views import _menu  # pyright: ignore[reportPrivateUsage]
 from teabot.testing import FakeChannel, HarnessFactory
 
 plugin = Plugin("lists")
 type Ctx = Context[EmptyConfig]
+type Steps = Annotated[list[Role], Field(max_length=25)]
 type Picked = Annotated[list[Role], Field(min_length=1, max_length=3)]
 type Tags = Annotated[list[str], Field(max_length=5)]
 
@@ -143,6 +144,32 @@ def test_a_list_without_a_limit_is_refused_when_the_action_is_set_up() -> None:
 
     with pytest.raises((SignatureError, ValueError), match="a list needs Field"):
         bad.actions["bad.many"].spec()
+
+
+def test_a_list_of_more_than_ten_is_for_actions_no_slash_command_offers() -> None:
+    wide = Plugin("wide")
+
+    @wide.action()
+    async def slashed(ctx: Ctx, roles: Steps) -> str:
+        """Too many for a slash command.
+
+        Args:
+            roles: The roles
+        """
+        return ""
+
+    @wide.action(surfaces=Surface.MCP)
+    async def tooled(ctx: Ctx, roles: Steps) -> str:
+        """Fine for an AI assistant.
+
+        Args:
+            roles: The roles
+        """
+        return ""
+
+    with pytest.raises(ValueError, match="a slash command's list holds at most 10"):
+        wide.actions["wide.slashed"].spec()
+    assert mcp_input_schema(wide.actions["wide.tooled"].spec())["properties"]["roles"]["maxItems"] == 25
 
 
 picker = Plugin("suggest")

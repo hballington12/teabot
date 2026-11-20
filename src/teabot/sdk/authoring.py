@@ -155,6 +155,12 @@ class Context[C: BaseModel](Protocol):
         to the server's log channel (D24)."""
         ...
 
+    async def log(self, audit_id: int, text: str, /, *, failed: bool = False) -> None:
+        """In a job, add a line under the handed-off apply `audit_id` to the audit log, posted to the server's log
+        channel, as often as needed, for work that goes on under one grant, such as a rule that runs each day.
+        `record_outcome` closes the apply; this does not."""
+        ...
+
     async def report(self, progress: Mapping[str, Any], /) -> None:
         """Record how far a long change has got, which `/admin job_status` shows."""
         ...
@@ -209,6 +215,11 @@ class _Context:
         if self.grants is None:
             raise RuntimeError("outcomes are recorded in jobs")
         await self.grants.record_outcome(audit_id, text, failed=failed)
+
+    async def log(self, audit_id: int, text: str, /, *, failed: bool = False) -> None:
+        if self.grants is None:
+            raise RuntimeError("grant lines are logged in jobs")
+        await self.grants.log(audit_id, text, failed=failed)
 
     @property
     def members(self) -> Members:

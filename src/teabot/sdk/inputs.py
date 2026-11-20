@@ -1,7 +1,8 @@
 """The input field types an action may use (D29), classified once for every front door.
 
 Allowed: `str`, `LongText`, `int`, `bool`, `Literal` of all strings or all ints, and the `*Ref` types, each
-optional or not, and a `list` of any of them but `LongText`, with `max_length` up to 10. A `ReceivedMessage` is
+optional or not, and a `list` of any of them but `LongText`, with `max_length` up to 10, or up to 25 for an action no
+slash command offers, since each item is a slash option of its own. A `ReceivedMessage` is
 the target of a message's right-click menu, and no slash command takes one. Anything else is refused
 with the field's name, so an action cannot be built with a field a front door could not offer.
 """
@@ -22,6 +23,8 @@ type InputKind = Literal[
 ]
 DESCRIPTION_MAX = 100
 LIST_MAX = 10
+# Off slash commands a list is one value, so it may hold more.
+LIST_MAX_OFF_SLASH = 25
 
 
 class InputError(ValueError):
@@ -125,8 +128,11 @@ def _limit(metadata: list[Any], key: str) -> int | None:
 
 def _list_count(name: str, metadata: list[Any]) -> tuple[int, int]:
     count = _limit(metadata, "max_length")
-    if count is None or not 1 <= count <= LIST_MAX:
-        raise InputError(f"field {name}: a list needs Field(max_length=...) from 1 to {LIST_MAX}")
+    if count is None or not 1 <= count <= LIST_MAX_OFF_SLASH:
+        raise InputError(
+            f"field {name}: a list needs Field(max_length=...) from 1 to {LIST_MAX}, or to {LIST_MAX_OFF_SLASH} "
+            "off slash commands"
+        )
     return count, _limit(metadata, "min_length") or 0
 
 

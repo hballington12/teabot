@@ -9,6 +9,12 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 ### Using teabot
 
 - The audit channel shows each change as one line, with members, roles and channels as mentions that notify nobody, and gathers a run of changes by one member for one action into one post. See [The audit log](https://teabot-dev.github.io/teabot/use/audit/).
+- Role rules keep a set of roles following a plugin's labels, such as a clan's ranks: within a scope, each member holds the role of the first label they have. A run above its cap waits for an admin. See [Roles](https://teabot-dev.github.io/teabot/use/plugins/roles/#keep-roles-following-labels).
+
+### Writing plugins
+
+- `ctx.log` adds a line under a handed-off apply to the audit log as often as needed, for work that goes on under one grant.
+- An action no slash command offers may take a list of up to 25.
 
 ## 1.12.0 - 2026-11-18
 

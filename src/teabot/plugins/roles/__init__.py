@@ -8,6 +8,8 @@ it back. Imports only `teabot.sdk`.
 - `roles.toggle` is what a button press runs: it gives the role, or takes it back.
 - Role changes for members, in `changes`: `roles.give`, `roles.take`, `roles.give_matching`, `roles.take_matching`,
   `roles.list_changes`, `roles.stop` and `roles.revert`.
+- Role rules, in `rules`: `roles.rule_add`, `roles.rules` and `roles.rule_remove`, which keep members' roles
+  following labels, such as a clan rank.
 
 A button gives a member a role they could not give themselves, so only safe roles are offered: none that Discord
 manages, none that grants a moderator's permission, and none at or above the bot's highest role or the highest role
@@ -108,12 +110,17 @@ def refusal(guild: Guild, role: Role, offerer: Member | None) -> str | None:
     return guild.can_assign(role, by=offerer)
 
 
+RULED = "SELECT id FROM rules WHERE guild_id = $1 AND $2 = ANY(roles) LIMIT 1"
+
+
 async def check_offerable(ctx: Ctx, roles: list[Role]) -> None:
     offerer = await ctx.guild.get_member(ctx.actor.user_id)
     for role in roles:
         reason = refusal(ctx.guild, role, offerer)
         if reason is not None:
             raise ActionError(reason)
+        if (rule := await ctx.db.fetchval(RULED, ctx.guild.id, role.id)) is not None:
+            raise ActionError(f"Rule {rule} owns {role.name}, and would undo a button's change.")
 
 
 async def found_post(ctx: Ctx, post: int) -> Post:
@@ -270,5 +277,6 @@ async def pickers(ctx: Ctx, typed: str) -> list[Choice[int]]:
     ]
 
 
-# Role changes for members register their actions on the plugin.
+# Role changes for members, and role rules, register their actions on the plugin.
 from . import changes as changes  # noqa: E402
+from . import rules as rules  # noqa: E402

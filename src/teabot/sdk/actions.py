@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from teabot.sdk.db import Db, Scheduler
 from teabot.sdk.ids import PLUGIN_ID_RE
-from teabot.sdk.inputs import input_fields
+from teabot.sdk.inputs import LIST_MAX, input_fields
 from teabot.sdk.plans import Diff
 from teabot.sdk.voice import Voice
 
@@ -179,6 +179,13 @@ class ActionSpec[I: BaseModel, O: BaseModel]:
         fields = input_fields(self.input)
         if Surface.SLASH in self.surfaces and any(f.kind == "message" for f in fields):
             raise ValueError(f"{self.name} takes a message, which no slash command can give; use menu= alone")
+        if Surface.SLASH in self.surfaces and (
+            long := next((f for f in fields if (f.count or 0) > LIST_MAX), None)
+        ):
+            raise ValueError(
+                f"{self.name}: {long.name} holds up to {long.count}, and a slash command's list holds at most "
+                f"{LIST_MAX}; leave slash commands out of surfaces="
+            )
 
     @property
     def plugin_id(self) -> str:

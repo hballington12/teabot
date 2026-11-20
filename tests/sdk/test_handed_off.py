@@ -89,3 +89,29 @@ async def test_a_grant_from_another_action_is_not_this_jobs(teabot_harness: Harn
     heard.clear()
     await harness.run_job(carry_on.bind(grant=plan_row))
     assert heard == ["stopped: that grant is not a change handed off from its apply"]
+
+
+@plugin.job
+async def keep_going(ctx: Ctx, grant: int) -> None:
+    await ctx.log(grant, "ran: 2 changed")
+    await ctx.log(grant, "held: 40 would change", failed=True)
+
+
+async def test_work_that_goes_on_logs_lines_under_its_grant_and_leaves_it_open(
+    teabot_harness: HarnessFactory,
+) -> None:
+    harness = await setup(teabot_harness)
+    await harness.confirm(await harness.plan(big))
+    db: Any = harness.admin
+    grant = await db.fetchval("SELECT id FROM core.audit_log WHERE outcome = 'handed_off'")
+    await harness.run_job(keep_going.bind(grant=grant))
+    rows = await db.fetch(
+        "SELECT outcome, input FROM core.audit_log WHERE input::jsonb ? 'grant' ORDER BY id"
+    )
+    assert [(r["outcome"], json.loads(r["input"])) for r in rows] == [
+        ("ok", {"outcome": "ran: 2 changed", "grant": grant}),
+        ("error", {"outcome": "held: 40 would change", "grant": grant}),
+    ]
+    heard.clear()
+    await harness.run_job(carry_on.bind(grant=grant))
+    assert heard == [f"for {harness.member.id}"]

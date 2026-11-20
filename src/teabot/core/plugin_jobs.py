@@ -75,6 +75,9 @@ class BoundGrants:
     async def record_outcome(self, audit_id: int, text: str, *, failed: bool = False) -> None:
         await self.grants.record_outcome(self.guild_id, audit_id, text, failed=failed)
 
+    async def log(self, audit_id: int, text: str, *, failed: bool = False) -> None:
+        await self.grants.log(self.guild_id, self.plugin_id, audit_id, text, failed=failed)
+
 
 @dataclass(frozen=True)
 class _Runtime:

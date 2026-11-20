@@ -27,6 +27,13 @@ WHERE id = $1 AND outcome = 'handed_off'
 ON CONFLICT (follows) WHERE follows IS NOT NULL DO NOTHING
 RETURNING id, guild_id
 """
+# A line under a grant that stands, such as a role rule's, which may come any number of times.
+LINE = """
+INSERT INTO core.audit_log (guild_id, user_id, token_id, surface, action, input, risk, outcome, error)
+SELECT guild_id, user_id, token_id, surface, action, $2::jsonb, risk, $3, $4 FROM core.audit_log
+WHERE id = $1 AND guild_id = $5 AND split_part(action, '.', 1) = $6 AND outcome = 'handed_off'
+RETURNING id
+"""
 
 
 class Grants:
@@ -85,3 +92,23 @@ class Grants:
             )
             if row is not None and row["guild_id"] == guild_id:
                 await self.audit.post(tx, guild_id, row["id"])
+
+    async def log(
+        self, guild_id: int, plugin_id: str, audit_id: int, text: str, *, failed: bool = False
+    ) -> None:
+        """Add a line under a handed-off apply of the plugin's, posted to the log channel. Unlike its outcome, it
+        may come any number of times, for work that goes on, such as a role rule's runs."""
+        details: dict[str, Any] = {"outcome": text, "grant": audit_id}
+        db = self.registry.pools.core_db()
+        async with db.transaction() as tx:
+            made = await tx.fetchval(
+                LINE,
+                audit_id,
+                json.dumps(details),
+                "error" if failed else "ok",
+                text if failed else None,
+                guild_id,
+                plugin_id,
+            )
+            if made is not None:
+                await self.audit.post(tx, guild_id, made)

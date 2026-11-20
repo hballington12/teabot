@@ -69,7 +69,8 @@ The member directory (D55):
 Plans (D21):
 - `Diff` and `DiffEntry`: what a destructive action's `plan` returns, with `notes` shown above its entries.
 - `HandedOff`: what an apply returns when a job of the plugin's carries the work on. The job checks it may go on
-  with `ctx.authorized(ctx.audit_id)`, raising `NotAuthorized`, and closes it with `ctx.record_outcome`.
+  with `ctx.authorized(ctx.audit_id)`, raising `NotAuthorized`, closes it with `ctx.record_outcome`, and adds
+  lines under it as it goes on with `ctx.log`.
 
 The database (D9, D30):
 - `Db`: the plugin's own tables. `Queries` runs SQL and returns `Row`s; `Tx` is a transaction.

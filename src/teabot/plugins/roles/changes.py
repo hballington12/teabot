@@ -160,6 +160,14 @@ async def _assignable(ctx: Ctx, role: Role, give: bool) -> Member:
     return by
 
 
+RULED = "SELECT id FROM rules WHERE guild_id = $1 AND $2 = ANY(roles) LIMIT 1"
+
+
+async def _ruled_note(ctx: Ctx, role: Role) -> list[str]:
+    rule = await ctx.db.fetchval(RULED, ctx.guild.id, role.id)
+    return [] if rule is None else [f"Rule {rule} owns {role.name}, and undoes this change on its next run."]
+
+
 def _dangerous_note(role: Role) -> list[str]:
     risky = sorted(role.permissions & DANGEROUS)
     if not risky:
@@ -178,7 +186,7 @@ async def _plan_named(ctx: Ctx, role: Role, members: list[Member], give: bool) -
         change = "skip" if has == give else _verb(give)
         why = (" already has it" if has else " lacks it") if change == "skip" else None
         entries.append(DiffEntry(change=change, target=member.display_name, detail=why, key=member.id))
-    return Diff(entries=entries, notes=_dangerous_note(role))
+    return Diff(entries=entries, notes=[*await _ruled_note(ctx, role), *_dangerous_note(role)])
 
 
 async def _apply_named(ctx: Ctx, role: Role, give: bool) -> str:
@@ -304,6 +312,7 @@ async def _plan_matching(ctx: Ctx, role: Role, filter: PeopleFilter, give: bool)
     notes = [
         _sentence(role, filter, give),
         f"{_plural(count, 'member')} change. {matching:,} match, {matching - count:,} {already} {role.name}.",
+        *await _ruled_note(ctx, role),
         *_dangerous_note(role),
         f"It should take about {minutes} minutes."
         if minutes < 120
@@ -424,6 +433,13 @@ async def _claim(ctx: Ctx) -> Any | None:
             return None
         if row["next_at"] > ctx.now:
             await tx.schedule(run_change.bind(), at=row["next_at"])
+            return None
+        # A rule run takes the server's pace first, so a long change never holds up a promotion.
+        busy: Any = await tx.fetchval(
+            "SELECT busy_until FROM rule_pace WHERE guild_id = $1 AND busy_until > $2", ctx.guild.id, ctx.now
+        )
+        if busy is not None:
+            await tx.schedule(run_change.bind(), at=busy)
             return None
         await tx.execute(CLAIM_IT, ctx.guild.id, row["id"], ctx.now + CLAIM, ctx.now)
         await tx.schedule(run_change.bind(), at=ctx.now + CLAIM)

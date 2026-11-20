@@ -86,7 +86,7 @@ Every parameter after the context is an input. Each may be optional (`X | None =
 | `TextChannel`, `Role`, `Member` | a picker; the function receives the channel, role or member itself |
 | `VoiceChannel` | a picker of voice channels only; the function receives the channel (1.4) |
 | `ChannelRef`, `VoiceChannelRef`, `RoleRef`, `MemberRef` | a picker; the function receives the Discord ID |
-| `list[X]` of any of these but `LongText`, with `Field(max_length=...)` up to 10 | numbered options, such as `roles_1` to `roles_5`; MCP clients send an array |
+| `list[X]` of any of these but `LongText`, with `Field(max_length=...)` up to 10, or up to 25 for an action whose `surfaces` leave out `Surface.SLASH` | numbered options, such as `roles_1` to `roles_5`; MCP clients send an array |
 | a pydantic model of these types, such as `MemberFilter` | each of its fields an input of its own; the function receives the model (1.11) |
 
 - Limits go in `Annotated[int, Field(ge=1, le=20)]` or `Annotated[str, Field(max_length=100)]`. Discord enforces them before the member sends.
@@ -150,7 +150,7 @@ async def plan_cancel(ctx: Ctx, raffle: int) -> Diff:
 - `ctx.voice`: the server's voice connection, which the plugin joins, plays through and leaves. [Voice](#voice) says how.
 - `ctx.members`: the server's member directory, for a plugin that declares it. [The member directory](#the-member-directory) says how.
 - `ctx.labels`: the plugin's labels about the server's members, for a plugin that declares them. [Member labels](#member-labels) says how.
-- `ctx.audit_id`, `ctx.authorized` and `ctx.record_outcome`: for work that outlasts its apply. [Work that outlasts its apply](#work-that-outlasts-its-apply) says how.
+- `ctx.audit_id`, `ctx.authorized`, `ctx.record_outcome` and `ctx.log`: for work that outlasts its apply. [Work that outlasts its apply](#work-that-outlasts-its-apply) says how.
 
 To post, send to a `TextChannel`:
 
@@ -384,6 +384,7 @@ async def give_matching(ctx: Ctx, role: Role, filter: PeopleFilter) -> HandedOff
 - `ctx.audit_id` is the apply's row in the audit log, which records who confirmed the work, through which door and with which token. Keep it with the work as its grant.
 - In each run of the job, `actor = await ctx.authorized(grant)` checks the grant as teabot checks a call: the plugin is still on, the member still has the action's permissions, and a token is still valid. It returns the member's `Actor`, or raises `NotAuthorized` with why, so the job stops the work rather than carrying on for someone who may no longer do it.
 - `await ctx.record_outcome(grant, text, failed=False)` closes the work once, in the audit log, which posts it to the server's log channel. The apply's own row says "handed off".
+- `await ctx.log(grant, text, failed=False)` adds a line under the grant to the audit log, as often as needed, for work that goes on, such as a rule that runs each day. It leaves the grant open.
 - Work in short bursts, and have each run queue the next before it starts, so a restart resumes it. The roles plugin's `changes` module is a complete example.
 
 ## Voice
