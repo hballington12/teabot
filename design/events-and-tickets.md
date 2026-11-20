@@ -5,12 +5,12 @@ Plugins announce what happened as events, other plugins and outside programs rea
 ## Why
 
 - **Claims are generic.** A clan linking game accounts, a server handing out keys, and a support desk all have the same shape: items, a member who takes one up, and a handler who settles it.
-- **The first user moves off a plugin that did it alone.** The Wise Old Man plugin grew its own claim flow, with its own board, claims, confirm and reject, beside Tea's ranking rules. Tea is retiring that plugin. Its data and rules move into Tea's own program outside teabot, and claiming moves here. The parts that were specific to WOM stay with the program, which keeps the tickets in step:
-  - only accounts in the group get a ticket;
+- **The first user moves off a plugin that did it alone.** The Wise Old Man plugin grew its own claim flow, with its own board, claims, confirm and reject, beside Tea's ranking rules. Tea is retiring that plugin. Its data and rules move into Tea's own scripts outside teabot, and claiming moves here. The parts that were specific to WOM stay with the scripts, which keep the tickets in step:
+  - each clan account gets a ticket, and an accepted one stays as the link after its account leaves;
   - a rename updates the ticket;
-  - evidence such as rank and join date goes in the ticket's body.
+  - evidence for handlers, such as the join date and past names, goes in the ticket's body.
 - **Ticketing should stop at ticketing.** What follows an accepted claim differs every time: linking an account, giving a role, posting a message, calling a program. A menu of outcomes would grow without end and still miss the next one. Announcing the accept, and letting others react, keeps the plugin small, and lets what follows live in a module or plugin of its own.
-- **Outside programs need the same news.** Tea's program reads the accepts from teabot without being a plugin.
+- **Outside programs need the same news.** A program following a server, such as a bot dashboard or a community's own system, reads its events without being a plugin. Tea's scripts don't need it: they run by hand and read `tickets.list` each time.
 
 ## The split
 
@@ -191,7 +191,8 @@ Every action works on every door: slash command, MCP, the service API and the si
 - **Handling:**
   - `tickets.waiting(queue?)` lists waiting claims, oldest first, with competing claims side by side, and each ticket's body as evidence;
   - `tickets.accept(claims)` and `tickets.reject(claims, reason?)` take up to ten claims;
-  - `tickets.revoke(ticket, reason?)`.
+  - `tickets.revoke(ticket, reason?)`;
+  - `tickets.grant(tickets, members, reason?)`, for links a member didn't claim: for up to ten tickets, each paired with a member by ID, it records an accepted claim, closes the ticket and emits `tickets.accepted`, as an accept does. It takes an open or a cancelled ticket, refuses an accepted one, which is revoked first, and takes members by ID, so a member who has left the server can be given one. When the member already has a waiting claim on the ticket, it accepts that claim instead of adding another. It is a write, like `tickets.accept`.
 - **Reading:** `tickets.list(queue, state?, key?, claimant?, changed_since?, page)` pages tickets with their claims, for handlers, since it shows other members' claims and the evidence in ticket bodies. `tickets.waiting` needs the same. It is the source of state that programs reconcile against, and `changed_since` keeps a daily reconcile, or one after a gap longer than the feed keeps, to the tickets that changed.
 - **The board:**
   - `tickets.post(queue)` posts the queue's board in its channel: its name, a line on how it works, the count of open tickets, and buttons. The count is refreshed by an edit at most once a minute.
@@ -234,19 +235,15 @@ The handler is the event's `by`. More events, such as `claimed` or `cancelled`, 
 
 ## How Tea uses it
 
-- **A queue,** "Link your account":
-  - `claimers` everyone, and `handlers` Tea's staff, with the handlers' channel set;
-  - its board in the link channel.
-- **Tea's program** is outside teabot. On a timer, it calls `tickets.create` with one ticket per clan account, keyed by WOM's player ID.
-  - The account's name is the title, and its rank and join date are the body. A rename updates the title.
-  - When an account leaves, the program cancels its ticket. When it rejoins, the program reopens it, since `create` never reopens. After a revoke, which reopens a ticket, it cancels the ticket again if the account has left.
-- **A member** presses Claim on the board, types "gren clog", and picks "Green Clog".
-- **Staff** see each claim in the handlers' channel, and accept or reject it there, or revoke a wrong one. The program reads `tickets.accepted` and `tickets.revoked` from the feed, links or unlinks the account, and reconciles with `tickets.list` daily.
-- **Roles:** the program pushes labels through external labels, a separate design. teabot's role rules turn them into roles, and hold large changes for an admin.
+Tea's ranks plan (teabot-tea, `design/ranks.md`) is the first user:
+- **A queue,** "Link your account": `claimers` everyone, and `handlers` Tea's staff, with the handlers' channel set, and its board in the link channel.
+- **One ticket per clan account,** keyed by its Wise Old Man player ID, with the account's name as its title. A script run by hand keeps the tickets in step with `tickets.create`, `tickets.cancel` and `tickets.reopen`.
+- **A member** presses Claim on the board, types "gren clog", and is pointed to "Green Clog". Staff accept or reject claims in the handlers' channel, and revoke a wrong accept.
+- **The links are the accepted tickets:** key and claimant, read with `tickets.list`. `tickets.grant` makes a link a member didn't claim, such as one carried over from before.
+- **Roles:** the same script works out who should hold which role, and an admin applies the changes with `roles_give` and `roles_take`, each with a plan.
 
 ## Out of scope here
 
-- **External labels,** for a program to write labels, and the **application credential** a program needs to act without a person's token expiring. These are separate designs.
 - **Tickets members open themselves,** as for a support desk. A queue where members create tickets needs an opener column, the opener's rights, and rules on keys and on deleting member-written text. They are added when such a queue is needed.
 - **An automations plugin,** for admins to configure "on this event, do that" without code. It would build on these subscriptions, once something needs it.
 - **Moving `labels_changed` onto plugin events.** It could become a core-declared event under the same mechanism, which would leave one event path, with the roles plugin as the first plugin subscriber. That is the next step once this ships.
