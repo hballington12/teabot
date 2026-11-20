@@ -40,30 +40,72 @@
             "type": 3
           },
           {
-            "description": "The first option.",
+            "description": "The answers to choose from.",
             "max_length": 100,
-            "name": "option_1",
+            "name": "options_1",
             "required": true,
             "type": 3
           },
           {
-            "description": "The second option.",
+            "description": "The answers to choose from.",
             "max_length": 100,
-            "name": "option_2",
+            "name": "options_2",
             "required": true,
             "type": 3
           },
           {
-            "description": "A third option.",
+            "description": "The answers to choose from.",
             "max_length": 100,
-            "name": "option_3",
+            "name": "options_3",
             "required": false,
             "type": 3
           },
           {
-            "description": "A fourth option.",
+            "description": "The answers to choose from.",
             "max_length": 100,
-            "name": "option_4",
+            "name": "options_4",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "The answers to choose from.",
+            "max_length": 100,
+            "name": "options_5",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "The answers to choose from.",
+            "max_length": 100,
+            "name": "options_6",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "The answers to choose from.",
+            "max_length": 100,
+            "name": "options_7",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "The answers to choose from.",
+            "max_length": 100,
+            "name": "options_8",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "The answers to choose from.",
+            "max_length": 100,
+            "name": "options_9",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "The answers to choose from.",
+            "max_length": 100,
+            "name": "options_10",
             "required": false,
             "type": 3
           },
@@ -83,14 +125,16 @@
         "name": "vote",
         "options": [
           {
+            "autocomplete": true,
             "description": "The poll's number, from /polls list.",
             "name": "poll",
             "required": true,
             "type": 4
           },
           {
+            "autocomplete": true,
             "description": "The number of the option you choose.",
-            "max_value": 4,
+            "max_value": 10,
             "min_value": 1,
             "name": "option",
             "required": true,
@@ -143,7 +187,7 @@
     },
     "polls_start": {
       "$defs": {
-        "Choice": {
+        "Answer": {
           "maxLength": 100,
           "minLength": 1,
           "type": "string"
@@ -171,37 +215,15 @@
           "description": "How long it runs; the server's default if left out.",
           "title": "Minutes"
         },
-        "option_1": {
-          "$ref": "#/$defs/Choice",
-          "description": "The first option."
-        },
-        "option_2": {
-          "$ref": "#/$defs/Choice",
-          "description": "The second option."
-        },
-        "option_3": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Choice"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A third option."
-        },
-        "option_4": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Choice"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "A fourth option."
+        "options": {
+          "description": "The answers to choose from.",
+          "items": {
+            "$ref": "#/$defs/Answer"
+          },
+          "maxItems": 10,
+          "minItems": 2,
+          "title": "Options",
+          "type": "array"
         },
         "question": {
           "description": "What the poll asks.",
@@ -213,8 +235,7 @@
       "required": [
         "channel",
         "question",
-        "option_1",
-        "option_2"
+        "options"
       ],
       "title": "PollsStartInput",
       "type": "object"
@@ -223,7 +244,7 @@
       "properties": {
         "option": {
           "description": "The number of the option you choose.",
-          "maximum": 4,
+          "maximum": 10,
           "minimum": 1,
           "title": "Option",
           "type": "integer"

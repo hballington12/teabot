@@ -6,6 +6,10 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- The tutorial's polls plugin takes up to ten options, and `/polls vote` suggests the running polls and then the chosen poll's options, so members pick by name rather than by number.
+
 ### Writing plugins
 
 - An `@action.autocomplete` function reads the options the member filled in before the one it suggests for as `ctx.filled`, such as the poll whose options to suggest. `harness.autocomplete(..., filled={...})` tests it. See [Suggestions](https://teabot-dev.github.io/teabot/plugins/reference/#suggestions).

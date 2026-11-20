@@ -51,7 +51,7 @@ The queries this tutorial uses sit together near the top of the file:
 
 - `channel: TextChannel` gives the member a channel picker, and the function the channel itself.
 - `Annotated[int, Field(ge=1, le=10080)]` sets limits that Discord enforces before the member sends.
-- `option_3: Choice | None = None` is an option the member may leave out.
+- `options` is a list of answers, which Discord shows as `options_1` to `options_10`. `min_length=2` makes the first two required; MCP clients send an array.
 - `needs="manage_messages"` is the Discord permission the action needs. teabot checks it every time.
 - `ctx.now` is the time. Read the clock only through it, since tests move it.
 - The closing job is scheduled in the same transaction as the poll, so neither exists without the other. The post is sent after the transaction, since nothing that waits on Discord belongs inside one.
@@ -65,7 +65,7 @@ The queries this tutorial uses sit together near the top of the file:
 - A plain string is a reply.
 - `ActionError` tells the member what went wrong, in your words. teabot records it in the audit log.
 - `ctx.actor.user_id` is who asked. `ctx.guild.get_member(...)` finds them, with their roles.
-- The vote query does the checks in one statement: the poll is running, the option exists, and a second vote replaces the first. When nothing fits, Postgres reports `INSERT 0 0`.
+- The vote query does the checks in one statement: the poll is running, the option exists, and a second vote replaces the first. It also reads the member's earlier vote, so the reply says whether this vote is new, a change or the same again. When nothing fits, no row comes back and `fetchrow` returns `None`.
 
 ## 5. Listing the polls
 
@@ -78,6 +78,18 @@ The queries this tutorial uses sit together near the top of the file:
 - `ctx.db.fetch(Running, ...)` returns a list of `Running`, each row checked against the model. A list of models is shown one line per item.
 - `UntrustedText` marks text a member wrote, so AI assistants receive it as data and never as instructions.
 - The trailing underscore keeps Python's `list` free. The command is still `/polls list`.
+
+### Suggesting polls and options
+
+A member voting shouldn't have to look up numbers. As they type, Discord asks the plugin for suggestions:
+
+```python
+--8<-- "examples/polls/src/teabot_polls/__init__.py:suggest"
+```
+
+- `@vote.autocomplete("poll")` suggests values for `vote`'s `poll` option: up to 25 `Choice(name, value)`s. The member sees the name, and the action receives the value.
+- `ctx.filled` holds the options the member has already filled in, so the option suggestions follow the poll they chose. Until they choose one, there is nothing to suggest.
+- A suggester runs as the member and must answer within three seconds, so keep it to one quick query.
 
 ## 6. Closing a poll: a job
 
@@ -126,6 +138,14 @@ The results, after the clock moves past the end:
 - `harness.call(start, ...)` runs the action through teabot's real path, permissions and audit included. Pyright checks the arguments against the function, and `out` is a `Started`.
 - It calls as the server's owner, its first member, who has Administrator. `harness.as_member(member).call(...)` calls as someone else.
 - `harness.advance(minutes=61)` moves the clock: `ctx.now`, `now()` in your SQL, and when jobs fall due. `harness.run_jobs()` then runs the due jobs, and raises with the job's own error if one fails.
+
+Suggestions, as a member typing sees them:
+
+```python
+--8<-- "examples/polls/tests/test_polls.py:suggestions"
+```
+
+- `harness.autocomplete(vote, "poll")` returns what the member would see, and `filled=` stands for the options already filled in.
 
 Settings, as an admin would set them:
 
