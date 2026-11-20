@@ -50,6 +50,7 @@ INSERT INTO votes (guild_id, poll_id, member_id, choice)
 SELECT guild_id, id, $3, $4 FROM polls
 WHERE guild_id = $1 AND id = $2 AND state = 'running' AND ends_at > now() AND $4 <= cardinality(options)
 ON CONFLICT (guild_id, poll_id, member_id) DO UPDATE SET choice = EXCLUDED.choice
+RETURNING (SELECT options[$4] FROM polls WHERE guild_id = $1 AND id = $2)
 """
 RUNNING = """
 SELECT p.id, p.question, p.ends_at, count(v.member_id) AS voters
@@ -122,10 +123,10 @@ async def vote(ctx: Ctx, poll: int, option: Annotated[int, Field(ge=1, le=10)]) 
         member = await ctx.guild.get_member(ctx.actor.user_id)
         if member is None or role not in member.role_ids:
             raise ActionError("You need the voter role to vote here.")
-    done = await ctx.db.execute(VOTE, ctx.guild.id, poll, ctx.actor.user_id, option)
-    if done == "INSERT 0 0":
+    chosen = await ctx.db.fetchval(str | None, VOTE, ctx.guild.id, poll, ctx.actor.user_id, option)
+    if chosen is None:
         raise ActionError("That poll is not running, or has no option with that number.")
-    return f"Your vote is option {option}."
+    return f"Your vote is option {option}: {chosen}."
 
 
 # --8<-- [end:vote]
