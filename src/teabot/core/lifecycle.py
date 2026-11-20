@@ -96,6 +96,7 @@ async def _drop(conn: AnyConn, naming: Naming, plugin_id: str) -> None:
             await conn.execute(f"DROP ROLE {quoted(name)}")
     for table in CORE_TABLES:
         await conn.execute(f"DELETE FROM core.{table} WHERE plugin_id = $1", plugin_id)
+    await conn.execute("DELETE FROM core.events WHERE source = $1", plugin_id)
 
 
 class Purge:

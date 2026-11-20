@@ -60,6 +60,7 @@ from teabot.sdk.actions import (
 )
 from teabot.sdk.components import BoundAction
 from teabot.sdk.db import Bound, Db
+from teabot.sdk.events import FULL_NAME, Event, Received, declare
 from teabot.sdk.guild import (
     Attachment,
     Guild,
@@ -559,6 +560,7 @@ class Plugin(Generic[Cfg]):
         reads: Iterable[str] = (),
         writes: Iterable[str] = (),
         labels_fresh_for: timedelta = DEFAULT_FRESH,
+        emits: Iterable[Event] = (),
     ) -> None:
         self.id = id
         self.description = description
@@ -574,6 +576,10 @@ class Plugin(Generic[Cfg]):
                 f"{id}: Plugin(labels_fresh_for=...) is more than nothing and at most a week"
             )
         self.labels_fresh_for = labels_fresh_for
+        self.emits = tuple(emits)
+        declare(id, list(self.emits))
+        # The plugin events it subscribes to, each with its own copy of the payload model.
+        self.subscriptions: dict[str, tuple[type[BaseModel], Callable[..., Awaitable[None]]]] = {}
         self.config = config
         self._migrations = migrations
         self._module: str | None = None
@@ -728,6 +734,8 @@ class Plugin(Generic[Cfg]):
             self.reads,
             self.writes,
             self.labels_fresh_for,
+            self.emits,
+            {name: model for name, (model, _) in self.subscriptions.items()},
         )
 
     def _migrations_dir(self) -> Path | None:
@@ -764,6 +772,39 @@ class Plugin(Generic[Cfg]):
                 registrar.recurring(job.name, job.every)
         for event, func in self.listeners.items():
             registrar.event(event, self._listener(event, func), late=event in self.late)
+        for name, (model, func) in self.subscriptions.items():
+            registrar.subscribe(name, self._subscriber(name, model, func))
+
+    def on_event[M: BaseModel](
+        self, name: str, model: type[M]
+    ) -> Callable[
+        [Callable[[Context[Cfg], Received[M]], Awaitable[None]]],
+        Callable[[Context[Cfg], Received[M]], Awaitable[None]],
+    ]:
+        """Run the function when a plugin emits the event `name`, `<plugin>.<event>`, in a server where this plugin
+        is enabled, with a `Received[model]`. `model` is this plugin's own copy of the payload model, since plugins
+        never import each other. It runs as a job, retried over about two hours.
+
+        Delivery is at least once and in no order across events: check `event.id` before changing anything, and
+        keep the last `id` applied for each thing. A handler hears what already happened and can't undo it. It
+        runs as the system, so it changes what the plugin may change on its own: its tables, labels and posts.
+        A member ID in the payload must be a `MemberRef`, or deleting that member's data misses it."""
+        if not FULL_NAME.fullmatch(name):
+            raise SignatureError(
+                f"{self.id}: subscribe to an event by its full name, such as tickets.accepted"
+            )
+
+        def register(
+            func: Callable[[Context[Cfg], Received[M]], Awaitable[None]],
+        ) -> Callable[[Context[Cfg], Received[M]], Awaitable[None]]:
+            if name in self.subscriptions:
+                raise SignatureError(f"{where(func)}: {self.id} already subscribes to {name}")
+            self._check_context(func, f"{self.id}.on_event:{name}")
+            self.subscriptions[name] = (model, func)
+            self._module = self._module or func.__module__
+            return func
+
+        return register
 
     @overload
     def on_member_join(
@@ -898,6 +939,51 @@ class Plugin(Generic[Cfg]):
         self.listeners[event] = func
         self._module = self._module or func.__module__
         return func
+
+    def _event_context(self, job: JobContext, name: str) -> "_Context | None":
+        """The context a handler of an event runs with, as the system; None when the bot has left the server."""
+        guild = job.client.get_guild(job.guild_id) if job.guild_id is not None else None
+        if guild is None:
+            return None
+        actor = Actor(SYSTEM, "event")
+        return _Context(
+            guild_view(guild, _reason(name, actor), name),
+            actor,
+            job.config,
+            lambda: job.db,
+            job.report,
+            lambda: job.voice,
+            plugin_id=self.id,
+            hosts=self.hosts,
+            reads=self.reads,
+            open_members=_members_of(job),
+            grants=getattr(job, "grants", None),
+            writes=self.writes,
+            open_labels=_labels_of(job),
+        )
+
+    def _subscriber(
+        self, event: str, model: type[BaseModel], func: Callable[..., Awaitable[None]]
+    ) -> JobHandler:
+        name = f"{self.id}.on_event:{event}"
+
+        async def handle(job: JobContext) -> None:
+            context = self._event_context(job, name)
+            if context is None:
+                return
+            found = job.payload["event"]
+            by = found.get("by")
+            received = Received(
+                int(found["id"]),
+                str(found["source"]),
+                str(found["name"]),
+                datetime.fromisoformat(str(found["at"])),
+                int(by) if by is not None else None,
+                model.model_validate(found["data"]),
+            )
+            await func(context, received)
+
+        return handle
 
     def _listener(self, event: EventName, func: Callable[..., Awaitable[None]]) -> JobHandler:
         name = f"{self.id}.on_{event}"

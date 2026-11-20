@@ -171,7 +171,7 @@ async def test_initialize_carries_the_instructions(client: httpx.AsyncClient, ha
 
 
 # The member directory's and the permission views' tools (D55), which have no command.
-DIRECTORY_TOOLS = ("admin_members", "admin_member_history", "admin_channels", "admin_view_as")
+DIRECTORY_TOOLS = ("admin_members", "admin_member_history", "admin_channels", "admin_view_as", "admin_events")
 
 
 async def test_the_tool_list_is_the_mcp_actions_this_token_may_use(

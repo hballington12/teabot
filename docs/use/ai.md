@@ -66,4 +66,23 @@ If the reply says the address works only on the machine running teabot, the oper
 
 `/tokens list` shows your tokens with their ids. `/tokens revoke` ends one at once, and its `token_id` option suggests your tokens by label as you type. With Manage Server, `/tokens list everyone:true` shows everyone's, and you can revoke any of them.
 
+## Follow a server's events
+
+Plugins announce what happened as events, such as a claim being accepted. A program on the service API, or an assistant, reads them with `admin_events`, which needs Manage Server.
+
+| Option | What it is |
+|---|---|
+| `after` | The cursor the last page gave, or empty to start |
+| `names` | Only these events, such as `tickets.accepted`, up to ten; all when left out |
+| `limit` | How many, up to 100 |
+
+It returns the events after the cursor, each with its `id`, `source`, `name`, `at`, `by` (who caused it) and `data`, and the `cursor` to pass next.
+
+- **Keep the cursor.** Call it on a timer, passing the last cursor, and a program that was down carries on from where it was. The feed never skips an event, though a long change elsewhere can hold it back for a moment.
+- **Events are news, and state lives at the source.** Events are kept for 30 days, and one can arrive twice. So rebuild your state from the plugin's own read actions, such as `tickets_list`, when the program starts, after a gap of more than 30 days, and once a day. In between, events tell you when to look.
+- **Order by `id` for each thing.** For one thing, such as one ticket, a higher `id` is later. Across different things there is no order.
+- Text members wrote comes back as `{"untrusted_text": ...}`.
+
+Each plugin's page lists the events it emits.
+
 **Next:** [Built-in commands](commands.md).

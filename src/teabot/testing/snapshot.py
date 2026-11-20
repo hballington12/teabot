@@ -1,4 +1,5 @@
-"""Snapshots of what a plugin shows the world: its slash commands, its MCP tools and its jobs' payloads.
+"""Snapshots of what a plugin shows the world: its slash commands, its MCP tools, its jobs' payloads, and the events
+it emits and subscribes to.
 
 A renamed parameter renames a slash option and an MCP field, a renamed job strands the jobs already queued, and a
 changed job parameter breaks their stored payloads. A snapshot test makes each of those a visible choice: it fails
@@ -27,6 +28,10 @@ class _Collector:
         self.jobs: dict[str, JobHandler] = {}
         self.events: list[EventName] = []
         self.every: dict[str, timedelta] = {}
+        self.subscriptions: list[str] = []
+
+    def subscribe(self, name: str, handler: JobHandler) -> None:
+        self.subscriptions.append(name)
 
     def action(self, spec: ActionSpec[Any, Any]) -> None:
         self.actions.append(spec)
@@ -57,6 +62,14 @@ def plugin_snapshot(plugin: LoadablePlugin) -> dict[str, Any]:
         found["events"] = sorted(collected.events)
     if collected.every:
         found["recurring"] = {name: every.total_seconds() for name, every in sorted(collected.every.items())}
+    manifest = plugin.manifest
+    if manifest.emits:
+        found["emits"] = {
+            e.name: {"description": e.description, "payload": e.model.model_json_schema(mode="serialization")}
+            for e in sorted(manifest.emits, key=lambda e: e.name)
+        }
+    if collected.subscriptions:
+        found["subscribes"] = sorted(collected.subscriptions)
     return found
 
 

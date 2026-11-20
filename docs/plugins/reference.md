@@ -368,6 +368,51 @@ async def starred(ctx: Ctx, reaction: Reaction) -> None:
 - A role change is heard for every member, from teabot's [member directory](../use/members.md). While a server's directory is still taking its first copy, or is off above the operator's member limit, only changes for members teabot has seen since it started are heard. A server with a levelling or reaction-role bot changes roles often, so a plugin with `on_member_roles` gets a job for each change.
 - `emoji` is the character, such as `"⭐"`, or a server emoji as `"<:raids:123>"`, as a `Button`'s `emoji` takes it.
 
+## Plugin events
+
+A plugin announces what happened as an event, and other plugins react to it, with no import between them. Programs outside teabot read the same events through the [events feed](../use/ai.md#follow-a-servers-events). Added in 1.14.
+
+```python
+class Accepted(BaseModel):
+    ticket: int
+    title: UntrustedText
+    claimant: MemberRef
+
+plugin = Plugin("tickets", emits=[Event("accepted", Accepted, "A claim on a ticket was accepted")])
+
+async with ctx.db.transaction() as tx:
+    await tx.execute(LOCK_TICKET, ctx.guild.id, ticket)
+    ...
+    await tx.emit(Accepted(ticket=ticket, title=title, claimant=claimant))
+```
+
+```python
+@plugin.on_event("tickets.accepted", Accepted)  # this plugin's own copy of the model
+async def accepted(ctx: Ctx, event: Received[Accepted]) -> None:
+    if await already_applied(ctx, event.data.ticket, event.id):
+        return
+    ...
+```
+
+**Emitting:**
+- `Plugin(emits=[...])` declares each event: a name, a payload model, and a line saying what it means. Its full name is `<plugin>.<name>`, such as `tickets.accepted`. Each event has a model of its own.
+- A payload holds strings, numbers, booleans, dates, lists of these and models of these. A member's ID is a `MemberRef`, so deleting that member's data deletes the events naming them; a plain `int` would escape it. Member-written text is `UntrustedText`.
+- `tx.emit(payload)` emits inside the transaction, so the event exists exactly when the change commits, and returns its ID. It refuses a model the plugin doesn't declare, more than 100 events in one transaction, and a payload over 8 KB of JSON.
+- Lock the row of the thing the event is about before emitting, such as the ticket. Then for one thing a later event always has a higher `id`.
+- teabot records who caused it, from the action or job: `event.by`. A payload has no actor field of its own.
+
+**Subscribing:**
+- `@plugin.on_event("<plugin>.<event>", Model)` runs the handler in each server where the plugin is enabled, as a job of its own, `on_event:<name>`. It gets a `Received` with `id`, `source`, `name`, `at`, `by` and `data`, validated into the model.
+- Delivery is at least once. A retry can deliver one event twice, and a retried job can run after a later event's. So check `event.id` before changing anything, and keep the last `id` applied for each thing, dropping an older one.
+- A handler hears what already happened, and can't undo or delay it. It runs as the system, so it changes what the plugin may change on its own: its tables, labels and posts. To change roles, write labels for role rules.
+- A plugin can't read another plugin's tables, so act on the payload alone.
+- A failing handler is retried over about two hours, 13 attempts. If the last fails, the server's log channel says which event was lost.
+- When teabot starts, it logs a warning for a subscription to an event no loaded plugin declares, and for a field the subscriber's model needs that the emitter's payload lacks.
+
+**As public API:** an event's name and payload are a promise to its subscribers. The plugin's snapshot records each one. Adding a field is compatible, since a subscriber's model ignores fields it doesn't know; never set `extra="forbid"` on one. Removing or retyping a field, making it optional, or renaming an event breaks subscribers, so say so in the changelog. List each event on the plugin's docs page, with the thing it is about.
+
+Events are kept for 30 days.
+
 ## Work that outlasts its apply
 
 Added in 1.11. A destructive change to thousands of members can take hours, past an apply's time limit. The apply then stores the work, hands it to a job of the plugin's, and returns `HandedOff`:
@@ -442,7 +487,7 @@ async def resumed(ctx: Ctx, channel: VoiceChannel | None) -> None:
 
 - The plugin owns the schema `plugin_<id>` and a role that can use nothing else. Name tables without a prefix. Reading the core or another plugin's tables fails.
 - Every table has a `bigint guild_id` column, and the migration runner refuses tables without one. That is how the core deletes a server's data when the bot leaves it.
-- A column holding members' Discord IDs has the type `teabot.member_id`, or `teabot.member_id[]` for a list. That is how `teabot users delete` finds a member's rows when they ask for their data to be deleted: a row with them in such a column is deleted, and they are taken out of a list. teabot refuses a `bigint` column named for members, such as `member_id`, `user_id` or `winner_ids`, and names the type to use.
+- A column holding members' Discord IDs has the type `teabot.member_id`, or `teabot.member_id[]` for a list. That is how `teabot users delete` finds a member's rows when they ask for their data to be deleted: a row with them in such a column is deleted, and they are taken out of a list. teabot refuses a `bigint` column named for members, such as `member_id`, `user_id` or `winner_ids`, and names the type to use. A member who only took part in a row, such as who settled a claim, is a `teabot.member_actor`: deleting their data empties that column and keeps the row, so it must allow null. Added in 1.14.
 - Plugin code sees only the current server's rows. teabot holds every table to the server the action or job is for, so a query without `WHERE guild_id = ...` still reads and changes only that server's rows. An insert may leave `guild_id` out, and teabot fills it in; an insert naming another server is refused. Writing `WHERE guild_id = $1` with `ctx.guild.id` anyway keeps the query clear, and lets Postgres use an index on `guild_id`.
 - Migrations run as the plugin's owner role, which sees every server's rows, so a migration can fill in a new column everywhere. Plugin code runs as a second role, which cannot create tables or other objects.
 - A foreign key includes `guild_id`, so a row cannot point at another server's row. A unique index includes `guild_id` unless one of its columns is unique on its own. teabot checks these when the plugin loads, along with no views and no `SECURITY DEFINER` functions, and a broken rule stops the load with what to write instead.

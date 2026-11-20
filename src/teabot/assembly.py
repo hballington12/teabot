@@ -3,8 +3,8 @@
 The registry serves the loaded plugins and the admin plugin's built-in groups (`/plugins`, `/audit`,
 `/tokens`, `/admin`). Enabling or disabling a plugin queues a command sync, `/tokens create` checks
 allow-lists against every action the registry knows, and destructive actions plan then apply (D21). The
-core's own job handlers are registered here (command syncs, audit posts, plan applies, outbox posts), and every loaded
-plugin's.
+core's own job handlers are registered here (command syncs, audit posts, plan applies, outbox posts, plugin event
+deliveries), and every loaded plugin's.
 """
 
 from dataclasses import dataclass
@@ -13,6 +13,7 @@ from typing import Protocol
 
 from teabot.auth.tokens import Tokens
 from teabot.builtin.admin import Admin
+from teabot.builtin.events_feed import EventsFeed
 from teabot.builtin.lookups import Lookups
 from teabot.builtin.members import Members
 from teabot.builtin.permissions import Permissions
@@ -25,6 +26,7 @@ from teabot.core.grants import Grants
 from teabot.core.loader import LoadReport
 from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Plans
+from teabot.core.plugin_events import DELIVER_HANDLER, Deliver
 from teabot.core.plugin_jobs import JobServices, register_plugin_jobs
 from teabot.core.queue import APPLY_HANDLER, JobContext, Queue
 from teabot.core.recurring import Recurring
@@ -78,7 +80,7 @@ def assemble(
     }
     labels = LabelService(pools.core_db(), fresh_for)
     members.labels = labels
-    admin_tools = lookups.sources(members.specs(), Permissions().specs())
+    admin_tools = lookups.sources(members.specs(), Permissions().specs(), EventsFeed(pools.core_db()).specs())
     sources = sources_from(report.loaded) | admin.sources() | token_commands.sources() | admin_tools
     sync = CommandSync(pools.core_db(), queue, sources, client)
     admin.on_change = sync.request
@@ -107,6 +109,8 @@ def assemble(
     queue.register("core", APPLY_HANDLER, apply, APPLY_TIMEOUT)
     outbox = Outbox(pools.core_db(), client)
     queue.register("core", POST_MESSAGE, outbox)
+    subscribers = {p: loaded.subscriptions for p, loaded in report.loaded.items() if loaded.subscriptions}
+    queue.register("core", DELIVER_HANDLER, Deliver(pools.core_db(), queue, subscribers))
     recurring = Recurring(pools.core_db(), {p: loaded.recurring for p, loaded in report.loaded.items()})
     grants = Grants(registry, tokens, audit)
     register_plugin_jobs(queue, report.loaded, pools, client, JobServices(recurring, voice, grants, labels))

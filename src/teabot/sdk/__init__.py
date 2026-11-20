@@ -78,6 +78,11 @@ The database (D9, D30):
   receives, and `JobHandler` runs it.
 - `Outbox`: a transaction's posts, `tx.send`, `tx.edit` and `tx.delete`, which commit with its writes. `tx.send`
   returns a `Post`.
+
+Plugin events (events-and-tickets.md):
+- `Event`: one event a plugin declares in `Plugin(..., emits=[...])`, with its payload model. `tx.emit(payload)`
+  emits it with the transaction's writes, through `Emitter`, part of `Tx`.
+- `Received`: what `@plugin.on_event("<plugin>.<event>", Model)` hands its handler, at least once.
 """
 
 from teabot.sdk._roles import MemberGone
@@ -95,7 +100,8 @@ from teabot.sdk.actions import (
 )
 from teabot.sdk.authoring import DESTRUCTIVE, READ, WRITE, Action, Context, Job, Plugin
 from teabot.sdk.components import BoundAction, Button, ButtonStyle, Option, Select, SelectKind
-from teabot.sdk.db import Bound, Db, Outbox, Post, Queries, Row, Scheduler, Tx
+from teabot.sdk.db import Bound, Db, Emitter, Outbox, Post, Queries, Row, Scheduler, Tx
+from teabot.sdk.events import Event, Received
 from teabot.sdk.fields import ChannelRef, LongText, MemberRef, RoleRef, UntrustedText, VoiceChannelRef
 from teabot.sdk.guild import (
     Attachment,
@@ -163,7 +169,9 @@ __all__ = [
     "DiffEntry",
     "DirectoryMember",
     "DirectoryUnavailable",
+    "Emitter",
     "EmptyConfig",
+    "Event",
     "File",
     "Guild",
     "HandedOff",
@@ -199,6 +207,7 @@ __all__ = [
     "Post",
     "Queries",
     "Reaction",
+    "Received",
     "ReceivedMessage",
     "Registrar",
     "Response",

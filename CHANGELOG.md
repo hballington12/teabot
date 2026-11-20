@@ -6,6 +6,15 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ## Unreleased
 
+### Using teabot
+
+- `admin_events` pages a server's plugin events by cursor, so a program on the service API, or an assistant, follows what happens there. See [Follow a server's events](https://teabot-dev.github.io/teabot/use/ai/#follow-a-servers-events).
+
+### Writing plugins
+
+- Plugin events: a plugin declares what it emits with `Plugin(emits=[Event(...)])` and emits inside its transaction with `tx.emit`, and other plugins subscribe with `@plugin.on_event("<plugin>.<event>", Model)`, delivered at least once as jobs. See [Plugin events](https://teabot-dev.github.io/teabot/plugins/reference/#plugin-events).
+- `teabot.member_actor`, a column type for a member who only took part in a row: deleting their data empties it and keeps the row.
+
 ## 1.13.0 - 2026-11-20
 
 ### Using teabot

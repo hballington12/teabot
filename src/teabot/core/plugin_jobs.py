@@ -12,6 +12,7 @@ from teabot.core.directory.labels import GuildLabels, LabelService
 from teabot.core.directory.plugin_api import GuildMembers
 from teabot.core.grants import Grants
 from teabot.core.loader import Loaded
+from teabot.core.plugin_events import is_subscriber_job, receiving
 from teabot.core.queue import JobContext as CoreJobContext
 from teabot.core.queue import Queue
 from teabot.core.recurring import Recurring
@@ -101,14 +102,23 @@ class JobServices:
     labels: LabelService | None = None
 
 
-def _adapt(
-    plugin_id: str, handler: JobHandler, runtime: _Runtime, config: type[BaseModel], recurs: bool
-) -> Any:
+@dataclass(frozen=True)
+class _JobOf:
+    """One of a plugin's jobs: its plugin, name and config model, and whether it recurs."""
+
+    plugin_id: str
+    name: str
+    config: type[BaseModel]
+    recurs: bool
+
+
+def _adapt(job: _JobOf, handler: JobHandler, runtime: _Runtime) -> Any:
+    plugin_id, name, config, recurs = job.plugin_id, job.name, job.config, job.recurs
     pools, client, recurring = runtime.pools, runtime.client, runtime.recurring if recurs else None
     voice, grants, labels = runtime.voice, runtime.grants, runtime.labels
     store = ConfigStore(pools.core_db())
 
-    async def run(core: CoreJobContext) -> None:
+    async def run(core: CoreJobContext, payload: Mapping[str, Any]) -> None:
         guild_id = core.job.guild_id
         if guild_id is None:
             raise ValueError(f"{plugin_id}.{core.job.handler}: a plugin's job belongs to a server")
@@ -128,7 +138,7 @@ def _adapt(
         await handler(
             PluginJobContext(
                 guild_id,
-                core.job.payload,
+                payload,
                 db,
                 client,
                 core,
@@ -141,7 +151,14 @@ def _adapt(
             )
         )
 
-    return run
+    if is_subscriber_job(name):
+        # A subscriber's job carries the event's ID; the core loads the event and hands it over as the payload.
+        return receiving(pools.core_db(), grants.audit if grants is not None else None, run)
+
+    async def plain(core: CoreJobContext) -> None:
+        await run(core, core.job.payload)
+
+    return plain
 
 
 def register_plugin_jobs(
@@ -155,5 +172,5 @@ def register_plugin_jobs(
             pools, client, services.recurring, services.voice, services.grants, services.labels
         )
         for name, handler in plugin.jobs.items():
-            adapted = _adapt(plugin_id, handler, runtime, config, name in plugin.recurring)
+            adapted = _adapt(_JobOf(plugin_id, name, config, name in plugin.recurring), handler, runtime)
             queue.register(plugin_id, name, adapted, plugin.timeouts.get(name, JOB_TIMEOUT))

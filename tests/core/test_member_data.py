@@ -71,6 +71,32 @@ async def test_a_bigint_member_column_is_a_problem_naming_the_type_to_use(harnes
     assert any("notes.winner_ids" in p and "teabot.member_id[]" in p for p in problems)
 
 
+async def test_a_member_actor_column_is_emptied_and_its_row_kept(harness: PluginHarness) -> None:
+    gone, stays = await entered(harness, 2)
+    await harness.admin.execute(
+        "CREATE TABLE plugin_raffle.draws "
+        "(guild_id bigint NOT NULL, winner teabot.member_id, drawn_by teabot.member_actor)"
+    )
+    owner = harness.pools.naming.plugin_role("raffle")
+    await harness.admin.execute(f'GRANT ALL ON plugin_raffle.draws TO "{owner}"')
+    await harness.admin.execute(
+        "INSERT INTO plugin_raffle.draws VALUES ($1, $2, $3)", harness.guild.id, stays.id, gone.id
+    )
+    deleted = await delete_member_data(harness.admin, harness.pools.naming, gone.id)
+    assert deleted.plugins == {"raffle.entries": 1, "raffle.draws": 1}
+    row = await harness.admin.fetchrow("SELECT winner, drawn_by FROM plugin_raffle.draws")
+    assert row is not None
+    assert (row["winner"], row["drawn_by"]) == (stays.id, None)
+
+
+async def test_a_member_actor_column_may_not_be_required(harness: PluginHarness) -> None:
+    await harness.admin.execute(
+        "CREATE TABLE plugin_raffle.draws (guild_id bigint NOT NULL, drawn_by teabot.member_actor NOT NULL)"
+    )
+    problems = await schema_problems(harness.admin, "plugin_raffle")
+    assert any("draws.drawn_by" in p and "let it be null" in p for p in problems)
+
+
 async def test_the_member_directory_forgets_the_member_and_whom_they_invited_or_removed(
     admin: Conn, naming: Naming, pools: Pools
 ) -> None:

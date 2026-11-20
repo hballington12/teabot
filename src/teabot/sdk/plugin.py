@@ -5,7 +5,7 @@ plugins keep working.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from teabot.sdk.actions import ActionSpec
 from teabot.sdk.db import Db
+from teabot.sdk.events import Event
 from teabot.sdk.ids import check_plugin_id_free
 from teabot.sdk.labels import DEFAULT_FRESH
 from teabot.sdk.voice import Voice
@@ -36,6 +37,8 @@ class Manifest:
     - `reads` names what else of the server it reads, such as `members`, the member directory (D55), and `writes`
       what it writes there, such as `labels`; the plugin browser shows both.
     - `labels_fresh_for` is how long its labels count after the data they came from.
+    - `emits` are the events it declares, and `subscribes` the events it subscribes to, each with its own copy
+      of the payload model.
     """
 
     id: str
@@ -46,6 +49,8 @@ class Manifest:
     reads: frozenset[str] = frozenset()
     writes: frozenset[str] = frozenset()
     labels_fresh_for: timedelta = DEFAULT_FRESH
+    emits: tuple[Event, ...] = ()
+    subscribes: Mapping[str, type[BaseModel]] = field(default_factory=dict[str, type[BaseModel]])
 
     def __post_init__(self) -> None:
         check_plugin_id_free(self.id)
@@ -134,6 +139,11 @@ class Registrar(Protocol):
     def recurring(self, name: str, every: timedelta) -> None:
         """Run the plugin's job `name`, which takes no payload, every `every` in each server where the plugin is
         enabled, the first time one `every` after it is turned on or teabot starts."""
+        ...
+
+    def subscribe(self, name: str, handler: JobHandler) -> None:
+        """Handle a plugin event, `<plugin>.<event>`, in the servers where the plugin is enabled. It runs as a job,
+        `on_event:<name>`, with the event in its payload as `event`."""
         ...
 
     def event(self, name: "EventName", handler: JobHandler, *, late: bool = False) -> None:

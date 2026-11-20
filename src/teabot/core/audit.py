@@ -99,6 +99,26 @@ class AuditLog:
             await self._queue_post(tx, guild_id, audit_id)
         return audit_id
 
+    async def system_change(
+        self, tx: Any, guild_id: int, action: str, details: dict[str, Any], *, failed: bool = False
+    ) -> int:
+        """Record something the core did on its own in one server, inside `tx`, and tell its log channel: such as
+        a plugin event a subscriber never managed to handle."""
+        audit_id: int = await tx.fetchval(
+            INSERT_CHANGE,
+            guild_id,
+            OPERATOR,
+            None,
+            "system",
+            action,
+            json.dumps(details),
+            int(Risk.WRITE),
+            "error" if failed else "ok",
+            details.get("error") if failed else None,
+        )
+        await self._queue_post(tx, guild_id, audit_id)
+        return audit_id
+
     async def post(self, tx: Any, guild_id: int, audit_id: int) -> None:
         """Queue a row's post to the server's log channel, inside `tx`."""
         await self._queue_post(tx, guild_id, audit_id)

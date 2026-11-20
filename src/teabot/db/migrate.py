@@ -43,6 +43,11 @@ DO $$ BEGIN
     IF to_regtype('teabot.member_id') IS NULL THEN
         CREATE DOMAIN teabot.member_id AS bigint;
     END IF;
+    -- A member who only took part in a row, such as who settled a claim: deleting their data empties the column
+    -- and keeps the row.
+    IF to_regtype('teabot.member_actor') IS NULL THEN
+        CREATE DOMAIN teabot.member_actor AS bigint;
+    END IF;
 END $$;
 """
 
@@ -109,6 +114,16 @@ ORDER BY 1, 2
 """
 
 
+# A teabot.member_actor column is emptied when its member's data is deleted, so it must allow null.
+REQUIRED_ACTORS = """
+SELECT c.relname, a.attname FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = $1 AND c.relkind IN ('r', 'p') AND a.attnum > 0 AND NOT a.attisdropped AND a.attnotnull
+AND a.atttypid = 'teabot.member_actor'::regtype
+ORDER BY 1, 2
+"""
+
+
 async def schema_problems(conn: Conn, schema: str, *, members: bool = True) -> list[str]:
     """What in a plugin's schema could mix servers' data, each with what to write instead."""
     found = [
@@ -122,6 +137,11 @@ async def schema_problems(conn: Conn, schema: str, *, members: bool = True) -> l
         for r in await conn.fetch(LOOSE_UNIQUE, schema)
     ]
     found += [BYPASS_FIX[r["kind"]].format(name=r["name"]) for r in await conn.fetch(BYPASSES, schema)]
+    found += [
+        f"column {r['relname']}.{r['attname']} is a teabot.member_actor declared NOT NULL; deleting its member's "
+        f"data sets it to null, so let it be null"
+        for r in await conn.fetch(REQUIRED_ACTORS, schema)
+    ]
     found += [
         f"column {r['relname']}.{r['attname']} holds members' IDs as bigint{'[]' if r['is_array'] else ''}, "
         f"which deleting a member's data would miss; give it the type "
@@ -241,6 +261,7 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
         (SCHEDULE_JOB, SCHEDULE_SIGNATURE),
         (UNSCHEDULE_JOB, UNSCHEDULE_SIGNATURE),
         (QUEUE_POST, QUEUE_POST_SIGNATURE),
+        (EMIT_EVENT, EMIT_SIGNATURE),
     )
     for definition, signature in functions:
         await conn.execute(definition.format(schema=schema, plugin_id=plugin_id))
@@ -251,6 +272,7 @@ async def _setup_plugin(conn: Conn, naming: Naming, plugin_id: str) -> None:
 QUEUE_POST_SIGNATURE = "queue_post(bigint, bigint, bigint, jsonb, boolean, bigint)"
 SCHEDULE_SIGNATURE = "schedule_job(bigint, text, timestamptz, jsonb, text, bigint)"
 UNSCHEDULE_SIGNATURE = "unschedule_job(bigint, text)"
+EMIT_SIGNATURE = "emit_event(text, jsonb, bigint[], text[], bigint)"
 
 # A key makes scheduling idempotent: the same key moves the pending job, and the partial unique index of
 # core.jobs makes a running job with that key no obstacle to a new pending one.
@@ -313,6 +335,35 @@ BEGIN
     RETURNING id INTO job_id;
     PERFORM pg_notify('teabot_jobs', job_id::text);
     RETURN post_id;
+END $$
+"""
+
+
+# A plugin event (tx.emit): the row, with this plugin as its source and the connection's server, and one core
+# job per transaction that delivers its events to their subscribers. The server comes from teabot.guild_id, which
+# a plugin connection sets and plugin code cannot change, unlike schedule_job's argument.
+EMIT_EVENT = """
+CREATE OR REPLACE FUNCTION "{schema}".emit_event(
+    p_name text, p_payload jsonb, p_member_ids bigint[], p_untrusted text[], p_by bigint DEFAULT NULL
+) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = core, pg_temp AS $$
+DECLARE scope text := current_setting('teabot.guild_id', true); new_id bigint; job_id bigint;
+BEGIN
+    IF scope IS NULL OR scope = '' THEN
+        RAISE EXCEPTION 'an event is emitted in one server, and this connection has none'
+            USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    INSERT INTO core.events (guild_id, source, name, payload, by, member_ids, untrusted)
+    VALUES (scope::bigint, '{plugin_id}', p_name, p_payload, p_by, p_member_ids, p_untrusted)
+    RETURNING id INTO new_id;
+    INSERT INTO core.jobs (guild_id, plugin_id, handler, payload, key)
+    VALUES (scope::bigint, 'core', 'deliver_events',
+            jsonb_build_object('tx_id', pg_current_xact_id()::text), 'events:' || pg_current_xact_id()::text)
+    ON CONFLICT (plugin_id, guild_id, key) WHERE state = 'pending' AND key IS NOT NULL DO NOTHING
+    RETURNING id INTO job_id;
+    IF job_id IS NOT NULL THEN
+        PERFORM pg_notify('teabot_jobs', job_id::text);
+    END IF;
+    RETURN new_id;
 END $$
 """
 

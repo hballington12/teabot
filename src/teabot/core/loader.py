@@ -10,7 +10,7 @@ import logging
 import pkgutil
 import sys
 from collections import defaultdict
-from collections.abc import Awaitable, Callable, Collection, Iterable, Sequence
+from collections.abc import Awaitable, Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timedelta
 from importlib.metadata import entry_points
@@ -61,6 +61,8 @@ class Loaded:
     timeouts: dict[str, timedelta] = field(default_factory=dict[str, timedelta])
     # The member events it also hears when the member directory found them late (D55).
     late: frozenset[EventName] = frozenset()
+    # The plugin events it subscribes to, by full name, each handled by its job `on_event:<name>`.
+    subscriptions: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -166,6 +168,14 @@ def from_plugins(plugins: Iterable[LoadablePlugin]) -> list[Candidate]:
     return [Candidate(p.manifest.id, f"{type(p).__module__}.{type(p).__qualname__}", p) for p in plugins]
 
 
+def event_job_name(event: str) -> str:
+    """The job a plugin's handler for the plugin event `event` runs as."""
+    return f"{SUBSCRIBER_PREFIX}{event}"
+
+
+SUBSCRIBER_PREFIX = "on_event:"
+
+
 class _Registrar:
     """Collects one plugin's registrations, so a failed setup leaves nothing behind."""
 
@@ -177,6 +187,7 @@ class _Registrar:
         self.late: set[EventName] = set()
         self.every: dict[str, timedelta] = {}
         self.timeouts: dict[str, timedelta] = {}
+        self.subscriptions: set[str] = set()
 
     def recurring(self, name: str, every: timedelta) -> None:
         if name not in self.jobs:
@@ -196,6 +207,12 @@ class _Registrar:
         self.jobs[name] = handler
         if timeout is not None:
             self.timeouts[name] = timeout
+
+    def subscribe(self, name: str, handler: JobHandler) -> None:
+        if name in self.subscriptions:
+            raise ValueError(f"event {name} subscribed twice")
+        self.subscriptions.add(name)
+        self.job(event_job_name(name), handler)
 
     def event(self, name: EventName, handler: JobHandler, *, late: bool = False) -> None:
         if name in self.events:
@@ -256,6 +273,7 @@ def _setup(plugin_id: str, plugin: LoadablePlugin, report: LoadReport) -> bool:
         registrar.every,
         registrar.timeouts,
         frozenset(registrar.late),
+        frozenset(registrar.subscriptions),
     )
     report.statuses[plugin_id] = LOADED
     return True
@@ -279,4 +297,34 @@ async def load(
     if lock is not None:
         for plugin_id in unlock:
             await lock.release_plugin(plugin_id)
+    for problem in event_problems(report.loaded):
+        log.warning("plugin event subscription: %s", problem)
     return report
+
+
+def event_problems(loaded: Mapping[str, Loaded]) -> list[str]:
+    """What is off between the loaded plugins' subscriptions and the events they declare: a subscription to an
+    event no loaded plugin declares, which does nothing, and a field the subscriber's model needs that the
+    emitter's payload doesn't have, which would fail every delivery."""
+    declared = {
+        f"{p}.{event.name}": event.model
+        for p, found in loaded.items()
+        for event in found.plugin.manifest.emits
+    }
+    problems: list[str] = []
+    for plugin_id, found in loaded.items():
+        for name, model in found.plugin.manifest.subscribes.items():
+            emitter = declared.get(name)
+            if emitter is None:
+                problems.append(f"{plugin_id} subscribes to {name}, which no loaded plugin declares")
+                continue
+            missing = [
+                field_name
+                for field_name, info in model.model_fields.items()
+                if info.is_required() and field_name not in emitter.model_fields
+            ]
+            if missing:
+                problems.append(
+                    f"{plugin_id} needs {', '.join(missing)} in {name}, which its payload doesn't have"
+                )
+    return problems

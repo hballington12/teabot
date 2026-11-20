@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Protocol, overload
 
 import discord
+from pydantic import BaseModel
 
 from teabot.sdk.components import Button, Select
 from teabot.sdk.guild import TextChannel
@@ -144,8 +145,21 @@ class Outbox(Protocol):
         ...
 
 
-class Tx(Queries, Scheduler, Outbox, Protocol):
-    """Inside `async with db.transaction() as tx:`. A job queued or a post sent here commits with the writes."""
+class Emitter(Protocol):
+    """Plugin events that commit with the transaction's writes (events-and-tickets.md)."""
+
+    async def emit(self, payload: BaseModel, /) -> int:
+        """Emit the event the payload's model is declared for in `Plugin(emits=[...])`, and return its ID. It
+        exists once the transaction commits, and is delivered to subscribers then. Lock the row of the thing the
+        event is about first, so for one thing a later event always has a higher ID. Raises `SignatureError` for
+        a model the plugin doesn't declare, and `ValueError` past 100 events in one transaction or a payload over
+        8 KB of JSON."""
+        ...
+
+
+class Tx(Queries, Scheduler, Outbox, Emitter, Protocol):
+    """Inside `async with db.transaction() as tx:`. A job queued, a post sent or an event emitted here commits
+    with the writes."""
 
 
 class Db(Queries, Protocol):

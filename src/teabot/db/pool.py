@@ -27,6 +27,7 @@ from teabot.db.types import AnyConn, Conn, Pool, Record
 from teabot.sdk._outbox import encode
 from teabot.sdk.components import Button, Select
 from teabot.sdk.db import Bound, Post
+from teabot.sdk.events import EVENTS_PER_TRANSACTION, PAYLOAD_MAX, declared, paths, values_at
 
 log = logging.getLogger(__name__)
 
@@ -229,6 +230,7 @@ class ServerScheduling(Queries):
 
 
 QUEUE_POST = "SELECT queue_post($1, $2, $3, $4::jsonb, $5, $6)"
+EMIT_EVENT = "SELECT emit_event($1, $2::jsonb, $3::bigint[], $4::text[], $5)"
 
 
 def _post_id(post: Post | int) -> int:
@@ -271,10 +273,32 @@ class GuildTransaction(ServerScheduling, Transaction):
     async def delete(self, post: Post | int) -> None:
         await self.fetchval(QUEUE_POST, self.guild_id, _post_id(post), 0, None, True, self.started_by)
 
-    def __init__(self, conn: AnyConn, guild_id: int, started_by: int | None = None) -> None:
+    async def emit(self, payload: BaseModel, /) -> int:
+        event = declared(self.plugin_id, type(payload))
+        if self.emitted >= EVENTS_PER_TRANSACTION:
+            raise ValueError(
+                f"one transaction emits at most {EVENTS_PER_TRANSACTION} events; emit in batches"
+            )
+        data = payload.model_dump(mode="json")
+        body = json.dumps(data)
+        if len(body.encode()) > PAYLOAD_MAX:
+            raise ValueError(f"{event.name}: a payload is at most {PAYLOAD_MAX} bytes of JSON")
+        where = paths(event.model)
+        members = sorted({int(v) for p in where.members for v in values_at(data, p)})
+        event_id: int = await self.fetchval(
+            EMIT_EVENT, event.name, body, members, list(where.untrusted), self.started_by
+        )
+        self.emitted += 1
+        return event_id
+
+    def __init__(
+        self, conn: AnyConn, guild_id: int, started_by: int | None = None, plugin_id: str = ""
+    ) -> None:
         super().__init__(conn)
         self.guild_id = guild_id
         self.started_by = started_by
+        self.plugin_id = plugin_id
+        self.emitted = 0
 
 
 class GuildPluginDatabase(ServerScheduling, PluginDatabase):
@@ -289,7 +313,7 @@ class GuildPluginDatabase(ServerScheduling, PluginDatabase):
         return str(int(self.guild_id))
 
     def _transaction_for(self, conn: AnyConn) -> Transaction:
-        return GuildTransaction(conn, self.guild_id, self.started_by)
+        return GuildTransaction(conn, self.guild_id, self.started_by, self.name)
 
     @asynccontextmanager
     async def transaction(self) -> AsyncGenerator[GuildTransaction]:  # pyright: ignore[reportIncompatibleMethodOverride]

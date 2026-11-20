@@ -46,6 +46,6 @@ These help AI assistants and programs find their way around a server. They work 
 
 Options that name a plugin, a setting, a token or a job suggest them as you type, so you rarely need an id.
 
-AI assistants see these three as the tools `admin_describe_guild`, `admin_find_members` and `admin_job_status`. They also have four tools with no command, since they take more options than a command holds: `admin_members` and `admin_member_history`, which read the [member directory](members.md), and `admin_channels` and `admin_view_as`, which show [channel permissions](members.md#channel-permissions). The other built-in commands work only in Discord.
+AI assistants see these three as the tools `admin_describe_guild`, `admin_find_members` and `admin_job_status`. They also have five tools with no command, since they take more options than a command holds: `admin_members` and `admin_member_history`, which read the [member directory](members.md), `admin_channels` and `admin_view_as`, which show [channel permissions](members.md#channel-permissions), and `admin_events`, which follows the server's [plugin events](ai.md#follow-a-servers-events). The other built-in commands work only in Discord.
 
 **Next:** [Announcements](plugins/announcements.md).

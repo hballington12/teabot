@@ -2,8 +2,10 @@
 
 Plugin columns of the type `teabot.member_id` hold members' IDs, so deletion finds them through the catalog, in
 every plugin, with no plugin code: a row with the member in such a column is deleted, and the member is taken out
-of a `teabot.member_id[]` column. In the core, their tokens, site sign-ins, unsent drafts, member directory rows
-and history (D55) and member labels are deleted, and their ID is taken out of the audit log, the job and settings
+of a `teabot.member_id[]` column. A `teabot.member_actor` column, a member who only took part in a row, is emptied
+and the row kept. Plugin events naming the member are deleted, and those they caused no longer name them. In the
+core, their tokens, site sign-ins, unsent drafts, member directory rows and history (D55) and member labels are
+deleted, and their ID is taken out of the audit log, the job and settings
 records, and the directory's record of who invited, kicked or banned whom, which keep what was done but no longer
 by whom.
 """
@@ -15,10 +17,11 @@ from teabot.db.types import AnyConn
 
 PLUGIN_SCHEMAS = "SELECT nspname FROM pg_namespace WHERE nspname LIKE 'plugin\\_%' ORDER BY nspname"
 MEMBER_COLUMNS = """
-SELECT c.relname, a.attname, a.atttypid = 'teabot.member_id[]'::regtype AS is_array FROM pg_attribute a
+SELECT c.relname, a.attname, a.atttypid = 'teabot.member_id[]'::regtype AS is_array,
+       a.atttypid = 'teabot.member_actor'::regtype AS is_actor FROM pg_attribute a
 JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = $1 AND c.relkind IN ('r', 'p') AND NOT c.relispartition AND a.attnum > 0 AND NOT a.attisdropped
-AND a.atttypid IN ('teabot.member_id'::regtype, 'teabot.member_id[]'::regtype)
+AND a.atttypid IN ('teabot.member_id'::regtype, 'teabot.member_id[]'::regtype, 'teabot.member_actor'::regtype)
 ORDER BY 1, 2
 """
 ANONYMOUS = 0
@@ -47,6 +50,14 @@ CORE_STEPS = (
         "settings",
         "UPDATE core.guild_plugins SET updated_by = NULL "
         "WHERE updated_by = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "events",
+        "DELETE FROM core.events WHERE $1 = ANY(member_ids) AND ($2::bigint IS NULL OR guild_id = $2)",
+    ),
+    (
+        "event actors",
+        f"UPDATE core.events SET by = {ANONYMOUS} WHERE by = $1 AND ($2::bigint IS NULL OR guild_id = $2)",
     ),
     (
         "member directory",
@@ -118,6 +129,8 @@ async def _plugin(
             scope = "AND ($2::bigint IS NULL OR guild_id = $2)"
             if col["is_array"]:
                 sql = f"UPDATE {table} SET {column} = array_remove({column}, $1) WHERE $1 = ANY({column}) {scope}"
+            elif col["is_actor"]:
+                sql = f"UPDATE {table} SET {column} = NULL WHERE {column} = $1 {scope}"
             else:
                 sql = f"DELETE FROM {table} WHERE {column} = $1 {scope}"
             changed = _rows(await conn.execute(sql, user_id, guild_id))
