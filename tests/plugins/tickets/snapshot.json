@@ -112,6 +112,140 @@
         "type": 1
       },
       {
+        "description": "Give tickets to members who didn't claim them, such as links made before the queue, up to ten, each ",
+        "name": "grant",
+        "options": [
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_1",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_1",
+            "required": true,
+            "type": 6
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_2",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_3",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_4",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_5",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_6",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_7",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_8",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_9",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The tickets' numbers",
+            "name": "tickets_10",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_2",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_3",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_4",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_5",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_6",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_7",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_8",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_9",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+            "name": "members_10",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Why, for the record",
+            "max_length": 200,
+            "name": "reason",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
         "description": "A queue's tickets, with their claims, for its handlers. Programs reconcile against it.",
         "name": "list",
         "options": [
@@ -1033,6 +1167,50 @@
         "titles"
       ],
       "title": "TicketsCreateInput",
+      "type": "object"
+    },
+    "tickets_grant": {
+      "$defs": {
+        "ClaimIds": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        },
+        "Reason": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "members": {
+          "description": "Who gets each ticket, in the same order; a member who has left the server may be given one",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Members",
+          "type": "array"
+        },
+        "reason": {
+          "$ref": "#/$defs/Reason",
+          "default": "",
+          "description": "Why, for the record"
+        },
+        "tickets": {
+          "$ref": "#/$defs/ClaimIds",
+          "description": "The tickets' numbers"
+        }
+      },
+      "required": [
+        "tickets",
+        "members"
+      ],
+      "title": "TicketsGrantInput",
       "type": "object"
     },
     "tickets_list": {

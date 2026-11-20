@@ -4,7 +4,7 @@ Imports only `teabot.sdk`.
 - Queues, in this module: `tickets.queue_add`, `tickets.queue_edit`, `tickets.queue_remove` and `tickets.queues`.
 - Tickets, in `items`: `tickets.create`, `tickets.cancel`, `tickets.reopen` and `tickets.list`.
 - Claims, in `claims`: `tickets.claim`, `tickets.withdraw`, `tickets.mine`, `tickets.waiting`, `tickets.accept`,
-  `tickets.reject` and `tickets.revoke`.
+  `tickets.reject`, `tickets.revoke`, and `tickets.grant`, for a ticket given to a member who didn't claim it.
 - The board, in `board`: `tickets.post`, and the form its Claim button opens.
 
 It stops at ticketing: it changes no roles and links nothing. What follows an accept belongs to whoever subscribes to

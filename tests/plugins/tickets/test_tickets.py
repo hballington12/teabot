@@ -8,7 +8,7 @@ import pytest
 
 from teabot.plugins.tickets import plugin, queue_add
 from teabot.plugins.tickets.board import claim_from_board, post
-from teabot.plugins.tickets.claims import accept, claim, mine, reject, revoke, waiting, withdraw
+from teabot.plugins.tickets.claims import accept, claim, grant, mine, reject, revoke, waiting, withdraw
 from teabot.plugins.tickets.items import cancel, create, list_, reopen
 from teabot.testing import FakeChannel, FakeMember, FakeRole, HarnessFactory, PluginHarness
 
@@ -170,3 +170,46 @@ async def test_a_reject_leaves_the_ticket_open(teabot_harness: HarnessFactory) -
     page = await d.harness.as_member(d.handler).call(list_, queue=d.queue)
     assert page.tickets[0].state == "open"
     assert page.tickets[0].claims[0].reason == "not yours"
+
+
+async def test_grant_links_a_ticket_nobody_claimed_even_for_a_member_who_left(
+    teabot_harness: HarnessFactory,
+) -> None:
+    d = await desk(teabot_harness)
+    made = await d.harness.as_member(d.handler).call(
+        create, queue=d.queue, titles=["Green Clog", "Old Alt"], keys=["11", "12"]
+    )
+    green, old = made.tickets[0].id, made.tickets[1].id
+    await d.harness.as_member(d.handler).call(cancel, ticket=old)
+    departed = 900_000_000_000_999_999
+    sam = d.member("sam")
+    await d.harness.as_member(d.handler).call(grant, tickets=[green, old], members=[sam.id, departed])
+    assert [(n, p["claimant"]) for n, p in await d.events()] == [
+        ("accepted", str(sam.id)),
+        ("accepted", str(departed)),
+    ]
+    page = await d.harness.as_member(d.handler).call(list_, queue=d.queue)
+    assert [(t.resolution, t.claims[0].member) for t in page.tickets] == [
+        ("accepted", sam.id),
+        ("accepted", departed),
+    ]
+    with pytest.raises(Exception, match="Revoke it first"):
+        await d.harness.as_member(d.handler).call(grant, tickets=[green], members=[sam.id])
+
+
+async def test_grant_accepts_the_members_own_waiting_claim_and_rejects_the_rest(
+    teabot_harness: HarnessFactory,
+) -> None:
+    d = await desk(teabot_harness)
+    made = await d.harness.as_member(d.handler).call(create, queue=d.queue, titles=["Green Clog"])
+    ticket = made.tickets[0].id
+    sam, ann = d.member("sam"), d.member("ann")
+    await d.harness.as_member(sam).call(claim, ticket=ticket, note="mine")
+    await d.harness.as_member(ann).call(claim, ticket=ticket)
+    await d.harness.as_member(d.handler).call(grant, tickets=[ticket], members=[sam.id])
+    page = await d.harness.as_member(d.handler).call(list_, queue=d.queue)
+    assert sorted((c.member, c.state) for c in page.tickets[0].claims) == sorted(
+        [(sam.id, "accepted"), (ann.id, "rejected")]
+    )
+    with pytest.raises(Exception, match="handlers may grant"):
+        await d.harness.as_member(ann).call(grant, tickets=[ticket], members=[ann.id])

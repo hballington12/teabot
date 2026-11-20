@@ -8,7 +8,7 @@ Every release of `teabot` and the instance template, newest first. Up to 1.0.2, 
 
 ### Using teabot
 
-- The tickets plugin: queues of items members claim, such as game accounts, with a board to claim from, and handlers who accept, reject or revoke claims. What follows an accept belongs to whoever subscribes to its events. See [Tickets](https://teabot-dev.github.io/teabot/use/plugins/tickets/).
+- The tickets plugin: queues of items members claim, such as game accounts, with a board to claim from, and handlers who accept, reject or revoke claims, and grant tickets to members who didn't claim them. What follows an accept belongs to whoever subscribes to its events. See [Tickets](https://teabot-dev.github.io/teabot/use/plugins/tickets/).
 - `admin_events` pages a server's plugin events by cursor, so a program on the service API, or an assistant, follows what happens there. See [Follow a server's events](https://teabot-dev.github.io/teabot/use/ai/#follow-a-servers-events).
 
 ### Writing plugins

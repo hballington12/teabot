@@ -66,12 +66,14 @@ The `ticket` option searches the open tickets of every queue you may claim in as
 /tickets accept claims_1:7
 /tickets reject claims_1:8 reason:not your account
 /tickets revoke ticket:12 reason:accepted the wrong member
+/tickets grant tickets_1:12 members_1:@sam
 ```
 
 - `/tickets waiting` lists a queue's waiting claims, oldest first, with competing claims side by side and each ticket's details as evidence. The handlers' channel shows the same, with buttons.
 - **Accepting** a claim closes its ticket, and rejects the ticket's other waiting claims, with the reason "another claim was accepted". Up to ten claims at once, one per ticket.
 - **Rejecting** a claim leaves its ticket open, for others or for the same member to claim again.
 - **Revoking** undoes a wrong accept: the claim is marked revoked and the ticket reopens. It also works on an accepted ticket whose claimant's data was deleted.
+- **Granting** gives a ticket to a member who didn't claim it, such as an account linked before the queue existed, or a member who typed an old name: `/tickets grant tickets_1:12 members_1:@sam`. Up to ten, each ticket paired with the member in the same place. It closes the ticket as accepted and tells subscribers, as an accept does, and accepts that member's own waiting claim if they have one. It takes an open or a cancelled ticket, and refuses an accepted one, which is revoked first. A member who has left the server can be given one.
 - Accepting has no plan. What an accept leads to belongs to whoever listens for it, and `/tickets revoke` undoes a mistake. A plugin that turns accepts into roles goes through role rules, which hold large changes for an admin.
 
 ## Read a queue
@@ -84,7 +86,7 @@ Each is about one ticket, so for one ticket a later event has a higher `id`. Plu
 
 | Event | When | Payload |
 |---|---|---|
-| `tickets.accepted` | A claim was accepted, closing its ticket. | `queue`, `queue_name`, `ticket`, `key`, `title`, `claim`, `note`, `claimant` |
+| `tickets.accepted` | A claim was accepted, or a ticket granted, closing its ticket. | `queue`, `queue_name`, `ticket`, `key`, `title`, `claim`, `note`, `claimant` |
 | `tickets.rejected` | A claim was rejected, by a handler, because another was accepted, or because its ticket was cancelled. | The same, and `reason` |
 | `tickets.revoked` | An accept was undone, reopening its ticket. | The same as rejected; `claim`, `note` and `claimant` are empty when the claim is gone |
 
@@ -95,7 +97,7 @@ Each is about one ticket, so for one ticket a later event has a higher `id`. Plu
 | `/tickets queue_add`, `/tickets queue_edit`, `/tickets queue_remove` | Manage Server |
 | `/tickets queues` | nothing |
 | `tickets_create`, `/tickets cancel`, `/tickets reopen`, `/tickets post` | a handler role of the queue, or Manage Server |
-| `/tickets waiting`, `tickets_list`, `/tickets accept`, `/tickets reject`, `/tickets revoke` | a handler role of the queue, or Manage Server |
+| `/tickets waiting`, `tickets_list`, `/tickets accept`, `/tickets reject`, `/tickets revoke`, `/tickets grant` | a handler role of the queue, or Manage Server |
 | `/tickets claim` | a claimer role of the queue, when it has any |
 | `/tickets mine`, `/tickets withdraw` | nothing |
 
@@ -113,6 +115,6 @@ None.
 
 ## For AI assistants
 
-The tools are `tickets_queue_add`, `tickets_queue_edit`, `tickets_queue_remove`, `tickets_queues`, `tickets_create`, `tickets_cancel`, `tickets_reopen`, `tickets_list`, `tickets_post`, `tickets_claim`, `tickets_withdraw`, `tickets_mine`, `tickets_waiting`, `tickets_accept`, `tickets_reject` and `tickets_revoke`.
+The tools are `tickets_queue_add`, `tickets_queue_edit`, `tickets_queue_remove`, `tickets_queues`, `tickets_create`, `tickets_cancel`, `tickets_reopen`, `tickets_list`, `tickets_post`, `tickets_claim`, `tickets_withdraw`, `tickets_mine`, `tickets_waiting`, `tickets_accept`, `tickets_reject`, `tickets_revoke` and `tickets_grant`.
 
 **Next:** [Troubleshooting](../troubleshooting.md).

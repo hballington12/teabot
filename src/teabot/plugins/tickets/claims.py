@@ -232,6 +232,88 @@ async def revoke(ctx: Ctx, ticket: int, reason: Reason = "") -> str:
     return f"Revoked the accept of ticket {ticket}, {row['title']}, and reopened it."
 
 
+TICKETS_LOCKED = """
+SELECT t.id, t.queue_id, t.title, t.body, t.key, t.state, t.resolution, q.name AS queue_name FROM tickets t
+JOIN queues q ON q.guild_id = t.guild_id AND q.id = t.queue_id
+WHERE t.guild_id = $1 AND t.id = ANY($2::bigint[]) ORDER BY t.id FOR UPDATE OF t
+"""
+
+
+@plugin.action()
+async def grant(
+    ctx: Ctx,
+    tickets: ClaimIds,
+    members: Annotated[list[MemberRef], Field(min_length=1, max_length=10)],
+    reason: Reason = "",
+) -> str:
+    """Give tickets to members who didn't claim them, such as links made before the queue, up to ten, each ticket
+    paired with the member in the same place. Each closes as accepted, as an accept does.
+
+    Args:
+        tickets: The tickets' numbers
+        members: Who gets each ticket, in the same order; a member who has left the server may be given one
+        reason: Why, for the record
+    """
+    if len(tickets) != len(members):
+        raise ActionError("Give one member for each ticket.")
+    if len(set(tickets)) != len(tickets):
+        raise ActionError("Each ticket appears once in a call.")
+    given = dict(zip(tickets, members, strict=True))
+    async with ctx.db.transaction() as tx:
+        rows = await tx.fetch(TICKETS_LOCKED, ctx.guild.id, sorted(given))
+        missing = sorted(set(given) - {int(r["id"]) for r in rows})
+        if missing:
+            raise ActionError(f"There is no ticket {missing[0]} here.")
+        member = await member_of(ctx)
+        for queue_id in sorted({int(r["queue_id"]) for r in rows}):
+            queue = await queue_of(ctx, queue_id, within=tx)
+            if not handles(ctx, member, queue):
+                raise ActionError(f"Only {queue.name}'s handlers may grant its tickets.")
+        for r in rows:
+            if r["resolution"] == "accepted":
+                raise ActionError(f"Ticket {r['id']}, {r['title']}, is accepted already. Revoke it first.")
+        for r in rows:
+            await _grant_one(ctx, tx, r, given[int(r["id"])], reason)
+        for queue_id in sorted({int(r["queue_id"]) for r in rows}):
+            await refresh_board(ctx, tx, queue_id)
+    named = [f"{r['title']} to <@{given[int(r['id'])]}>" for r in rows]
+    return f"Granted {', '.join(named)}."
+
+
+async def _grant_one(ctx: Ctx, tx: Any, row: Any, to: int, reason: str) -> None:
+    """Accept the member's waiting claim on a locked ticket, or record one accepted for them, and close it."""
+    ticket = int(row["id"])
+    own = await tx.fetchval(
+        "SELECT id FROM claims WHERE guild_id = $1 AND ticket_id = $2 AND member = $3 AND state = 'waiting'",
+        ctx.guild.id,
+        ticket,
+        to,
+    )
+    if own is None:
+        own = await tx.fetchval(
+            int,
+            "INSERT INTO claims (guild_id, ticket_id, member, state, settled_by, settled_at, reason) "
+            "VALUES ($1, $2, $3, 'accepted', $4, now(), $5) RETURNING id",
+            ctx.guild.id,
+            ticket,
+            to,
+            ctx.actor.user_id,
+            reason or None,
+        )
+    else:
+        await tx.execute(SETTLE, ctx.guild.id, own, "accepted", ctx.actor.user_id, reason or None)
+    await tx.execute(
+        "UPDATE tickets SET state = 'closed', resolution = 'accepted', closed_at = now(), updated_at = now() "
+        "WHERE guild_id = $1 AND id = $2",
+        ctx.guild.id,
+        ticket,
+    )
+    [claimed] = await tx.fetch(Claim, CLAIM, ctx.guild.id, [own])
+    await tx.emit(Accepted(**_base(claimed)))
+    await _settled_post(tx, claimed, f"Granted by <@{ctx.actor.user_id}>.")
+    await reject_waiting(ctx, tx, ticket, own, "another claim was accepted")
+
+
 async def make_claim(ctx: Ctx, ticket: int, note: str) -> str:
     """Claim an open ticket for the member asking, with the queue's limits, and post it for handlers."""
     queue_id = await ctx.db.fetchval(
