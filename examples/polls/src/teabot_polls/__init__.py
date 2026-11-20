@@ -46,11 +46,18 @@ START = """
 INSERT INTO polls (guild_id, channel_id, question, options, ends_at) VALUES ($1, $2, $3, $4, $5) RETURNING id
 """
 VOTE = """
-INSERT INTO votes (guild_id, poll_id, member_id, choice)
-SELECT guild_id, id, $3, $4 FROM polls
-WHERE guild_id = $1 AND id = $2 AND state = 'running' AND ends_at > now() AND $4 <= cardinality(options)
-ON CONFLICT (guild_id, poll_id, member_id) DO UPDATE SET choice = EXCLUDED.choice
-RETURNING (SELECT options[$4] FROM polls WHERE guild_id = $1 AND id = $2)
+WITH open AS (
+    SELECT guild_id, id, options FROM polls
+    WHERE guild_id = $1 AND id = $2 AND state = 'running' AND ends_at > now() AND $4 <= cardinality(options)
+), earlier AS (
+    SELECT choice FROM votes WHERE guild_id = $1 AND poll_id = $2 AND member_id = $3
+), cast_vote AS (
+    INSERT INTO votes (guild_id, poll_id, member_id, choice)
+    SELECT guild_id, id, $3, $4 FROM open
+    ON CONFLICT (guild_id, poll_id, member_id) DO UPDATE SET choice = EXCLUDED.choice
+    RETURNING choice
+)
+SELECT (SELECT choice FROM earlier) AS earlier, open.options FROM open, cast_vote
 """
 RUNNING = """
 SELECT p.id, p.question, p.ends_at, count(v.member_id) AS voters
@@ -110,6 +117,11 @@ async def start(
 
 
 # --8<-- [start:vote]
+class Voted(BaseModel):
+    earlier: int | None
+    options: list[str]
+
+
 @plugin.action()
 async def vote(ctx: Ctx, poll: int, option: Annotated[int, Field(ge=1, le=10)]) -> str:
     """Vote in a running poll, or change your vote.
@@ -123,10 +135,17 @@ async def vote(ctx: Ctx, poll: int, option: Annotated[int, Field(ge=1, le=10)]) 
         member = await ctx.guild.get_member(ctx.actor.user_id)
         if member is None or role not in member.role_ids:
             raise ActionError("You need the voter role to vote here.")
-    chosen = await ctx.db.fetchval(str | None, VOTE, ctx.guild.id, poll, ctx.actor.user_id, option)
-    if chosen is None:
+    voted = await ctx.db.fetchrow(Voted, VOTE, ctx.guild.id, poll, ctx.actor.user_id, option)
+    if voted is None:
         raise ActionError("That poll is not running, or has no option with that number.")
-    return f"Your vote is option {option}: {chosen}."
+    chosen = f"{option}: {voted.options[option - 1]}"
+    if voted.earlier is None:
+        return f"You voted for option {chosen}."
+    if voted.earlier == option:
+        return f"Your vote is still option {chosen}."
+    return (
+        f"You changed your vote from option {voted.earlier}: {voted.options[voted.earlier - 1]} to {chosen}."
+    )
 
 
 # --8<-- [end:vote]

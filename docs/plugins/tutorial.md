@@ -65,7 +65,7 @@ The queries this tutorial uses sit together near the top of the file:
 - A plain string is a reply.
 - `ActionError` tells the member what went wrong, in your words. teabot records it in the audit log.
 - `ctx.actor.user_id` is who asked. `ctx.guild.get_member(...)` finds them, with their roles.
-- The vote query does the checks in one statement: the poll is running, the option exists, and a second vote replaces the first. `RETURNING` gives back the chosen option's text for the reply; when nothing fits, no row comes back and `fetchval` returns `None`.
+- The vote query does the checks in one statement: the poll is running, the option exists, and a second vote replaces the first. It also reads the member's earlier vote, so the reply says whether this vote is new, a change or the same again. When nothing fits, no row comes back and `fetchrow` returns `None`.
 
 ## 5. Listing the polls
 

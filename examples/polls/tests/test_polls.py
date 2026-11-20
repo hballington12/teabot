@@ -47,8 +47,12 @@ async def test_starting_posts_the_numbered_options(teabot_harness: HarnessFactor
 async def test_voting_again_changes_the_vote(teabot_harness: HarnessFactory) -> None:
     harness = await teabot_harness(plugin)
     channel, poll = await started(harness)
-    await harness.call(vote, poll=poll, option=1)
-    assert await harness.call(vote, poll=poll, option=2) == "Your vote is option 2: Coffee."
+    assert await harness.call(vote, poll=poll, option=1) == "You voted for option 1: Tea."
+    assert (
+        await harness.call(vote, poll=poll, option=2)
+        == "You changed your vote from option 1: Tea to 2: Coffee."
+    )
+    assert await harness.call(vote, poll=poll, option=2) == "Your vote is still option 2: Coffee."
     (running,) = await harness.call(list_)
     assert running.voters == 1
     await harness.advance(minutes=61)
@@ -71,7 +75,7 @@ async def test_a_poll_takes_up_to_ten_options(teabot_harness: HarnessFactory) ->
     channel = harness.guild.add_channel(FakeChannel())
     ten = [f"Option {n}" for n in range(1, 11)]
     out = await harness.call(start, channel=channel, question="Which?", options=ten)
-    assert await harness.call(vote, poll=out.poll, option=10) == "Your vote is option 10: Option 10."
+    assert await harness.call(vote, poll=out.poll, option=10) == "You voted for option 10: Option 10."
     with pytest.raises(Refused):
         await harness.call(start, channel=channel, question="Which?", options=[*ten, "Option 11"])
 
