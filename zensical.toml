@@ -28,6 +28,7 @@ nav = [
     { "Plugins" = [
       { "Announcements" = "use/plugins/announcements.md" },
       { "Roles" = "use/plugins/roles.md" },
+      { "Tickets" = "use/plugins/tickets.md" },
     ] },
     { "Troubleshooting" = "use/troubleshooting.md" },
   ] },

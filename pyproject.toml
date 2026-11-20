@@ -62,6 +62,7 @@ teabot = "teabot.cli:app"
 [project.entry-points."teabot.plugins"]
 announcements = "teabot.plugins.announcements:plugin"
 roles = "teabot.plugins.roles:plugin"
+tickets = "teabot.plugins.tickets:plugin"
 
 [dependency-groups]
 dev = [

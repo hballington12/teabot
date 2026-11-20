@@ -55,7 +55,7 @@ Plugin transactions run as the plugin's own database role, which has no rights o
 
 - **The source is fixed** by the function's body, so a plugin can't emit under another's name.
 - **The server comes from the connection's `teabot.guild_id` setting,** which the plugin's connection already sets, so a plugin can't emit into another server. This differs on purpose from `schedule_job` and `queue_post`, which take the server as an argument. The function raises when the setting is empty, as on a connection with no server.
-- **The function inserts the event row.** The transaction's first emit also queues one core job, `deliver_event`, and later emits in the same transaction add their IDs to it. So an accept that rejects ninety claims queues one delivery, not a hundred.
+- **The function inserts the event row.** The transaction's first emit also queues one core job, `deliver_events`, keyed by the transaction's ID, and later emits in the same transaction find it queued already. The job delivers every event its transaction wrote. So an accept that rejects ninety claims queues one delivery, not a hundred.
 - **`deliver_event` fans out in Python,** as Discord events do today. For each of its events, it queues one job per plugin that subscribes and is enabled in that server, from the handlers of the plugins its process loaded. No table of subscriptions is kept. One edge case is accepted: if processes ever run with different plugins loaded, as rolling restarts (D15) would allow, a delivery run by a process without a subscriber skips it. Every process loads the same plugins today. If out-of-process plugins arrive, each process records its subscriptions on its `core.processes` row, and delivery fans out from their union.
 
 ### Subscribing
@@ -81,8 +81,8 @@ async def accepted(ctx: Ctx, event: Received[Accepted]) -> None:
 - **A plugin subscriber relies on the payload alone.** A plugin can't read another plugin's state, since plugins share no tables or calls (D9). So an emitter puts in its payload what a subscriber needs to act. Only an outside program, on the service API, also reconciles through read actions (Part 2).
 - **Notifications, not hooks.** A handler hears what has already happened. It can't veto or change it, and the emitting plugin never waits for it. A check that has to come before a change belongs to the plugin making the change.
 - **Handlers run as the system,** with no member's grant. They change what a plugin may change on its own: its tables, its labels and its posts. A plugin whose reaction should change roles writes labels, and role rules turn them into roles under their own grant and cap. `ctx.labels.replace_all` replaces a whole server's labels, and labels go stale after their freshness window. So such a plugin keeps its own table of who should hold what, writes it in full, and rewrites it on a recurring job.
-- **A subscription to an event no loaded plugin declares** is allowed and does nothing, so a plugin can subscribe to an optional one. `teabot check` warns about it, naming the event.
-- **When both plugins are loaded,** `teabot check` compares the subscriber's model with the emitter's declared schema, and fails on a field the subscriber needs that the emitter doesn't send. Drift then shows before it reaches a server.
+- **A subscription to an event no loaded plugin declares** is allowed and does nothing, so a plugin can subscribe to an optional one. teabot logs a warning when it loads its plugins, naming the event.
+- **When both plugins are loaded,** teabot compares the subscriber's model with the emitter's declared model as it loads them, and logs a warning naming a field the subscriber needs that the emitter doesn't send. `teabot check` reads one plugin's files without loading any, so the check happens at load.
 
 ### Contracts
 
@@ -179,7 +179,7 @@ A queue is one kind of ticket, set up by an admin with `tickets.queue_add`, and 
 Every action works on every door: slash command, MCP, the service API and the site, as any teabot action does.
 
 - **Creating:**
-  - `tickets.create(queue, tickets)` takes a list of 1 to 100 tickets, each with a title, an optional body and an optional key.
+  - `tickets.create(queue, titles, keys?, bodies?)` takes up to 25 tickets, as lists in the same order, since action inputs are flat and a list off slash commands holds 25. It is offered on MCP, the service API and the site.
   - A ticket whose key already exists in the queue, in any state, updates that ticket's title and body, and never reopens it. So a program keeps its tickets in step by key, and can repeat a call safely.
   - It returns each ticket's ID, state and outcome: `created`, `updated` or `unchanged`. A program sends only tickets that changed, so a sync stays small in the audit log.
   - A cancelled ticket's key is free again once the ticket is deleted, 90 days after closing.
@@ -195,7 +195,7 @@ Every action works on every door: slash command, MCP, the service API and the si
 - **Reading:** `tickets.list(queue, state?, key?, claimant?, changed_since?, page)` pages tickets with their claims, for handlers, since it shows other members' claims and the evidence in ticket bodies. `tickets.waiting` needs the same. It is the source of state that programs reconcile against, and `changed_since` keeps a daily reconcile, or one after a gap longer than the feed keeps, to the tickets that changed.
 - **The board:**
   - `tickets.post(queue)` posts the queue's board in its channel: its name, a line on how it works, the count of open tickets, and buttons. The count is refreshed by an edit at most once a minute.
-  - The **Claim** button opens a form with a text field for the item and an optional note. On submit, the plugin replies, privately, with up to five closest open tickets as buttons, and pressing one makes the claim. So the board never lists hundreds of tickets.
+  - The **Claim** button opens a form with one text field. A name that matches one open ticket, ignoring case and spaces, claims it. Otherwise the reply names up to five closest open tickets, and `/tickets claim` searches them all as the member types, since a reply can't carry buttons. So the board never lists hundreds of tickets.
   - The **My claims** button shows `tickets.mine`.
 - **Search** matches titles containing what was typed, ignoring case and spacing, in SQL. When nothing contains it, the plugin ranks the queue's titles by similarity in Python. 10,000 titles is a small list, so this needs no database extension.
 

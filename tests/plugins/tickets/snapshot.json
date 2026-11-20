@@ -1,0 +1,1455 @@
+{
+  "commands": {
+    "description": "tickets commands",
+    "name": "tickets",
+    "options": [
+      {
+        "description": "Accept claims, up to ten. Each closes its ticket, and rejects the ticket's other waiting claims.",
+        "name": "accept",
+        "options": [
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_1",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_2",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_3",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_4",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_5",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_6",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_7",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_8",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_9",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers, as /tickets waiting shows them",
+            "name": "claims_10",
+            "required": false,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Cancel an open ticket. Its waiting claims are rejected.",
+        "name": "cancel",
+        "options": [
+          {
+            "description": "The ticket's number",
+            "name": "ticket",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "Why, which claimants and subscribers see",
+            "max_length": 200,
+            "name": "reason",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Claim a ticket that is yours, such as your account. A handler accepts or rejects it.",
+        "name": "claim",
+        "options": [
+          {
+            "autocomplete": true,
+            "description": "The ticket: type to search the open ones",
+            "name": "ticket",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "Anything a handler should know",
+            "max_length": 200,
+            "name": "note",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "A queue's tickets, with their claims, for its handlers. Programs reconcile against it.",
+        "name": "list",
+        "options": [
+          {
+            "description": "The queue's number",
+            "name": "queue",
+            "required": true,
+            "type": 4
+          },
+          {
+            "choices": [
+              {
+                "name": "open",
+                "value": "open"
+              },
+              {
+                "name": "closed",
+                "value": "closed"
+              }
+            ],
+            "description": "Only open or only closed tickets",
+            "name": "state",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "Only the ticket with this key",
+            "max_length": 100,
+            "name": "key",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "Only tickets this member claimed",
+            "name": "claimant",
+            "required": false,
+            "type": 6
+          },
+          {
+            "description": "Only tickets changed after this time, such as 2026-11-20T09:00:00Z",
+            "max_length": 40,
+            "name": "changed_since",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "Which page of 50",
+            "min_value": 1,
+            "name": "page",
+            "required": false,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Your latest claims and how they stand.",
+        "name": "mine",
+        "options": [],
+        "type": 1
+      },
+      {
+        "description": "Post a queue's board in its channel, with a button members press to claim. Posting again replaces it",
+        "name": "post",
+        "options": [
+          {
+            "description": "The queue's number",
+            "name": "queue",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Make a ticket queue: one kind of item members claim, and the roles that settle the claims.",
+        "name": "queue_add",
+        "options": [
+          {
+            "description": "Such as \"Link your account\"",
+            "max_length": 100,
+            "name": "name",
+            "required": true,
+            "type": 3
+          },
+          {
+            "description": "Where its board is posted",
+            "name": "channel",
+            "required": true,
+            "type": 7
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_1",
+            "required": true,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_2",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_3",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_4",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_5",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_6",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_7",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_8",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_9",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and accept or reject claims",
+            "name": "handlers_10",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_1",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_2",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_3",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_4",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_5",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_6",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_7",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_8",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_9",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim; everyone when left out",
+            "name": "claimers_10",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "How many claims a member may make in it each day",
+            "max_value": 100,
+            "min_value": 1,
+            "name": "per_day",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "Where each new claim is posted for handlers, with Accept and Reject buttons",
+            "name": "handlers_channel",
+            "required": false,
+            "type": 7
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Change a ticket queue. What you leave out stays as it is.",
+        "name": "queue_edit",
+        "options": [
+          {
+            "autocomplete": true,
+            "description": "The queue's number",
+            "name": "queue",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "Its new name",
+            "max_length": 100,
+            "name": "name",
+            "required": false,
+            "type": 3
+          },
+          {
+            "description": "Where its board is posted",
+            "name": "channel",
+            "required": false,
+            "type": 7
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_1",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_2",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_3",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_4",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_5",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_6",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_7",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_8",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_9",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may create tickets and settle claims",
+            "name": "handlers_10",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_1",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_2",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_3",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_4",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_5",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_6",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_7",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_8",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_9",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "Roles that may claim",
+            "name": "claimers_10",
+            "required": false,
+            "type": 8
+          },
+          {
+            "description": "How many claims a member may make in it each day",
+            "max_value": 100,
+            "min_value": 1,
+            "name": "per_day",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "Where new claims are posted for handlers",
+            "name": "handlers_channel",
+            "required": false,
+            "type": 7
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Delete a ticket queue, with its tickets and claims. It emits no events, so what subscribers built fr",
+        "name": "queue_remove",
+        "options": [
+          {
+            "autocomplete": true,
+            "description": "The queue's number",
+            "name": "queue",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "The server's ticket queues.",
+        "name": "queues",
+        "options": [],
+        "type": 1
+      },
+      {
+        "description": "Reject claims, up to ten. Their tickets stay open for others.",
+        "name": "reject",
+        "options": [
+          {
+            "description": "The claims' numbers",
+            "name": "claims_1",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_2",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_3",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_4",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_5",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_6",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_7",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_8",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_9",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "The claims' numbers",
+            "name": "claims_10",
+            "required": false,
+            "type": 4
+          },
+          {
+            "description": "Why, which the claimant and subscribers see",
+            "max_length": 200,
+            "name": "reason",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Reopen a cancelled ticket. An accepted one is reopened only by /tickets revoke.",
+        "name": "reopen",
+        "options": [
+          {
+            "description": "The ticket's number",
+            "name": "ticket",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Undo an accept: the accepted claim is revoked and the ticket reopens, so subscribers undo what they ",
+        "name": "revoke",
+        "options": [
+          {
+            "description": "The ticket's number",
+            "name": "ticket",
+            "required": true,
+            "type": 4
+          },
+          {
+            "description": "Why, which subscribers see",
+            "max_length": 200,
+            "name": "reason",
+            "required": false,
+            "type": 3
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "A queue's waiting claims, oldest first, for its handlers, with competing claims side by side.",
+        "name": "waiting",
+        "options": [
+          {
+            "description": "The queue's number",
+            "name": "queue",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      },
+      {
+        "description": "Withdraw a claim of yours that is still waiting.",
+        "name": "withdraw",
+        "options": [
+          {
+            "description": "The claim's number, as /tickets mine shows it",
+            "name": "claim",
+            "required": true,
+            "type": 4
+          }
+        ],
+        "type": 1
+      }
+    ],
+    "type": 1
+  },
+  "emits": {
+    "accepted": {
+      "description": "A claim on a ticket was accepted, which closed the ticket",
+      "payload": {
+        "properties": {
+          "claim": {
+            "title": "Claim",
+            "type": "integer"
+          },
+          "claimant": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "title": "Claimant",
+            "type": "string"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "integer"
+          },
+          "queue_name": {
+            "title": "Queue Name",
+            "type": "string"
+          },
+          "ticket": {
+            "title": "Ticket",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "queue_name",
+          "ticket",
+          "key",
+          "title",
+          "claim",
+          "note",
+          "claimant"
+        ],
+        "title": "Accepted",
+        "type": "object"
+      }
+    },
+    "rejected": {
+      "description": "A claim on a ticket was rejected, by a handler or because another was accepted",
+      "payload": {
+        "properties": {
+          "claim": {
+            "title": "Claim",
+            "type": "integer"
+          },
+          "claimant": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "title": "Claimant",
+            "type": "string"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "integer"
+          },
+          "queue_name": {
+            "title": "Queue Name",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "ticket": {
+            "title": "Ticket",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "queue_name",
+          "ticket",
+          "key",
+          "title",
+          "claim",
+          "note",
+          "claimant",
+          "reason"
+        ],
+        "title": "Rejected",
+        "type": "object"
+      }
+    },
+    "revoked": {
+      "description": "An accepted claim was undone, which reopened its ticket",
+      "payload": {
+        "properties": {
+          "claim": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claim"
+          },
+          "claimant": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,19}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claimant"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "queue": {
+            "title": "Queue",
+            "type": "integer"
+          },
+          "queue_name": {
+            "title": "Queue Name",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "ticket": {
+            "title": "Ticket",
+            "type": "integer"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue",
+          "queue_name",
+          "ticket",
+          "key",
+          "title",
+          "claim",
+          "note",
+          "claimant",
+          "reason"
+        ],
+        "title": "Revoked",
+        "type": "object"
+      }
+    }
+  },
+  "jobs": {
+    "clean_up": {
+      "properties": {},
+      "title": "TicketsCleanUpInput",
+      "type": "object"
+    },
+    "refresh": {
+      "properties": {
+        "queue": {
+          "title": "Queue",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queue"
+      ],
+      "title": "TicketsRefreshInput",
+      "type": "object"
+    }
+  },
+  "recurring": {
+    "clean_up": 86400.0
+  },
+  "tools": {
+    "tickets_accept": {
+      "$defs": {
+        "ClaimIds": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "properties": {
+        "claims": {
+          "$ref": "#/$defs/ClaimIds",
+          "description": "The claims' numbers, as /tickets waiting shows them"
+        }
+      },
+      "required": [
+        "claims"
+      ],
+      "title": "TicketsAcceptInput",
+      "type": "object"
+    },
+    "tickets_cancel": {
+      "properties": {
+        "reason": {
+          "default": "",
+          "description": "Why, which claimants and subscribers see",
+          "maxLength": 200,
+          "title": "Reason",
+          "type": "string"
+        },
+        "ticket": {
+          "description": "The ticket's number",
+          "title": "Ticket",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ticket"
+      ],
+      "title": "TicketsCancelInput",
+      "type": "object"
+    },
+    "tickets_claim": {
+      "$defs": {
+        "Note": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/Note",
+          "default": "",
+          "description": "Anything a handler should know"
+        },
+        "ticket": {
+          "description": "The ticket: type to search the open ones",
+          "title": "Ticket",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ticket"
+      ],
+      "title": "TicketsClaimInput",
+      "type": "object"
+    },
+    "tickets_create": {
+      "$defs": {
+        "Body": {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        "Key": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "Title": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "bodies": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Body"
+              },
+              "maxItems": 25,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Each ticket's details, in the same order, such as evidence handlers see",
+          "title": "Bodies"
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Key"
+              },
+              "maxItems": 25,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Your own reference for each ticket, in the same order, such as an account's ID",
+          "title": "Keys"
+        },
+        "queue": {
+          "description": "The queue's number",
+          "title": "Queue",
+          "type": "integer"
+        },
+        "titles": {
+          "description": "Each ticket's title, such as an account's name",
+          "items": {
+            "$ref": "#/$defs/Title"
+          },
+          "maxItems": 25,
+          "minItems": 1,
+          "title": "Titles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "queue",
+        "titles"
+      ],
+      "title": "TicketsCreateInput",
+      "type": "object"
+    },
+    "tickets_list": {
+      "$defs": {
+        "Key": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "changed_since": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only tickets changed after this time, such as 2026-11-20T09:00:00Z",
+          "title": "Changed Since"
+        },
+        "claimant": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only tickets this member claimed",
+          "title": "Claimant"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Key"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only the ticket with this key"
+        },
+        "page": {
+          "default": 1,
+          "description": "Which page of 50",
+          "minimum": 1,
+          "title": "Page",
+          "type": "integer"
+        },
+        "queue": {
+          "description": "The queue's number",
+          "title": "Queue",
+          "type": "integer"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "enum": [
+                "open",
+                "closed"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only open or only closed tickets",
+          "title": "State"
+        }
+      },
+      "required": [
+        "queue"
+      ],
+      "title": "TicketsListInput",
+      "type": "object"
+    },
+    "tickets_mine": {
+      "properties": {},
+      "title": "TicketsMineInput",
+      "type": "object"
+    },
+    "tickets_post": {
+      "properties": {
+        "queue": {
+          "description": "The queue's number",
+          "title": "Queue",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queue"
+      ],
+      "title": "TicketsPostInput",
+      "type": "object"
+    },
+    "tickets_queue_add": {
+      "$defs": {
+        "Name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "channel": {
+          "description": "Where its board is posted",
+          "pattern": "^[1-9][0-9]{0,19}$",
+          "title": "Channel",
+          "type": "string"
+        },
+        "claimers": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[1-9][0-9]{0,19}$",
+                "type": "string"
+              },
+              "maxItems": 10,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Roles that may claim; everyone when left out",
+          "title": "Claimers"
+        },
+        "handlers": {
+          "description": "Roles that may create tickets and accept or reject claims",
+          "items": {
+            "pattern": "^[1-9][0-9]{0,19}$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Handlers",
+          "type": "array"
+        },
+        "handlers_channel": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where each new claim is posted for handlers, with Accept and Reject buttons",
+          "title": "Handlers Channel"
+        },
+        "name": {
+          "$ref": "#/$defs/Name",
+          "description": "Such as \"Link your account\""
+        },
+        "per_day": {
+          "default": 10,
+          "description": "How many claims a member may make in it each day",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Per Day",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "channel",
+        "handlers"
+      ],
+      "title": "TicketsQueueAddInput",
+      "type": "object"
+    },
+    "tickets_queue_edit": {
+      "$defs": {
+        "Name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "channel": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where its board is posted",
+          "title": "Channel"
+        },
+        "claimers": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[1-9][0-9]{0,19}$",
+                "type": "string"
+              },
+              "maxItems": 10,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Roles that may claim",
+          "title": "Claimers"
+        },
+        "handlers": {
+          "anyOf": [
+            {
+              "items": {
+                "pattern": "^[1-9][0-9]{0,19}$",
+                "type": "string"
+              },
+              "maxItems": 10,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Roles that may create tickets and settle claims",
+          "title": "Handlers"
+        },
+        "handlers_channel": {
+          "anyOf": [
+            {
+              "pattern": "^[1-9][0-9]{0,19}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where new claims are posted for handlers",
+          "title": "Handlers Channel"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Name"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Its new name"
+        },
+        "per_day": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How many claims a member may make in it each day",
+          "title": "Per Day"
+        },
+        "queue": {
+          "description": "The queue's number",
+          "title": "Queue",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queue"
+      ],
+      "title": "TicketsQueueEditInput",
+      "type": "object"
+    },
+    "tickets_queue_remove": {
+      "properties": {
+        "confirm": {
+          "description": "The confirm value of a plan this tool returned. Leave it out to get a plan.",
+          "type": "string"
+        },
+        "queue": {
+          "description": "The queue's number",
+          "title": "Queue",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queue"
+      ],
+      "title": "TicketsQueueRemoveInput",
+      "type": "object"
+    },
+    "tickets_queues": {
+      "properties": {},
+      "title": "TicketsQueuesInput",
+      "type": "object"
+    },
+    "tickets_reject": {
+      "$defs": {
+        "ClaimIds": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        },
+        "Reason": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "claims": {
+          "$ref": "#/$defs/ClaimIds",
+          "description": "The claims' numbers"
+        },
+        "reason": {
+          "$ref": "#/$defs/Reason",
+          "default": "",
+          "description": "Why, which the claimant and subscribers see"
+        }
+      },
+      "required": [
+        "claims"
+      ],
+      "title": "TicketsRejectInput",
+      "type": "object"
+    },
+    "tickets_reopen": {
+      "properties": {
+        "ticket": {
+          "description": "The ticket's number",
+          "title": "Ticket",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ticket"
+      ],
+      "title": "TicketsReopenInput",
+      "type": "object"
+    },
+    "tickets_revoke": {
+      "$defs": {
+        "Reason": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "properties": {
+        "reason": {
+          "$ref": "#/$defs/Reason",
+          "default": "",
+          "description": "Why, which subscribers see"
+        },
+        "ticket": {
+          "description": "The ticket's number",
+          "title": "Ticket",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ticket"
+      ],
+      "title": "TicketsRevokeInput",
+      "type": "object"
+    },
+    "tickets_waiting": {
+      "properties": {
+        "queue": {
+          "description": "The queue's number",
+          "title": "Queue",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queue"
+      ],
+      "title": "TicketsWaitingInput",
+      "type": "object"
+    },
+    "tickets_withdraw": {
+      "properties": {
+        "claim": {
+          "description": "The claim's number, as /tickets mine shows it",
+          "title": "Claim",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "claim"
+      ],
+      "title": "TicketsWithdrawInput",
+      "type": "object"
+    }
+  }
+}

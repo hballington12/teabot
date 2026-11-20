@@ -18,7 +18,7 @@ from teabot.core.loader import from_plugins, load
 from teabot.core.outbox import POST_MESSAGE, Outbox
 from teabot.core.plans import Planned
 from teabot.core.queue import Queue
-from teabot.core.registry import Call, Registry
+from teabot.core.registry import SURFACE_OF, Call, Registry
 from teabot.core.voice import VoiceService
 from teabot.core.worker import Workers
 from teabot.db.migrate import MigrationReport, PluginMigrations, migrate
@@ -157,9 +157,9 @@ class PluginHarness:
 
     async def call[**P, R](self, action: Action[Any, P, R], /, *args: P.args, **kwargs: P.kwargs) -> R:
         """Run a decorated action as the server's owner, its first member, who has Administrator, through the
-        real call path. Returns what the action's function returned, once the posts it queued are sent. A
-        refusal raises `Refused`, and an `ActionError` raises `ActionFailed`. A destructive action goes through
-        `plan` and `confirm` instead."""
+        real call path: its slash command, else the first door it is offered on. Returns what the action's function
+        returned, once the posts it queued are sent. A refusal raises `Refused`, and an `ActionError` raises
+        `ActionFailed`. A destructive action goes through `plan` and `confirm` instead."""
         return await self.as_member(self.member).call(action, *args, **kwargs)
 
     async def menu[R](self, action: Action[Any, ..., R], target: Any, /) -> R:
@@ -478,8 +478,19 @@ class MemberCalls:
         return shown if isinstance(shown, str) else str(shown.description or shown.title or "")
 
     async def _invoke(self, action: Action[Any, ..., Any], kwargs: Mapping[str, Any]) -> BaseModel:
-        call = Call(action.name, self.harness.guild.id, Actor(self.user, "slash"), _raw(action, kwargs))
+        call = Call(action.name, self.harness.guild.id, Actor(self.user, _door(action)), _raw(action, kwargs))
         return await self.harness.registry.invoke(call)
+
+
+def _door(action: Action[Any, ..., Any]) -> Via:
+    """The front door a test calls an action through: its slash command, else the first door it is offered on, such
+    as MCP for an action no command offers, or a button press for one only its buttons reach."""
+    surfaces = action.spec().surfaces
+    doors: tuple[Via, ...] = ("slash", "mcp", "service", "web", "component")
+    for door in doors:
+        if SURFACE_OF[door] in surfaces:
+            return door
+    return "slash"
 
 
 def _id_or_none(channel: Any) -> int | None:
